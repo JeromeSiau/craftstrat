@@ -2,6 +2,7 @@ mod config;
 mod fetcher;
 mod kafka;
 mod storage;
+mod strategy;
 
 use std::collections::HashMap;
 use std::sync::Arc;

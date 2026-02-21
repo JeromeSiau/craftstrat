@@ -68,7 +68,7 @@ pub struct ActiveMarket {
     pub ref_price_start: Option<f32>,
 }
 
-#[derive(Debug, Clone, Row, Serialize)]
+#[derive(Debug, Clone, Row, Serialize, Deserialize)]
 pub struct Tick {
     #[serde(with = "clickhouse::serde::time::datetime64::millis")]
     pub captured_at: time::OffsetDateTime,
