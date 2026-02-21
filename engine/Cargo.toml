@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = ">=1, <1.0.220", features = ["derive"] }
 serde_json = "1"
 rdkafka = { version = "0.37", features = ["cmake-build"] }
 clickhouse = { version = "0.13", features = ["time", "inserter"] }
@@ -21,3 +21,13 @@ futures-util = "0.3"
 dotenvy = "0.15"
 anyhow = "1"
 time = "0.3"
+alloy = { version = "0.14", features = ["signers", "signer-local", "sol-types"] }
+aes-gcm = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "time", "uuid"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+rand = "0.8"
