@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { BreadcrumbItem } from '@/types';
+import { index, create, store } from '@/actions/App/Http/Controllers/StrategyController';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Strategies', href: '/strategies' },
-    { title: 'Create', href: '/strategies/create' },
+    { title: 'Strategies', href: index.url() },
+    { title: 'Create', href: create.url() },
 ];
 
 export default function StrategiesCreate() {
@@ -36,7 +37,7 @@ export default function StrategiesCreate() {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        post('/strategies');
+        post(store.url());
     }
 
     return (

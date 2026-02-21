@@ -1,21 +1,14 @@
 import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { BacktestResult } from '@/types/models';
+import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Backtests', href: '/backtests' },
+    { title: 'Backtests', href: index.url() },
 ];
 
-interface Result {
-    id: number;
-    total_trades: number | null;
-    win_rate: string | null;
-    total_pnl_usdc: string | null;
-    created_at: string;
-    strategy: { id: number; name: string };
-}
-
-export default function BacktestsIndex({ results }: { results: Result[] }) {
+export default function BacktestsIndex({ results }: { results: BacktestResult[] }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Backtests" />
@@ -42,7 +35,7 @@ export default function BacktestsIndex({ results }: { results: Result[] }) {
                                     <tr key={r.id} className="border-b">
                                         <td className="py-2">
                                             <Link
-                                                href={`/backtests/${r.id}`}
+                                                href={show.url(r.id)}
                                                 className="text-blue-600 hover:underline"
                                             >
                                                 {r.strategy.name}

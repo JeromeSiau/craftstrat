@@ -4,24 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { BreadcrumbItem } from '@/types';
+import type { Wallet } from '@/types/models';
+import { index, store, destroy } from '@/actions/App/Http/Controllers/WalletController';
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Wallets', href: '/wallets' }];
-
-interface Wallet {
-    id: number;
-    label: string | null;
-    address: string;
-    balance_usdc: string;
-    is_active: boolean;
-    strategies_count: number;
-}
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Wallets', href: index.url() }];
 
 export default function WalletsIndex({ wallets }: { wallets: Wallet[] }) {
     const { data, setData, post, processing, reset } = useForm({ label: '' });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        post('/wallets', { onSuccess: () => reset() });
+        post(store.url(), { onSuccess: () => reset() });
     }
 
     return (
@@ -78,9 +71,11 @@ export default function WalletsIndex({ wallets }: { wallets: Wallet[] }) {
                             <Button
                                 variant="destructive"
                                 size="sm"
-                                onClick={() =>
-                                    router.delete(`/wallets/${wallet.id}`)
-                                }
+                                onClick={() => {
+                                    if (confirm('Are you sure you want to delete this wallet? This action cannot be undone.')) {
+                                        router.delete(destroy.url(wallet.id));
+                                    }
+                                }}
                             >
                                 Delete
                             </Button>

@@ -2,19 +2,12 @@ import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import type { BreadcrumbItem } from '@/types';
+import type { Strategy } from '@/types/models';
+import { index, show, create } from '@/actions/App/Http/Controllers/StrategyController';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Strategies', href: '/strategies' },
+    { title: 'Strategies', href: index.url() },
 ];
-
-interface Strategy {
-    id: number;
-    name: string;
-    mode: string;
-    is_active: boolean;
-    wallets_count: number;
-    created_at: string;
-}
 
 export default function StrategiesIndex({
     strategies,
@@ -27,7 +20,7 @@ export default function StrategiesIndex({
             <div className="p-6">
                 <div className="mb-6 flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Strategies</h1>
-                    <Link href="/strategies/create">
+                    <Link href={create.url()}>
                         <Button>New Strategy</Button>
                     </Link>
                 </div>
@@ -40,7 +33,7 @@ export default function StrategiesIndex({
                     {strategies.map((strategy) => (
                         <Link
                             key={strategy.id}
-                            href={`/strategies/${strategy.id}`}
+                            href={show.url(strategy.id)}
                             className="block rounded-lg border border-sidebar-border p-4 transition hover:bg-accent"
                         >
                             <div className="flex items-center justify-between">

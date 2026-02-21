@@ -1,24 +1,13 @@
 import { Head } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-
-interface BacktestResult {
-    id: number;
-    total_trades: number | null;
-    win_rate: string | null;
-    total_pnl_usdc: string | null;
-    max_drawdown: string | null;
-    sharpe_ratio: string | null;
-    date_from: string | null;
-    date_to: string | null;
-    created_at: string;
-    strategy: { id: number; name: string };
-}
+import type { BacktestResult } from '@/types/models';
+import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
 
 export default function BacktestsShow({ result }: { result: BacktestResult }) {
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Backtests', href: '/backtests' },
-        { title: `#${result.id}`, href: `/backtests/${result.id}` },
+        { title: 'Backtests', href: index.url() },
+        { title: `#${result.id}`, href: show.url(result.id) },
     ];
 
     const metrics = [

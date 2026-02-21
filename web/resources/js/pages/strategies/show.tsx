@@ -2,23 +2,10 @@ import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import type { BreadcrumbItem } from '@/types';
+import type { Strategy, WalletStrategy, BacktestResult } from '@/types/models';
+import { index, show, activate, deactivate, destroy } from '@/actions/App/Http/Controllers/StrategyController';
 
-interface WalletStrategy {
-    id: number;
-    is_running: boolean;
-    max_position_usdc: string;
-    wallet: { id: number; label: string | null; address: string };
-}
-
-interface BacktestResult {
-    id: number;
-    total_trades: number;
-    win_rate: string;
-    total_pnl_usdc: string;
-    created_at: string;
-}
-
-interface Strategy {
+interface StrategyShowProps {
     id: number;
     name: string;
     description: string | null;
@@ -29,10 +16,10 @@ interface Strategy {
     backtest_results: BacktestResult[];
 }
 
-export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
+export default function StrategiesShow({ strategy }: { strategy: StrategyShowProps }) {
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Strategies', href: '/strategies' },
-        { title: strategy.name, href: `/strategies/${strategy.id}` },
+        { title: 'Strategies', href: index.url() },
+        { title: strategy.name, href: show.url(strategy.id) },
     ];
 
     return (
@@ -54,7 +41,7 @@ export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
                                 variant="outline"
                                 onClick={() =>
                                     router.post(
-                                        `/strategies/${strategy.id}/deactivate`,
+                                        deactivate.url(strategy.id),
                                     )
                                 }
                             >
@@ -64,7 +51,7 @@ export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
                             <Button
                                 onClick={() =>
                                     router.post(
-                                        `/strategies/${strategy.id}/activate`,
+                                        activate.url(strategy.id),
                                     )
                                 }
                             >
@@ -73,9 +60,11 @@ export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
                         )}
                         <Button
                             variant="destructive"
-                            onClick={() =>
-                                router.delete(`/strategies/${strategy.id}`)
-                            }
+                            onClick={() => {
+                                if (confirm('Are you sure you want to delete this strategy? This action cannot be undone.')) {
+                                    router.delete(destroy.url(strategy.id));
+                                }
+                            }}
                         >
                             Delete
                         </Button>
@@ -166,19 +155,16 @@ export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
                                                 {bt.total_trades}
                                             </td>
                                             <td className="py-2">
-                                                {(
-                                                    parseFloat(bt.win_rate) *
-                                                    100
-                                                ).toFixed(1)}
-                                                %
+                                                {bt.win_rate
+                                                    ? `${(parseFloat(bt.win_rate) * 100).toFixed(1)}%`
+                                                    : '-'}
                                             </td>
                                             <td
-                                                className={`py-2 ${parseFloat(bt.total_pnl_usdc) >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                                                className={`py-2 ${bt.total_pnl_usdc && parseFloat(bt.total_pnl_usdc) >= 0 ? 'text-green-600' : 'text-red-600'}`}
                                             >
-                                                $
-                                                {parseFloat(
-                                                    bt.total_pnl_usdc,
-                                                ).toFixed(2)}
+                                                {bt.total_pnl_usdc
+                                                    ? `$${parseFloat(bt.total_pnl_usdc).toFixed(2)}`
+                                                    : '-'}
                                             </td>
                                         </tr>
                                     ))}

@@ -2,8 +2,9 @@ import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import type { BreadcrumbItem } from '@/types';
+import { index, portal } from '@/actions/App/Http/Controllers/BillingController';
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Billing', href: '/billing' }];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Billing', href: index.url() }];
 
 const plans = [
     {
@@ -72,7 +73,7 @@ export default function BillingIndex({ plan, subscribed }: Props) {
                 {subscribed && (
                     <Button
                         variant="outline"
-                        onClick={() => router.post('/billing/portal')}
+                        onClick={() => router.post(portal.url())}
                     >
                         Manage Subscription
                     </Button>
