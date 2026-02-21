@@ -30,6 +30,7 @@ pub struct Config {
     pub gamma_api_url: String,
     pub clob_ws_url: String,
     pub binance_api_url: String,
+    pub redis_url: String,
     pub sources: Vec<MarketSource>,
     pub tick_interval_ms: u64,
     pub discovery_interval_secs: u64,
@@ -94,6 +95,8 @@ impl Config {
                 .unwrap_or_else(|_| "wss://ws-subscriptions-clob.polymarket.com/ws/market".into()),
             binance_api_url: std::env::var("BINANCE_API_URL")
                 .unwrap_or_else(|_| "https://api.binance.com/api/v3/ticker/price".into()),
+            redis_url: std::env::var("REDIS_URL")
+                .unwrap_or_else(|_| "redis://localhost:6379".into()),
             sources,
             tick_interval_ms: 1000,
             discovery_interval_secs: 60,

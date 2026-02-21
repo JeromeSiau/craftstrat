@@ -1,6 +1,8 @@
+pub mod engine;
 pub mod eval;
 pub mod indicators;
 pub mod interpreter;
+pub mod registry;
 pub mod state;
 
 use serde::{Deserialize, Serialize};
