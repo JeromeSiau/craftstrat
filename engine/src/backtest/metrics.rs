@@ -41,11 +41,9 @@ fn compute_max_drawdown(trades: &[&BacktestTrade]) -> f64 {
         if equity > peak {
             peak = equity;
         }
-        if peak > 0.0 {
-            let dd = (peak - equity) / peak;
-            if dd > max_dd {
-                max_dd = dd;
-            }
+        let dd = peak - equity;
+        if dd > max_dd {
+            max_dd = dd;
         }
     }
     max_dd
@@ -116,8 +114,8 @@ mod tests {
         assert_eq!(result.total_trades, 3);
         assert!((result.win_rate - 2.0 / 3.0).abs() < 0.001);
         assert!((result.total_pnl_usdc - 13.0).abs() < f64::EPSILON);
-        // Equity curve: [0, 10, 5, 13] -> peak 10, trough 5, drawdown = 5/10 = 0.5
-        assert!((result.max_drawdown - 0.5).abs() < 0.001);
+        // Equity curve: [0, 10, 5, 13] -> peak 10, trough 5, drawdown = 10 - 5 = 5.0
+        assert!((result.max_drawdown - 5.0).abs() < 0.001);
         assert!(result.sharpe_ratio > 0.0); // positive overall
     }
 

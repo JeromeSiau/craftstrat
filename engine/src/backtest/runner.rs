@@ -313,4 +313,57 @@ mod tests {
         let result = engine.finish();
         assert_eq!(result.total_trades, 2);
     }
+
+    #[test]
+    fn test_full_backtest_lifecycle() {
+        let graph = simple_buy_up_strategy(); // stoploss=10, take_profit=15, max_trades=2
+        let mut engine = BacktestEngine::new(graph);
+
+        // --- Trade 1: Buy → Stoploss ---
+
+        // Tick 1: triggers buy at ask_up = 0.62
+        let mut t1 = test_tick();
+        t1.abs_move_pct = 4.0;
+        engine.process_tick(&t1);
+
+        // Tick 2: stoploss triggers (mid_up=0.54 → PnL=-12.9%)
+        let mut t2 = test_tick();
+        t2.abs_move_pct = 1.0;
+        t2.mid_up = 0.54;
+        t2.bid_up = 0.53;
+        t2.captured_at = OffsetDateTime::from_unix_timestamp(1700000451).unwrap();
+        engine.process_tick(&t2);
+
+        // --- Trade 2: Buy → Take Profit ---
+
+        // Tick 3: triggers buy at ask_up = 0.50
+        let mut t3 = test_tick();
+        t3.abs_move_pct = 4.0;
+        t3.ask_up = 0.50;
+        t3.mid_up = 0.49;
+        t3.captured_at = OffsetDateTime::from_unix_timestamp(1700000452).unwrap();
+        engine.process_tick(&t3);
+
+        // Tick 4: take profit triggers (mid_up=0.58 → PnL=+16%)
+        let mut t4 = test_tick();
+        t4.abs_move_pct = 1.0;
+        t4.mid_up = 0.58;
+        t4.bid_up = 0.57;
+        t4.captured_at = OffsetDateTime::from_unix_timestamp(1700000453).unwrap();
+        engine.process_tick(&t4);
+
+        // --- Verify results ---
+        let result = engine.finish();
+
+        assert_eq!(result.total_trades, 2);
+        // Trade 1: loss, Trade 2: win → win_rate = 0.5
+        assert!((result.win_rate - 0.5).abs() < 0.001);
+        // Trade 1 PnL: (0.53 - 0.62) / 0.62 * 50 = -7.26
+        // Trade 2 PnL: (0.57 - 0.50) / 0.50 * 50 = 7.0
+        // Total: ~ -0.26
+        assert!(result.total_pnl_usdc < 0.0); // slight net loss
+        assert!(result.max_drawdown > 0.0);    // had a drawdown after trade 1
+        assert_eq!(result.trades[0].exit_reason.as_deref(), Some("stoploss"));
+        assert_eq!(result.trades[1].exit_reason.as_deref(), Some("take_profit"));
+    }
 }
