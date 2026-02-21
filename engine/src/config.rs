@@ -34,6 +34,15 @@ pub struct Config {
     pub sources: Vec<MarketSource>,
     pub tick_interval_ms: u64,
     pub discovery_interval_secs: u64,
+    // Execution config
+    pub database_url: String,
+    pub clob_api_url: String,
+    pub data_api_url: String,
+    pub builder_api_key: String,
+    pub builder_secret: String,
+    pub builder_passphrase: String,
+    pub encryption_key: String,
+    pub max_orders_per_day: u32,
 }
 
 fn default_sources() -> Vec<MarketSource> {
@@ -100,6 +109,24 @@ impl Config {
             sources,
             tick_interval_ms: 1000,
             discovery_interval_secs: 60,
+            database_url: std::env::var("DATABASE_URL")
+                .unwrap_or_else(|_| "postgres://oddex:oddex_secret@localhost:5432/oddex".into()),
+            clob_api_url: std::env::var("POLYMARKET_CLOB_URL")
+                .unwrap_or_else(|_| "https://clob.polymarket.com".into()),
+            data_api_url: std::env::var("POLYMARKET_DATA_API_URL")
+                .unwrap_or_else(|_| "https://data-api.polymarket.com".into()),
+            builder_api_key: std::env::var("POLYMARKET_BUILDER_API_KEY")
+                .unwrap_or_default(),
+            builder_secret: std::env::var("POLYMARKET_BUILDER_SECRET")
+                .unwrap_or_default(),
+            builder_passphrase: std::env::var("POLYMARKET_BUILDER_PASSPHRASE")
+                .unwrap_or_default(),
+            encryption_key: std::env::var("ENCRYPTION_KEY")
+                .unwrap_or_default(),
+            max_orders_per_day: std::env::var("ENGINE_MAX_ORDERS_PER_DAY")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3000),
         })
     }
 
