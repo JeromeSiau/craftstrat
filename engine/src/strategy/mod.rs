@@ -5,6 +5,9 @@ pub mod interpreter;
 pub mod registry;
 pub mod state;
 
+#[cfg(test)]
+pub mod test_utils;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
