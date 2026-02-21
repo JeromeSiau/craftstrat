@@ -15,6 +15,12 @@ use crate::fetcher::models::{ActiveMarket, Tick};
 use crate::fetcher::tick_builder::PriceCache;
 use crate::fetcher::websocket::{OrderBookCache, WsCommand};
 
+pub struct SpawnedHandles {
+    pub registry: crate::strategy::registry::AssignmentRegistry,
+    pub exec_queue: Arc<Mutex<crate::execution::queue::ExecutionQueue>>,
+    pub db: sqlx::PgPool,
+}
+
 pub struct SharedState {
     pub config: Config,
     pub books: OrderBookCache,
@@ -29,7 +35,7 @@ pub async fn spawn_all(
     state: &SharedState,
     ws_cmd_rx: mpsc::Receiver<WsCommand>,
     tasks: &mut JoinSet<anyhow::Result<()>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<SpawnedHandles> {
     // Data feed tasks
     data_feed::spawn_ws_feed(state, ws_cmd_rx, tasks);
     data_feed::spawn_price_poller(state, tasks);
@@ -65,10 +71,14 @@ pub async fn spawn_all(
     );
 
     // Copy trading watcher
-    execution_tasks::spawn_watcher(state, exec_queue, db, tasks);
+    execution_tasks::spawn_watcher(state, exec_queue.clone(), db.clone(), tasks);
 
     // Redis state persistence
-    persistence::spawn_redis_state_persister(state, engine_registry, tasks);
+    persistence::spawn_redis_state_persister(state, engine_registry.clone(), tasks);
 
-    Ok(())
+    Ok(SpawnedHandles {
+        registry: engine_registry,
+        exec_queue,
+        db,
+    })
 }

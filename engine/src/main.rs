@@ -43,7 +43,22 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let mut tasks = JoinSet::new();
-    tasks::spawn_all(&state, ws_cmd_rx, &mut tasks).await?;
+    let handles = tasks::spawn_all(&state, ws_cmd_rx, &mut tasks).await?;
+
+    // Internal API server
+    let ch_client = clickhouse::Client::default().with_url(&state.config.clickhouse_url);
+    let api_state = std::sync::Arc::new(api::state::ApiState {
+        registry: handles.registry,
+        exec_queue: handles.exec_queue,
+        db: handles.db,
+        ch: ch_client,
+        start_time: std::time::Instant::now(),
+        tick_count: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+    });
+    let api_port = state.config.api_port;
+    tasks.spawn(async move {
+        api::serve(api_state, api_port).await
+    });
 
     tracing::info!("oddex_engine_running");
 
