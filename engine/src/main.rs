@@ -17,7 +17,7 @@ use fetcher::websocket::{OrderBookCache, WsCommand};
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let cfg = Config::from_env()?;
-    tracing::info!(symbols = cfg.symbols.len(), "oddex_engine_starting");
+    tracing::info!(sources = cfg.sources.len(), "oddex_engine_starting");
 
     let books: OrderBookCache = Arc::new(RwLock::new(HashMap::new()));
     let markets: Arc<RwLock<HashMap<String, ActiveMarket>>> = Arc::new(RwLock::new(HashMap::new()));
@@ -72,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
             match fetcher::gamma::discover_markets(
                 &disc_http,
                 &disc_cfg.gamma_api_url,
-                &disc_cfg.symbols,
+                &disc_cfg.sources,
                 &current_prices,
             )
             .await

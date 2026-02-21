@@ -1,10 +1,26 @@
 use anyhow::Result;
 
 #[derive(Debug, Clone)]
-pub struct SymbolConfig {
-    pub binance_symbol: String,
-    pub slug_prefix: String,
-    pub slot_durations: Vec<u32>,
+pub enum MarketSource {
+    CryptoUpDown {
+        binance_symbol: String,
+        slug_prefix: String,
+        slot_durations: Vec<u32>,
+    },
+    #[allow(dead_code)]
+    Custom {
+        slug: String,
+        ref_price_symbol: Option<String>,
+    },
+}
+
+impl MarketSource {
+    pub fn binance_symbol(&self) -> Option<&str> {
+        match self {
+            Self::CryptoUpDown { binance_symbol, .. } => Some(binance_symbol),
+            Self::Custom { ref_price_symbol, .. } => ref_price_symbol.as_deref(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -14,29 +30,29 @@ pub struct Config {
     pub gamma_api_url: String,
     pub clob_ws_url: String,
     pub binance_api_url: String,
-    pub symbols: Vec<SymbolConfig>,
+    pub sources: Vec<MarketSource>,
     pub tick_interval_ms: u64,
     pub discovery_interval_secs: u64,
 }
 
-fn default_symbols() -> Vec<SymbolConfig> {
+fn default_sources() -> Vec<MarketSource> {
     vec![
-        SymbolConfig {
+        MarketSource::CryptoUpDown {
             binance_symbol: "BTCUSDT".into(),
             slug_prefix: "btc".into(),
             slot_durations: vec![300, 900, 3600, 14400, 86400],
         },
-        SymbolConfig {
+        MarketSource::CryptoUpDown {
             binance_symbol: "ETHUSDT".into(),
             slug_prefix: "eth".into(),
             slot_durations: vec![900],
         },
-        SymbolConfig {
+        MarketSource::CryptoUpDown {
             binance_symbol: "SOLUSDT".into(),
             slug_prefix: "sol".into(),
             slot_durations: vec![900],
         },
-        SymbolConfig {
+        MarketSource::CryptoUpDown {
             binance_symbol: "XRPUSDT".into(),
             slug_prefix: "xrp".into(),
             slot_durations: vec![900],
@@ -44,24 +60,28 @@ fn default_symbols() -> Vec<SymbolConfig> {
     ]
 }
 
-fn parse_symbols(env_val: &str) -> Vec<SymbolConfig> {
-    let defaults = default_symbols();
+fn parse_sources(env_val: &str) -> Vec<MarketSource> {
+    let defaults = default_sources();
     let requested: Vec<&str> = env_val.split(',').map(|s| s.trim()).collect();
     defaults
         .into_iter()
-        .filter(|s| requested.iter().any(|r| r.eq_ignore_ascii_case(&s.binance_symbol)))
+        .filter(|s| {
+            s.binance_symbol()
+                .map(|bs| requested.iter().any(|r| r.eq_ignore_ascii_case(bs)))
+                .unwrap_or(false)
+        })
         .collect()
 }
 
 impl Config {
     pub fn from_env() -> Result<Self> {
         dotenvy::dotenv().ok();
-        let symbols = match std::env::var("ENGINE_SYMBOLS") {
-            Ok(val) => parse_symbols(&val),
-            Err(_) => default_symbols(),
+        let sources = match std::env::var("ENGINE_SYMBOLS") {
+            Ok(val) => parse_sources(&val),
+            Err(_) => default_sources(),
         };
-        if symbols.is_empty() {
-            anyhow::bail!("ENGINE_SYMBOLS matched no known symbols");
+        if sources.is_empty() {
+            anyhow::bail!("ENGINE_SYMBOLS matched no known sources");
         }
         Ok(Self {
             clickhouse_url: std::env::var("CLICKHOUSE_URL")
@@ -74,14 +94,19 @@ impl Config {
                 .unwrap_or_else(|_| "wss://ws-subscriptions-clob.polymarket.com/ws/market".into()),
             binance_api_url: std::env::var("BINANCE_API_URL")
                 .unwrap_or_else(|_| "https://api.binance.com/api/v3/ticker/price".into()),
-            symbols,
+            sources,
             tick_interval_ms: 1000,
             discovery_interval_secs: 60,
         })
     }
 
     pub fn binance_symbols(&self) -> Vec<String> {
-        let mut syms: Vec<String> = self.symbols.iter().map(|s| s.binance_symbol.clone()).collect();
+        let mut syms: Vec<String> = self
+            .sources
+            .iter()
+            .filter_map(|s| s.binance_symbol().map(String::from))
+            .collect();
+        syms.sort();
         syms.dedup();
         syms
     }

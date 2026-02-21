@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use super::models::ActiveMarket;
-use crate::config::SymbolConfig;
+use crate::config::MarketSource;
 
 #[derive(Debug, Deserialize)]
 struct GammaEvent {
@@ -33,7 +33,7 @@ fn duration_suffix(secs: u32) -> &'static str {
 pub async fn discover_markets(
     client: &reqwest::Client,
     gamma_url: &str,
-    symbols: &[SymbolConfig],
+    sources: &[MarketSource],
     prices: &HashMap<String, f64>,
 ) -> Result<Vec<ActiveMarket>> {
     let now = std::time::SystemTime::now()
@@ -42,16 +42,20 @@ pub async fn discover_markets(
 
     let mut markets = Vec::new();
 
-    for sym in symbols {
-        let ref_price = prices.get(&sym.binance_symbol).copied().unwrap_or(0.0) as f32;
+    for source in sources {
+        let MarketSource::CryptoUpDown { binance_symbol, slug_prefix, slot_durations } = source else {
+            continue;
+        };
 
-        for &slot_duration in &sym.slot_durations {
+        let ref_price = prices.get(binance_symbol).copied().unwrap_or(0.0) as f32;
+
+        for &slot_duration in slot_durations {
             let current_slot = (now / slot_duration as u64) * slot_duration as u64;
             let suffix = duration_suffix(slot_duration);
 
             for offset in 0..2u64 {
                 let slot_ts = current_slot + offset * slot_duration as u64;
-                let slug = format!("{}-updown-{suffix}-{slot_ts}", sym.slug_prefix);
+                let slug = format!("{slug_prefix}-updown-{suffix}-{slot_ts}");
                 let url = format!("{gamma_url}/events?slug={slug}");
 
                 let resp = match client.get(&url).send().await {
@@ -83,7 +87,7 @@ pub async fn discover_markets(
                         markets.push(ActiveMarket {
                             condition_id: cid.clone(),
                             slug: slug.clone(),
-                            binance_symbol: sym.binance_symbol.clone(),
+                            binance_symbol: Some(binance_symbol.clone()),
                             slot_ts: slot_ts as u32,
                             slot_duration,
                             end_time,

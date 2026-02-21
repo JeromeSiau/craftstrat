@@ -126,11 +126,14 @@ pub async fn run_tick_builder(
         let price_cache = prices.read().await;
 
         for market in active.values() {
-            let ref_price = price_cache
-                .get(&market.binance_symbol)
+            let ref_price = market
+                .binance_symbol
+                .as_ref()
+                .and_then(|sym| price_cache.get(sym))
                 .copied()
                 .unwrap_or(0.0) as f32;
-            if ref_price <= 0.0 { continue; }
+            // Skip only if a price feed is expected but not yet available
+            if market.binance_symbol.is_some() && ref_price <= 0.0 { continue; }
 
             let book_up = book_cache.get(&market.token_up);
             let book_down = book_cache.get(&market.token_down);
@@ -154,7 +157,7 @@ mod tests {
         ActiveMarket {
             condition_id: "0xabc".into(),
             slug: "btc-updown-15m-1700000000".into(),
-            binance_symbol: "BTCUSDT".into(),
+            binance_symbol: Some("BTCUSDT".into()),
             slot_ts,
             slot_duration: 900,
             end_time: (slot_ts + 900) as f64,

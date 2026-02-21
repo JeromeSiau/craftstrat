@@ -59,7 +59,7 @@ impl OrderBook {
 pub struct ActiveMarket {
     pub condition_id: String,
     pub slug: String,
-    pub binance_symbol: String,
+    pub binance_symbol: Option<String>,
     pub slot_ts: u32,
     pub slot_duration: u32,
     pub end_time: f64,
