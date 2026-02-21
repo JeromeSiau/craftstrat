@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BacktestController;
 use App\Http\Controllers\StrategyController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('wallets/{wallet}', [WalletController::class, 'destroy'])->name('wallets.destroy');
     Route::post('wallets/{wallet}/strategies', [WalletController::class, 'assignStrategy'])->name('wallets.assign-strategy');
     Route::delete('wallets/{wallet}/strategies/{strategy}', [WalletController::class, 'removeStrategy'])->name('wallets.remove-strategy');
+
+    // Backtests
+    Route::get('backtests', [BacktestController::class, 'index'])->name('backtests.index');
+    Route::get('backtests/{result}', [BacktestController::class, 'show'])->name('backtests.show');
+    Route::post('strategies/{strategy}/backtest', [BacktestController::class, 'run'])->name('backtests.run');
 });
 
 require __DIR__.'/settings.php';
