@@ -40,4 +40,8 @@ return [
         'timeout' => env('ENGINE_TIMEOUT', 30),
     ],
 
+    'wallet' => [
+        'encryption_key' => env('ENCRYPTION_KEY'),
+    ],
+
 ];

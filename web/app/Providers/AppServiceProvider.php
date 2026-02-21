@@ -21,6 +21,12 @@ class AppServiceProvider extends ServiceProvider
                 timeout: (int) config('services.engine.timeout'),
             );
         });
+
+        $this->app->singleton(\App\Services\WalletService::class, function ($app) {
+            return new \App\Services\WalletService(
+                encryptionKey: config('services.wallet.encryption_key'),
+            );
+        });
     }
 
     /**
