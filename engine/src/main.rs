@@ -7,6 +7,7 @@ mod strategy;
 mod tasks;
 mod watcher;
 mod backtest;
+mod api;
 
 use std::collections::HashMap;
 use std::sync::Arc;
