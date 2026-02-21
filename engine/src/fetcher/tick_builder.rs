@@ -72,15 +72,15 @@ pub fn build_tick(
         mid_down: if bid_down > 0.0 && ask_down > 0.0 { (bid_down + ask_down) / 2.0 } else { 0.0 },
         size_ratio_up: safe_div(bid_sz_up, ask_sz_up),
         size_ratio_down: safe_div(bid_sz_down, ask_sz_down),
-        chainlink_price: ref_price,
+        ref_price,
         dir_move_pct,
         abs_move_pct: dir_move_pct.abs(),
         hour_utc: dt.hour() as u8,
         day_of_week: dt.weekday().num_days_from_monday() as u8,
         market_volume_usd: 0.0,
         winner: None,
-        btc_price_start: price_start,
-        btc_price_end: ref_price,
+        ref_price_start: price_start,
+        ref_price_end: ref_price,
     })
 }
 
@@ -110,7 +110,7 @@ pub async fn run_tick_builder(
     books: OrderBookCache,
     markets: Arc<RwLock<HashMap<String, ActiveMarket>>>,
     prices: PriceCache,
-    tick_tx: tokio::sync::mpsc::Sender<Tick>,
+    tick_tx: tokio::sync::broadcast::Sender<Tick>,
     interval: Duration,
 ) {
     let mut ticker = tokio::time::interval(interval);
@@ -121,26 +121,27 @@ pub async fn run_tick_builder(
             .unwrap()
             .as_secs_f64();
 
-        let active = markets.read().await;
-        let book_cache = books.read().await;
-        let price_cache = prices.read().await;
+        // Clone and drop locks quickly to avoid contention with WS/poller writers
+        let active: Vec<ActiveMarket> = markets.read().await.values().cloned().collect();
+        let book_snapshot = books.read().await.clone();
+        let price_snapshot = prices.read().await.clone();
 
-        for market in active.values() {
+        for market in &active {
             let ref_price = market
                 .binance_symbol
                 .as_ref()
-                .and_then(|sym| price_cache.get(sym))
+                .and_then(|sym| price_snapshot.get(sym))
                 .copied()
                 .unwrap_or(0.0) as f32;
             // Skip only if a price feed is expected but not yet available
             if market.binance_symbol.is_some() && ref_price <= 0.0 { continue; }
 
-            let book_up = book_cache.get(&market.token_up);
-            let book_down = book_cache.get(&market.token_down);
+            let book_up = book_snapshot.get(&market.token_up);
+            let book_down = book_snapshot.get(&market.token_down);
             if book_up.is_none() && book_down.is_none() { continue; }
 
             if let Some(tick) = build_tick(market, book_up, book_down, ref_price, now) {
-                if tick_tx.send(tick).await.is_err() {
+                if tick_tx.send(tick).is_err() {
                     return;
                 }
             }

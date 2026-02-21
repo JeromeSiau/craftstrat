@@ -6,7 +6,8 @@ mod storage;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::task::JoinSet;
 
 use config::Config;
 use fetcher::models::ActiveMarket;
@@ -23,37 +24,64 @@ async fn main() -> anyhow::Result<()> {
     let markets: Arc<RwLock<HashMap<String, ActiveMarket>>> = Arc::new(RwLock::new(HashMap::new()));
     let prices: PriceCache = Arc::new(RwLock::new(HashMap::new()));
     let (ws_cmd_tx, ws_cmd_rx) = mpsc::channel::<WsCommand>(64);
-    let (ch_tx, ch_rx) = mpsc::channel(1000);
-    let (kafka_tx, kafka_rx) = mpsc::channel(1000);
+    let (tick_tx, _) = broadcast::channel::<fetcher::models::Tick>(1024);
 
     let http = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()?;
 
+    let mut tasks = JoinSet::new();
+
     // 1. WebSocket feed
     let ws_books = books.clone();
     let ws_url = cfg.clob_ws_url.clone();
-    tokio::spawn(async move {
+    tasks.spawn(async move {
         fetcher::websocket::run_ws_feed(ws_url, ws_books, ws_cmd_rx).await;
+        anyhow::bail!("ws_feed exited unexpectedly")
     });
 
-    // 2. Price poller — all Binance symbols every 2s
+    // 2. Price poller — all Binance symbols concurrently every 2s
     let price_url = cfg.binance_api_url.clone();
     let price_http = http.clone();
     let price_cache = prices.clone();
     let binance_symbols = cfg.binance_symbols();
-    tokio::spawn(async move {
+    tasks.spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(2));
         loop {
             interval.tick().await;
-            for sym in &binance_symbols {
-                if let Ok(resp) = price_http.get(format!("{price_url}?symbol={sym}")).send().await {
-                    if let Ok(body) = resp.json::<serde_json::Value>().await {
-                        if let Some(p) = body["price"].as_str().and_then(|s| s.parse::<f64>().ok()) {
-                            price_cache.write().await.insert(sym.clone(), p);
+            let fetches: Vec<_> = binance_symbols
+                .iter()
+                .map(|sym| {
+                    let http = &price_http;
+                    let url = format!("{price_url}?symbol={sym}");
+                    let sym = sym.clone();
+                    async move {
+                        match http.get(&url).send().await {
+                            Ok(resp) if resp.status().is_success() => {
+                                match resp.json::<serde_json::Value>().await {
+                                    Ok(body) => {
+                                        if let Some(p) = body["price"]
+                                            .as_str()
+                                            .and_then(|s| s.parse::<f64>().ok())
+                                        {
+                                            return Some((sym, p));
+                                        }
+                                        tracing::warn!(symbol = %sym, "binance_parse_failed");
+                                    }
+                                    Err(e) => tracing::warn!(symbol = %sym, error = %e, "binance_json_error"),
+                                }
+                            }
+                            Ok(resp) => tracing::warn!(symbol = %sym, status = %resp.status(), "binance_http_error"),
+                            Err(e) => tracing::warn!(symbol = %sym, error = %e, "binance_request_failed"),
                         }
+                        None
                     }
-                }
+                })
+                .collect();
+            let results = futures_util::future::join_all(fetches).await;
+            let mut cache = price_cache.write().await;
+            for result in results.into_iter().flatten() {
+                cache.insert(result.0, result.1);
             }
         }
     });
@@ -63,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
     let disc_http = http.clone();
     let disc_cfg = cfg.clone();
     let disc_prices = prices.clone();
-    tokio::spawn(async move {
+    tasks.spawn(async move {
         tokio::time::sleep(Duration::from_secs(3)).await;
         let mut interval = tokio::time::interval(Duration::from_secs(disc_cfg.discovery_interval_secs));
         loop {
@@ -115,46 +143,58 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // 4. Tick builder -> fan out to ClickHouse + Kafka
+    // 4. Tick builder → broadcast
     let tb_books = books.clone();
     let tb_markets = markets.clone();
     let tb_prices = prices.clone();
-    tokio::spawn(async move {
-        let (internal_tx, mut internal_rx) = mpsc::channel::<fetcher::models::Tick>(1000);
-        let ch = ch_tx;
-        let kf = kafka_tx;
-        tokio::spawn(async move {
-            while let Some(tick) = internal_rx.recv().await {
-                let _ = ch.send(tick.clone()).await;
-                let _ = kf.send(tick).await;
-            }
-        });
+    let tb_tick_tx = tick_tx.clone();
+    tasks.spawn(async move {
         fetcher::tick_builder::run_tick_builder(
             tb_books,
             tb_markets,
             tb_prices,
-            internal_tx,
+            tb_tick_tx,
             Duration::from_millis(cfg.tick_interval_ms),
         )
         .await;
+        anyhow::bail!("tick_builder exited unexpectedly")
     });
 
     // 5. ClickHouse writer
     let ch_client = storage::clickhouse::create_client(&cfg.clickhouse_url);
-    tokio::spawn(async move {
-        if let Err(e) = storage::clickhouse::run_writer(ch_client, ch_rx).await {
-            tracing::error!(error = %e, "clickhouse_fatal");
-        }
+    let ch_rx = tick_tx.subscribe();
+    tasks.spawn(async move {
+        storage::clickhouse::run_writer(ch_client, ch_rx).await
     });
 
     // 6. Kafka publisher
     let kf_producer = kafka::producer::create_producer(&cfg.kafka_brokers)?;
-    tokio::spawn(async move {
-        kafka::producer::run_publisher(kf_producer, kafka_rx).await;
+    let kf_rx = tick_tx.subscribe();
+    tasks.spawn(async move {
+        kafka::producer::run_publisher(kf_producer, kf_rx).await;
+        Ok(())
     });
 
     tracing::info!("oddex_engine_running");
-    tokio::signal::ctrl_c().await?;
-    tracing::info!("oddex_engine_shutdown");
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("oddex_engine_shutdown");
+        }
+        result = async { tasks.join_next().await.unwrap() } => {
+            match result {
+                Ok(Ok(())) => tracing::error!("task_exited_unexpectedly"),
+                Ok(Err(e)) => tracing::error!(error = %e, "task_fatal"),
+                Err(e) => tracing::error!(error = %e, "task_panicked"),
+            }
+        }
+    }
+
+    // Graceful shutdown: drop the broadcast sender so receivers get None
+    drop(tick_tx);
+    // Give writers time to flush
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    tasks.shutdown().await;
+    tracing::info!("oddex_engine_stopped");
     Ok(())
 }

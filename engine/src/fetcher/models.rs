@@ -99,13 +99,16 @@ pub struct Tick {
     pub mid_down: f32,
     pub size_ratio_up: f32,
     pub size_ratio_down: f32,
-    pub chainlink_price: f32,
+    #[serde(rename = "chainlink_price")]
+    pub ref_price: f32,
     pub dir_move_pct: f32,
     pub abs_move_pct: f32,
     pub hour_utc: u8,
     pub day_of_week: u8,
     pub market_volume_usd: f32,
     pub winner: Option<i8>, // 1 = UP, 2 = DOWN, None = not resolved
-    pub btc_price_start: f32,
-    pub btc_price_end: f32,
+    #[serde(rename = "btc_price_start")]
+    pub ref_price_start: f32,
+    #[serde(rename = "btc_price_end")]
+    pub ref_price_end: f32,
 }

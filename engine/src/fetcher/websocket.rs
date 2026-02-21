@@ -1,6 +1,6 @@
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -22,7 +22,7 @@ pub async fn run_ws_feed(
 ) {
     let mut backoff = Duration::from_secs(1);
     let max_backoff = Duration::from_secs(30);
-    let mut subscribed: Vec<String> = Vec::new();
+    let mut subscribed: HashSet<String> = HashSet::new();
 
     loop {
         tracing::info!("clob_ws_connecting");
@@ -45,15 +45,16 @@ async fn connect_and_stream(
     ws_url: &str,
     books: &OrderBookCache,
     cmd_rx: &mut tokio::sync::mpsc::Receiver<WsCommand>,
-    subscribed: &mut Vec<String>,
+    subscribed: &mut HashSet<String>,
 ) -> Result<()> {
     let (ws, _) = connect_async(ws_url).await?;
     let (mut write, mut read) = ws.split();
     tracing::info!(tokens = subscribed.len(), "clob_ws_connected");
 
     if !subscribed.is_empty() {
+        let tokens: Vec<&String> = subscribed.iter().collect();
         let msg = serde_json::json!({
-            "assets_ids": subscribed,
+            "assets_ids": tokens,
             "type": "market",
             "custom_feature_enabled": true,
         });
@@ -88,11 +89,7 @@ async fn connect_and_stream(
             cmd = cmd_rx.recv() => {
                 match cmd {
                     Some(WsCommand::Subscribe { token_ids }) => {
-                        for t in &token_ids {
-                            if !subscribed.contains(t) {
-                                subscribed.push(t.clone());
-                            }
-                        }
+                        subscribed.extend(token_ids.iter().cloned());
                         let msg = serde_json::json!({
                             "assets_ids": token_ids,
                             "type": "market",
@@ -101,7 +98,9 @@ async fn connect_and_stream(
                         write.send(Message::Text(msg.to_string().into())).await?;
                     }
                     Some(WsCommand::Unsubscribe { token_ids }) => {
-                        subscribed.retain(|t| !token_ids.contains(t));
+                        for t in &token_ids {
+                            subscribed.remove(t);
+                        }
                         let msg = serde_json::json!({
                             "assets_ids": token_ids,
                             "operation": "unsubscribe",
@@ -180,9 +179,9 @@ fn parse_levels(val: Option<&serde_json::Value>, descending: bool) -> Vec<Level>
         })
         .collect();
     if descending {
-        levels.sort_by(|a, b| b.price.partial_cmp(&a.price).unwrap());
+        levels.sort_by(|a, b| b.price.total_cmp(&a.price));
     } else {
-        levels.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap());
+        levels.sort_by(|a, b| a.price.total_cmp(&b.price));
     }
     levels
 }

@@ -15,18 +15,28 @@ pub fn create_producer(brokers: &str) -> Result<FutureProducer> {
 
 pub async fn run_publisher(
     producer: FutureProducer,
-    mut tick_rx: tokio::sync::mpsc::Receiver<Tick>,
+    mut tick_rx: tokio::sync::broadcast::Receiver<Tick>,
 ) {
-    while let Some(tick) = tick_rx.recv().await {
-        let Ok(payload) = serde_json::to_string(&tick) else {
-            continue;
-        };
-        let key = tick.symbol.clone();
-        let record = FutureRecord::to("ticks").key(&key).payload(&payload);
+    loop {
+        match tick_rx.recv().await {
+            Ok(tick) => {
+                let Ok(payload) = serde_json::to_string(&tick) else {
+                    continue;
+                };
+                let key = tick.symbol.clone();
+                let record = FutureRecord::to("ticks").key(&key).payload(&payload);
 
-        if let Err((err, _)) = producer.send(record, Duration::from_secs(5)).await {
-            tracing::warn!(error = %err, "kafka_send_failed");
+                if let Err((err, _)) = producer.send(record, Duration::from_secs(5)).await {
+                    tracing::warn!(error = %err, "kafka_send_failed");
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                tracing::warn!(skipped = n, "kafka_lagged");
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                tracing::info!("kafka_publisher_shutdown");
+                return;
+            }
         }
     }
-    tracing::info!("kafka_publisher_shutdown");
 }

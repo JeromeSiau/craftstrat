@@ -8,7 +8,7 @@ pub fn create_client(url: &str) -> Client {
     Client::default().with_url(url)
 }
 
-pub async fn run_writer(client: Client, mut tick_rx: tokio::sync::mpsc::Receiver<Tick>) -> Result<()> {
+pub async fn run_writer(client: Client, mut tick_rx: tokio::sync::broadcast::Receiver<Tick>) -> Result<()> {
     let mut inserter = client
         .inserter("slot_snapshots")?
         .with_max_rows(100)
@@ -16,14 +16,17 @@ pub async fn run_writer(client: Client, mut tick_rx: tokio::sync::mpsc::Receiver
 
     loop {
         match tick_rx.recv().await {
-            Some(tick) => {
+            Ok(tick) => {
                 inserter.write(&tick)?;
                 let stats = inserter.commit().await?;
                 if stats.rows > 0 {
                     tracing::info!(rows = stats.rows, "clickhouse_flushed");
                 }
             }
-            None => {
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                tracing::warn!(skipped = n, "clickhouse_lagged");
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                 let stats = inserter.end().await?;
                 if stats.rows > 0 {
                     tracing::info!(rows = stats.rows, "clickhouse_final_flush");
