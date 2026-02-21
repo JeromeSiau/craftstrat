@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS slot_snapshots (
     market_volume_usd Float32,
     winner            Nullable(Enum8('UP' = 1, 'DOWN' = 2)),
     btc_price_start   Float32,
-    btc_price_end     Float32
+    btc_price_end     Float32,
+    ref_price_source  LowCardinality(String)
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(captured_at)
 ORDER BY (symbol, slot_duration, captured_at)

@@ -14,6 +14,7 @@ pub fn build_tick(
     book_up: Option<&OrderBook>,
     book_down: Option<&OrderBook>,
     ref_price: f32,
+    ref_price_source: &str,
     now_unix: f64,
 ) -> Option<Tick> {
     let minutes_into_slot = (now_unix - market.slot_ts as f64) / 60.0;
@@ -81,6 +82,7 @@ pub fn build_tick(
         winner: None,
         ref_price_start: price_start,
         ref_price_end: ref_price,
+        ref_price_source: ref_price_source.to_string(),
     })
 }
 
@@ -140,7 +142,7 @@ pub async fn run_tick_builder(
             let book_down = book_snapshot.get(&market.token_down);
             if book_up.is_none() && book_down.is_none() { continue; }
 
-            if let Some(tick) = build_tick(market, book_up, book_down, ref_price, now) {
+            if let Some(tick) = build_tick(market, book_up, book_down, ref_price, "binance", now) {
                 if tick_tx.send(tick).is_err() {
                     return;
                 }
@@ -183,7 +185,7 @@ mod tests {
         let down = book(&[(0.38, 90.0)], &[(0.40, 70.0)]);
         let now = 1700000000.0 + 450.0;
 
-        let t = build_tick(&m, Some(&up), Some(&down), 50500.0, now).unwrap();
+        let t = build_tick(&m, Some(&up), Some(&down), 50500.0, "binance", now).unwrap();
         assert!((t.pct_into_slot - 0.5).abs() < 0.01);
         assert!((t.bid_up - 0.60).abs() < 0.001);
         assert!((t.ask_up - 0.62).abs() < 0.001);
@@ -197,15 +199,15 @@ mod tests {
     fn test_outside_slot_returns_none() {
         let m = market(1700000000);
         let b = book(&[(0.5, 10.0)], &[(0.6, 10.0)]);
-        assert!(build_tick(&m, Some(&b), Some(&b), 50000.0, 1699999999.0).is_none());
-        assert!(build_tick(&m, Some(&b), Some(&b), 50000.0, 1700000960.0).is_none());
+        assert!(build_tick(&m, Some(&b), Some(&b), 50000.0, "binance", 1699999999.0).is_none());
+        assert!(build_tick(&m, Some(&b), Some(&b), 50000.0, "binance", 1700000960.0).is_none());
     }
 
     #[test]
     fn test_empty_books_zero_prices() {
         let m = market(1700000000);
         let empty = OrderBook::default();
-        let t = build_tick(&m, Some(&empty), Some(&empty), 50000.0, 1700000100.0).unwrap();
+        let t = build_tick(&m, Some(&empty), Some(&empty), 50000.0, "binance", 1700000100.0).unwrap();
         assert!((t.bid_up).abs() < 0.001);
         assert!((t.mid_up).abs() < 0.001);
     }
@@ -214,7 +216,7 @@ mod tests {
     fn test_negative_move_pct() {
         let m = market(1700000000);
         let b = book(&[(0.5, 10.0)], &[(0.6, 10.0)]);
-        let t = build_tick(&m, Some(&b), Some(&b), 49000.0, 1700000100.0).unwrap();
+        let t = build_tick(&m, Some(&b), Some(&b), 49000.0, "binance", 1700000100.0).unwrap();
         assert!((t.dir_move_pct - (-2.0)).abs() < 0.01);
         assert!((t.abs_move_pct - 2.0).abs() < 0.01);
     }

@@ -111,4 +111,5 @@ pub struct Tick {
     pub ref_price_start: f32,
     #[serde(rename = "btc_price_end")]
     pub ref_price_end: f32,
+    pub ref_price_source: String,
 }
