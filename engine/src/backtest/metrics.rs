@@ -41,9 +41,11 @@ fn compute_max_drawdown(trades: &[&BacktestTrade]) -> f64 {
         if equity > peak {
             peak = equity;
         }
-        let dd = peak - equity;
-        if dd > max_dd {
-            max_dd = dd;
+        if peak > 0.0 {
+            let dd = (peak - equity) / peak;
+            if dd > max_dd {
+                max_dd = dd;
+            }
         }
     }
     max_dd
@@ -67,6 +69,7 @@ fn compute_sharpe(trades: &[&BacktestTrade]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backtest::{ExitReason, Side};
     use crate::strategy::Outcome;
     use time::OffsetDateTime;
 
@@ -74,14 +77,14 @@ mod tests {
         BacktestTrade {
             market_id: "test".into(),
             outcome: Outcome::Up,
-            side: "buy".into(),
+            side: Side::Buy,
             entry_price: 0.50,
-            exit_price: Some(if pnl >= 0.0 { 0.50 + pnl / size * 0.50 } else { 0.50 + pnl / size * 0.50 }),
+            exit_price: Some(0.50 + pnl / size * 0.50),
             size_usdc: size,
             pnl_usdc: pnl,
             entry_at: OffsetDateTime::from_unix_timestamp(1700000000).unwrap(),
             exit_at: Some(OffsetDateTime::from_unix_timestamp(1700000900).unwrap()),
-            exit_reason: Some("signal".into()),
+            exit_reason: Some(ExitReason::Signal),
         }
     }
 
@@ -114,8 +117,8 @@ mod tests {
         assert_eq!(result.total_trades, 3);
         assert!((result.win_rate - 2.0 / 3.0).abs() < 0.001);
         assert!((result.total_pnl_usdc - 13.0).abs() < f64::EPSILON);
-        // Equity curve: [0, 10, 5, 13] -> peak 10, trough 5, drawdown = 10 - 5 = 5.0
-        assert!((result.max_drawdown - 5.0).abs() < 0.001);
+        // Equity curve: [0, 10, 5, 13] -> peak 10, trough 5, dd = (10-5)/10 = 0.5
+        assert!((result.max_drawdown - 0.5).abs() < 0.001);
         assert!(result.sharpe_ratio > 0.0); // positive overall
     }
 
@@ -128,6 +131,8 @@ mod tests {
         assert_eq!(result.total_trades, 2);
         assert!((result.win_rate).abs() < f64::EPSILON);
         assert!((result.total_pnl_usdc - (-15.0)).abs() < f64::EPSILON);
+        // Peak never goes positive → no percentage drawdown
+        assert!((result.max_drawdown).abs() < f64::EPSILON);
         assert!(result.sharpe_ratio < 0.0); // negative sharpe
     }
 

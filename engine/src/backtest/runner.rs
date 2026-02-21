@@ -4,7 +4,7 @@ use clickhouse::Client;
 use serde_json::Value;
 
 use super::metrics;
-use super::{BacktestRequest, BacktestResult, BacktestTrade};
+use super::{compute_pnl, BacktestRequest, BacktestResult, BacktestTrade, ExitReason, Side};
 use crate::fetcher::models::Tick;
 use crate::strategy::interpreter::evaluate;
 use crate::strategy::state::{Position, StrategyState};
@@ -12,6 +12,7 @@ use crate::strategy::{OrderType, Outcome, Signal};
 
 pub struct BacktestEngine {
     graph: Value,
+    window_size: usize,
     markets: HashMap<String, MarketContext>,
     trades: Vec<BacktestTrade>,
 }
@@ -22,20 +23,22 @@ struct MarketContext {
 }
 
 impl BacktestEngine {
-    pub fn new(graph: Value) -> Self {
+    pub fn new(graph: Value, window_size: usize) -> Self {
         Self {
             graph,
+            window_size,
             markets: HashMap::new(),
             trades: Vec::new(),
         }
     }
 
     pub fn process_tick(&mut self, tick: &Tick) {
+        let window_size = self.window_size;
         let ctx = self
             .markets
             .entry(tick.symbol.clone())
             .or_insert_with(|| MarketContext {
-                state: StrategyState::new(200),
+                state: StrategyState::new(window_size),
                 open_trade: None,
             });
 
@@ -57,7 +60,7 @@ impl BacktestEngine {
                 ctx.open_trade = Some(BacktestTrade {
                     market_id: tick.symbol.clone(),
                     outcome,
-                    side: "buy".into(),
+                    side: Side::Buy,
                     entry_price,
                     exit_price: None,
                     size_usdc,
@@ -76,10 +79,9 @@ impl BacktestEngine {
                 if let Some(mut trade) = ctx.open_trade.take() {
                     let exit = bid_price(outcome, tick);
                     trade.exit_price = Some(exit);
-                    trade.pnl_usdc =
-                        (exit - trade.entry_price) / trade.entry_price * trade.size_usdc;
+                    trade.pnl_usdc = compute_pnl(trade.entry_price, exit, trade.size_usdc);
                     trade.exit_at = Some(tick.captured_at);
-                    trade.exit_reason = Some(exit_reason(&order_type));
+                    trade.exit_reason = Some(map_exit_reason(&order_type));
                     self.trades.push(trade);
                 }
             }
@@ -94,10 +96,9 @@ impl BacktestEngine {
                 if let Some(last_tick) = ctx.state.window.back() {
                     let exit = mid_price(trade.outcome, last_tick);
                     trade.exit_price = Some(exit);
-                    trade.pnl_usdc =
-                        (exit - trade.entry_price) / trade.entry_price * trade.size_usdc;
+                    trade.pnl_usdc = compute_pnl(trade.entry_price, exit, trade.size_usdc);
                     trade.exit_at = Some(last_tick.captured_at);
-                    trade.exit_reason = Some("end_of_data".into());
+                    trade.exit_reason = Some(ExitReason::EndOfData);
                     self.trades.push(trade);
                 }
             }
@@ -127,15 +128,17 @@ fn mid_price(outcome: Outcome, tick: &Tick) -> f64 {
     }
 }
 
-fn exit_reason(order_type: &OrderType) -> String {
+fn map_exit_reason(order_type: &OrderType) -> ExitReason {
     match order_type {
-        OrderType::StopLoss { .. } => "stoploss".into(),
-        OrderType::TakeProfit { .. } => "take_profit".into(),
-        _ => "signal".into(),
+        OrderType::StopLoss { .. } => ExitReason::Stoploss,
+        OrderType::TakeProfit { .. } => ExitReason::TakeProfit,
+        _ => ExitReason::Signal,
     }
 }
 
 pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<BacktestResult> {
+    req.validate().map_err(anyhow::Error::msg)?;
+
     let mut cursor = crate::storage::clickhouse::fetch_ticks(
         ch_client,
         &req.market_filter,
@@ -143,7 +146,7 @@ pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<Ba
         req.date_to,
     )?;
 
-    let mut engine = BacktestEngine::new(req.strategy_graph.clone());
+    let mut engine = BacktestEngine::new(req.strategy_graph.clone(), req.window_size);
 
     while let Some(tick) = cursor.next().await? {
         engine.process_tick(&tick);
@@ -155,6 +158,7 @@ pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<Ba
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backtest::DEFAULT_WINDOW_SIZE;
     use crate::strategy::test_utils::test_tick;
     use time::OffsetDateTime;
 
@@ -187,7 +191,7 @@ mod tests {
     #[test]
     fn test_buy_then_stoploss_exit() {
         let graph = simple_buy_up_strategy();
-        let mut engine = BacktestEngine::new(graph);
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
 
         // Tick 1: abs_move_pct = 1.0 -> no signal (below threshold)
         let mut t1 = test_tick();
@@ -223,13 +227,13 @@ mod tests {
         assert!((trade.entry_price - 0.62).abs() < 0.001); // ask_up
         assert!((trade.exit_price.unwrap() - 0.53).abs() < 0.001); // bid_up
         assert!(trade.pnl_usdc < 0.0); // loss
-        assert_eq!(trade.exit_reason.as_deref(), Some("stoploss"));
+        assert_eq!(trade.exit_reason, Some(ExitReason::Stoploss));
     }
 
     #[test]
     fn test_buy_then_take_profit_exit() {
         let graph = simple_buy_up_strategy(); // take_profit_pct = 15
-        let mut engine = BacktestEngine::new(graph);
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
 
         // Tick 1: triggers buy (abs_move_pct > 3.0)
         let mut t1 = test_tick();
@@ -252,13 +256,13 @@ mod tests {
         assert!((trade.entry_price - 0.50).abs() < 0.001);
         assert!((trade.exit_price.unwrap() - 0.57).abs() < 0.001);
         assert!(trade.pnl_usdc > 0.0);
-        assert_eq!(trade.exit_reason.as_deref(), Some("take_profit"));
+        assert_eq!(trade.exit_reason, Some(ExitReason::TakeProfit));
     }
 
     #[test]
     fn test_force_close_at_end_of_data() {
         let graph = simple_buy_up_strategy();
-        let mut engine = BacktestEngine::new(graph);
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
 
         // Tick 1: triggers buy
         let mut t1 = test_tick();
@@ -278,7 +282,7 @@ mod tests {
         assert_eq!(result.total_trades, 1);
         let trade = &result.trades[0];
         assert!(trade.exit_price.is_some());
-        assert_eq!(trade.exit_reason.as_deref(), Some("end_of_data"));
+        assert_eq!(trade.exit_reason, Some(ExitReason::EndOfData));
         // Exit at mid_up of last tick (0.63)
         assert!((trade.exit_price.unwrap() - 0.63).abs() < 0.001);
     }
@@ -286,7 +290,7 @@ mod tests {
     #[test]
     fn test_multi_market_separate_state() {
         let graph = simple_buy_up_strategy();
-        let mut engine = BacktestEngine::new(graph);
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
 
         // Buy on market A
         let mut t1 = test_tick();
@@ -317,7 +321,7 @@ mod tests {
     #[test]
     fn test_full_backtest_lifecycle() {
         let graph = simple_buy_up_strategy(); // stoploss=10, take_profit=15, max_trades=2
-        let mut engine = BacktestEngine::new(graph);
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
 
         // --- Trade 1: Buy → Stoploss ---
 
@@ -362,8 +366,9 @@ mod tests {
         // Trade 2 PnL: (0.57 - 0.50) / 0.50 * 50 = 7.0
         // Total: ~ -0.26
         assert!(result.total_pnl_usdc < 0.0); // slight net loss
-        assert!(result.max_drawdown > 0.0);    // had a drawdown after trade 1
-        assert_eq!(result.trades[0].exit_reason.as_deref(), Some("stoploss"));
-        assert_eq!(result.trades[1].exit_reason.as_deref(), Some("take_profit"));
+        // Equity curve: [0, -7.26, -0.26] — peak never positive, so percentage drawdown = 0
+        assert!((result.max_drawdown).abs() < f64::EPSILON);
+        assert_eq!(result.trades[0].exit_reason, Some(ExitReason::Stoploss));
+        assert_eq!(result.trades[1].exit_reason, Some(ExitReason::TakeProfit));
     }
 }
