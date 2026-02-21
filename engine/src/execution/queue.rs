@@ -1,7 +1,7 @@
 use std::collections::{BinaryHeap, HashMap};
 use std::time::Instant;
 
-use super::{ExecutionOrder, OrderPriority};
+use super::ExecutionOrder;
 
 // ---------------------------------------------------------------------------
 // TokenBucket — per-wallet rate limiter
@@ -136,7 +136,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::execution::Side;
+    use crate::execution::{OrderPriority, Side};
     use crate::strategy::{OrderType, Outcome};
 
     fn make_order(priority: OrderPriority, created_at: i64) -> ExecutionOrder {
