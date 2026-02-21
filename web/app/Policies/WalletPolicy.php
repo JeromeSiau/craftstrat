@@ -12,6 +12,11 @@ class WalletPolicy
         return $user->id === $wallet->user_id;
     }
 
+    public function update(User $user, Wallet $wallet): bool
+    {
+        return $user->id === $wallet->user_id;
+    }
+
     public function delete(User $user, Wallet $wallet): bool
     {
         return $user->id === $wallet->user_id;

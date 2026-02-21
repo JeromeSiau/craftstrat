@@ -7,9 +7,12 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreStrategyRequest extends FormRequest
 {
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     /**
-     * Get the validation rules that apply to the request.
-     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
@@ -19,7 +22,7 @@ class StoreStrategyRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'graph' => ['required', 'array'],
             'graph.mode' => ['required', 'in:form,node'],
-            'mode' => ['required', 'in:form,node'],
+            'mode' => ['required', 'in:form,node', 'same:graph.mode'],
         ];
     }
 }

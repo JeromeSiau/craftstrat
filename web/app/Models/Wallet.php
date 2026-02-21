@@ -19,7 +19,6 @@ class Wallet extends Model
         'user_id',
         'label',
         'address',
-        'private_key_enc',
         'balance_usdc',
         'is_active',
     ];
