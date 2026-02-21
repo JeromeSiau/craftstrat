@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
         exec_queue: handles.exec_queue,
         db: handles.db,
         ch: ch_client,
-        redis: redis_conn,
+        redis: Some(redis_conn),
         start_time: std::time::Instant::now(),
         tick_count: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
     });

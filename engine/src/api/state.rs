@@ -13,7 +13,7 @@ pub struct ApiState {
     pub exec_queue: Arc<Mutex<ExecutionQueue>>,
     pub db: PgPool,
     pub ch: ChClient,
-    pub redis: redis::aio::MultiplexedConnection,
+    pub redis: Option<redis::aio::MultiplexedConnection>,
     pub start_time: std::time::Instant,
     pub tick_count: Arc<AtomicU64>,
 }
