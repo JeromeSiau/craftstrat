@@ -22,6 +22,14 @@ pub fn get_field(tick: &Tick, name: &str) -> Option<f64> {
         "ask_size_up" => Some(tick.ask_size_up as f64),
         "bid_size_down" => Some(tick.bid_size_down as f64),
         "ask_size_down" => Some(tick.ask_size_down as f64),
+        "bid_up_l2" => Some(tick.bid_up_l2 as f64),
+        "ask_up_l2" => Some(tick.ask_up_l2 as f64),
+        "bid_up_l3" => Some(tick.bid_up_l3 as f64),
+        "ask_up_l3" => Some(tick.ask_up_l3 as f64),
+        "bid_down_l2" => Some(tick.bid_down_l2 as f64),
+        "ask_down_l2" => Some(tick.ask_down_l2 as f64),
+        "bid_down_l3" => Some(tick.bid_down_l3 as f64),
+        "ask_down_l3" => Some(tick.ask_down_l3 as f64),
         "ref_price" | "chainlink_price" => Some(tick.ref_price as f64),
         "hour_utc" => Some(tick.hour_utc as f64),
         "day_of_week" => Some(tick.day_of_week as f64),
@@ -37,8 +45,8 @@ pub fn evaluate_op(value: f64, operator: &str, target: &serde_json::Value) -> bo
         ">=" => target.as_f64().map_or(false, |t| value >= t),
         "<" => target.as_f64().map_or(false, |t| value < t),
         "<=" => target.as_f64().map_or(false, |t| value <= t),
-        "==" => target.as_f64().map_or(false, |t| (value - t).abs() < f64::EPSILON),
-        "!=" => target.as_f64().map_or(false, |t| (value - t).abs() >= f64::EPSILON),
+        "==" => target.as_f64().map_or(false, |t| (value - t).abs() < 1e-6),
+        "!=" => target.as_f64().map_or(false, |t| (value - t).abs() >= 1e-6),
         "between" => {
             if let Some(arr) = target.as_array() {
                 let lo = arr.first().and_then(|v| v.as_f64()).unwrap_or(f64::MIN);
@@ -72,6 +80,16 @@ mod tests {
         let a = get_field(&tick, "ref_price").unwrap();
         let b = get_field(&tick, "chainlink_price").unwrap();
         assert!((a - b).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_get_field_l2_l3() {
+        let tick = test_tick();
+        assert!((get_field(&tick, "bid_up_l2").unwrap() - 0.58).abs() < 0.001);
+        assert!((get_field(&tick, "ask_up_l2").unwrap() - 0.65).abs() < 0.001);
+        assert!((get_field(&tick, "bid_up_l3").unwrap() - 0.55).abs() < 0.001);
+        assert!((get_field(&tick, "bid_down_l2").unwrap() - 0.36).abs() < 0.001);
+        assert!((get_field(&tick, "ask_down_l3").unwrap() - 0.44).abs() < 0.001);
     }
 
     #[test]

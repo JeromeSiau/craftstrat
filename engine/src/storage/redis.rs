@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::collections::HashSet;
 use std::time::Duration;
 
 use crate::strategy::registry::AssignmentRegistry;
@@ -11,9 +12,16 @@ pub async fn save_states(
     let reg = registry.read().await;
     let mut pipe = redis::pipe();
     let mut count = 0u32;
+    let mut seen = HashSet::new();
     for assignments in reg.values() {
         for a in assignments {
-            let state = a.state.lock().unwrap();
+            if !seen.insert((a.wallet_id, a.strategy_id)) {
+                continue;
+            }
+            let state = match a.state.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
             let key = format!("oddex:strategy_state:{}:{}", a.wallet_id, a.strategy_id);
             let json = serde_json::to_string(&*state)?;
             pipe.set_ex(&key, json, 3600);

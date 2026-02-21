@@ -1,5 +1,4 @@
 use anyhow::Result;
-use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::Message;
 use rayon::prelude::*;
 use tokio::sync::mpsc;
@@ -55,7 +54,17 @@ pub async fn run(
         let signals: Vec<EngineOutput> = assignments
             .par_iter()
             .filter_map(|a| {
-                let mut state = a.state.lock().unwrap();
+                let mut state = match a.state.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => {
+                        tracing::warn!(
+                            wallet_id = a.wallet_id,
+                            strategy_id = a.strategy_id,
+                            "mutex_poisoned_recovering"
+                        );
+                        poisoned.into_inner()
+                    }
+                };
                 let signal = interpreter::evaluate(&a.graph, &tick, &mut state);
                 match signal {
                     Signal::Hold => None,

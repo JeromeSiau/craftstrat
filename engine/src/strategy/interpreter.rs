@@ -9,6 +9,7 @@ use super::{OrderType, Outcome, Signal};
 use crate::fetcher::models::Tick;
 
 /// Main entry point — dispatches to form or node mode.
+/// Risk management and trade counting apply uniformly to both modes.
 pub fn evaluate(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal {
     state.push_tick(tick.clone());
 
@@ -18,36 +19,40 @@ pub fn evaluate(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal
         state.current_slot_ts = tick.slot_ts;
     }
 
-    let mode = graph["mode"].as_str().unwrap_or("form");
-    match mode {
-        "form" => evaluate_form(graph, tick, state),
-        "node" => evaluate_node(graph, tick, state),
-        _ => Signal::Hold,
-    }
-}
-
-// ── Form Mode ────────────────────────────────────────────────────────
-
-fn evaluate_form(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal {
-    // 1. Check risk management on open position
+    // Universal risk management on open position
     if let Some(ref pos) = state.position {
         if let Some(signal) = check_risk(graph, tick, pos) {
+            state.position = None; // clear position after exit signal
             return signal;
         }
         return Signal::Hold; // in position, no risk trigger → hold
     }
 
-    // 2. Check max trades per slot
+    // Universal max trades per slot guard
     let max_trades = graph["risk"]["max_trades_per_slot"].as_u64().unwrap_or(u64::MAX) as u32;
     if state.trades_this_slot >= max_trades {
         return Signal::Hold;
     }
 
-    // 3. Evaluate entry conditions (OR across groups, AND/OR within group)
-    if evaluate_conditions(&graph["conditions"], tick, state) {
-        let signal = build_action_signal(&graph["action"]);
+    let mode = graph["mode"].as_str().unwrap_or("form");
+    let signal = match mode {
+        "form" => evaluate_form_conditions(graph, tick, state),
+        "node" => evaluate_node(graph, tick, state),
+        _ => Signal::Hold,
+    };
+
+    if matches!(signal, Signal::Buy { .. } | Signal::Sell { .. }) {
         state.trades_this_slot += 1;
-        signal
+    }
+    signal
+}
+
+// ── Form Mode ────────────────────────────────────────────────────────
+
+fn evaluate_form_conditions(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal {
+    // Evaluate entry conditions (OR across groups, AND/OR within group)
+    if evaluate_conditions(&graph["conditions"], tick, state) {
+        build_action_signal(&graph["action"])
     } else {
         Signal::Hold
     }
@@ -239,6 +244,12 @@ fn evaluate_node(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signa
                 queue.push_back(next);
             }
         }
+    }
+
+    // Cycle detection: if not all nodes were sorted, the graph has a cycle
+    if order.len() != node_ids.len() {
+        tracing::warn!("strategy graph contains a cycle, skipping evaluation");
+        return Signal::Hold;
     }
 
     // Index nodes by ID
