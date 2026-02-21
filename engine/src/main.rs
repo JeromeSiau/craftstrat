@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let mut tasks = JoinSet::new();
-    tasks::spawn_all(&state, ws_cmd_rx, &mut tasks)?;
+    tasks::spawn_all(&state, ws_cmd_rx, &mut tasks).await?;
 
     tracing::info!("oddex_engine_running");
 

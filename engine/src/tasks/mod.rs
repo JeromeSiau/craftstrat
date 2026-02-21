@@ -1,12 +1,13 @@
 mod data_feed;
 mod engine_tasks;
+mod execution_tasks;
 mod persistence;
 mod writers;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tokio::task::JoinSet;
 
 use crate::config::Config;
@@ -24,7 +25,7 @@ pub struct SharedState {
     pub http: reqwest::Client,
 }
 
-pub fn spawn_all(
+pub async fn spawn_all(
     state: &SharedState,
     ws_cmd_rx: mpsc::Receiver<WsCommand>,
     tasks: &mut JoinSet<anyhow::Result<()>>,
@@ -39,14 +40,34 @@ pub fn spawn_all(
     writers::spawn_clickhouse_writer(state, tasks);
     writers::spawn_kafka_publisher(state, tasks)?;
 
-    // Strategy engine + signal logger
+    // Strategy engine
     let engine_registry = crate::strategy::registry::AssignmentRegistry::new();
     let (signal_tx, signal_rx) = mpsc::channel::<crate::strategy::EngineOutput>(256);
 
     engine_tasks::spawn_strategy_engine(state, engine_registry.clone(), signal_tx, tasks);
-    engine_tasks::spawn_signal_logger(signal_rx, tasks);
 
-    // Persistence
+    // PostgreSQL connection pool
+    let db = crate::storage::postgres::create_pool(&state.config.database_url).await?;
+
+    // Shared execution queue
+    let exec_queue = Arc::new(Mutex::new(
+        crate::execution::queue::ExecutionQueue::new(state.config.max_orders_per_day),
+    ));
+
+    // Execution pipeline (replaces signal logger)
+    execution_tasks::spawn_execution(
+        state,
+        engine_registry.clone(),
+        signal_rx,
+        exec_queue.clone(),
+        db.clone(),
+        tasks,
+    );
+
+    // Copy trading watcher
+    execution_tasks::spawn_watcher(state, exec_queue, db, tasks);
+
+    // Redis state persistence
     persistence::spawn_redis_state_persister(state, engine_registry, tasks);
 
     Ok(())

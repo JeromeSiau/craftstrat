@@ -17,20 +17,3 @@ pub fn spawn_strategy_engine(
     });
 }
 
-pub fn spawn_signal_logger(
-    mut signal_rx: mpsc::Receiver<EngineOutput>,
-    tasks: &mut JoinSet<anyhow::Result<()>>,
-) {
-    tasks.spawn(async move {
-        while let Some(output) = signal_rx.recv().await {
-            tracing::info!(
-                wallet_id = output.wallet_id,
-                strategy_id = output.strategy_id,
-                symbol = %output.symbol,
-                signal = ?output.signal,
-                "engine_signal_output"
-            );
-        }
-        Ok(())
-    });
-}
