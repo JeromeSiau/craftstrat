@@ -1,4 +1,5 @@
 use anyhow::Result;
+use clickhouse::query::RowCursor;
 use clickhouse::Client;
 use std::time::Duration;
 
@@ -35,4 +36,23 @@ pub async fn run_writer(client: Client, mut tick_rx: tokio::sync::broadcast::Rec
             }
         }
     }
+}
+
+pub fn fetch_ticks(
+    client: &Client,
+    symbols: &[String],
+    date_from: time::OffsetDateTime,
+    date_to: time::OffsetDateTime,
+) -> Result<RowCursor<Tick>> {
+    let placeholders: Vec<&str> = symbols.iter().map(|_| "?").collect();
+    let sql = format!(
+        "SELECT ?fields FROM slot_snapshots WHERE symbol IN ({}) AND captured_at >= ? AND captured_at <= ? ORDER BY captured_at ASC",
+        placeholders.join(", ")
+    );
+    let mut query = client.query(&sql);
+    for s in symbols {
+        query = query.bind(s.as_str());
+    }
+    query = query.bind(date_from).bind(date_to);
+    Ok(query.fetch::<Tick>()?)
 }

@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
+use clickhouse::Client;
 use serde_json::Value;
 
 use super::metrics;
-use super::{BacktestResult, BacktestTrade};
+use super::{BacktestRequest, BacktestResult, BacktestTrade};
 use crate::fetcher::models::Tick;
 use crate::strategy::interpreter::evaluate;
 use crate::strategy::state::{Position, StrategyState};
@@ -132,6 +133,23 @@ fn exit_reason(order_type: &OrderType) -> String {
         OrderType::TakeProfit { .. } => "take_profit".into(),
         _ => "signal".into(),
     }
+}
+
+pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<BacktestResult> {
+    let mut cursor = crate::storage::clickhouse::fetch_ticks(
+        ch_client,
+        &req.market_filter,
+        req.date_from,
+        req.date_to,
+    )?;
+
+    let mut engine = BacktestEngine::new(req.strategy_graph.clone());
+
+    while let Some(tick) = cursor.next().await? {
+        engine.process_tick(&tick);
+    }
+
+    Ok(engine.finish())
 }
 
 #[cfg(test)]
