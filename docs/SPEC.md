@@ -709,6 +709,12 @@ POST   /internal/backtest/run
 
 GET    /internal/engine/status
        Returns: { active_wallets, ticks_per_sec, kafka_lag, ... }
+
+POST   /internal/copy/watch
+       Body: { leader_address }
+
+POST   /internal/copy/unwatch
+       Body: { leader_address }
 ```
 
 ---
@@ -965,7 +971,7 @@ Follow this sequence to build incrementally:
 20. Result aggregation (PnL, win rate, Sharpe, drawdown)
 
 ### Phase 6 — Internal API
-21. Axum server with all `/internal/*` endpoints
+21. Axum server with 7 `/internal/*` endpoints (strategy activate/deactivate, wallet state, backtest run, engine status, copy watch/unwatch)
 22. Laravel EngineService (HTTP calls to Axum)
 
 ### Phase 7 — Laravel + Inertia
