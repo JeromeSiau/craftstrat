@@ -59,14 +59,13 @@ impl OrderBook {
 pub struct ActiveMarket {
     pub condition_id: String,
     pub slug: String,
-    #[allow(dead_code)] // Used in future phases for multi-asset routing
-    pub symbol: String,
+    pub binance_symbol: String,
     pub slot_ts: u32,
     pub slot_duration: u32,
     pub end_time: f64,
     pub token_up: String,
     pub token_down: String,
-    pub btc_price_start: Option<f32>,
+    pub ref_price_start: Option<f32>,
 }
 
 #[derive(Debug, Clone, Row, Serialize)]

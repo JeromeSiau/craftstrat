@@ -6,21 +6,22 @@ mod storage;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, watch, RwLock};
+use tokio::sync::{mpsc, RwLock};
 
 use config::Config;
 use fetcher::models::ActiveMarket;
+use fetcher::tick_builder::PriceCache;
 use fetcher::websocket::{OrderBookCache, WsCommand};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let cfg = Config::from_env()?;
-    tracing::info!("oddex_engine_starting");
+    tracing::info!(symbols = cfg.symbols.len(), "oddex_engine_starting");
 
     let books: OrderBookCache = Arc::new(RwLock::new(HashMap::new()));
     let markets: Arc<RwLock<HashMap<String, ActiveMarket>>> = Arc::new(RwLock::new(HashMap::new()));
-    let (btc_tx, btc_rx) = watch::channel(0.0f64);
+    let prices: PriceCache = Arc::new(RwLock::new(HashMap::new()));
     let (ws_cmd_tx, ws_cmd_rx) = mpsc::channel::<WsCommand>(64);
     let (ch_tx, ch_rx) = mpsc::channel(1000);
     let (kafka_tx, kafka_rx) = mpsc::channel(1000);
@@ -36,40 +37,43 @@ async fn main() -> anyhow::Result<()> {
         fetcher::websocket::run_ws_feed(ws_url, ws_books, ws_cmd_rx).await;
     });
 
-    // 2. BTC price poller
+    // 2. Price poller — all Binance symbols every 2s
     let price_url = cfg.binance_api_url.clone();
     let price_http = http.clone();
+    let price_cache = prices.clone();
+    let binance_symbols = cfg.binance_symbols();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(2));
         loop {
             interval.tick().await;
-            if let Ok(resp) = price_http.get(format!("{price_url}?symbol=BTCUSDT")).send().await {
-                if let Ok(body) = resp.json::<serde_json::Value>().await {
-                    if let Some(p) = body["price"].as_str().and_then(|s| s.parse::<f64>().ok()) {
-                        let _ = btc_tx.send(p);
+            for sym in &binance_symbols {
+                if let Ok(resp) = price_http.get(format!("{price_url}?symbol={sym}")).send().await {
+                    if let Ok(body) = resp.json::<serde_json::Value>().await {
+                        if let Some(p) = body["price"].as_str().and_then(|s| s.parse::<f64>().ok()) {
+                            price_cache.write().await.insert(sym.clone(), p);
+                        }
                     }
                 }
             }
         }
     });
 
-    // 3. Market discovery
+    // 3. Market discovery (every 60s)
     let disc_markets = markets.clone();
     let disc_http = http.clone();
     let disc_cfg = cfg.clone();
-    let disc_btc = btc_rx.clone();
+    let disc_prices = prices.clone();
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(3)).await;
         let mut interval = tokio::time::interval(Duration::from_secs(disc_cfg.discovery_interval_secs));
         loop {
             interval.tick().await;
-            let btc = *disc_btc.borrow() as f32;
+            let current_prices = disc_prices.read().await.clone();
             match fetcher::gamma::discover_markets(
                 &disc_http,
                 &disc_cfg.gamma_api_url,
                 &disc_cfg.symbols,
-                disc_cfg.slot_duration,
-                btc,
+                &current_prices,
             )
             .await
             {
@@ -114,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
     // 4. Tick builder -> fan out to ClickHouse + Kafka
     let tb_books = books.clone();
     let tb_markets = markets.clone();
-    let tb_btc = btc_rx.clone();
+    let tb_prices = prices.clone();
     tokio::spawn(async move {
         let (internal_tx, mut internal_rx) = mpsc::channel::<fetcher::models::Tick>(1000);
         let ch = ch_tx;
@@ -128,7 +132,7 @@ async fn main() -> anyhow::Result<()> {
         fetcher::tick_builder::run_tick_builder(
             tb_books,
             tb_markets,
-            tb_btc,
+            tb_prices,
             internal_tx,
             Duration::from_millis(cfg.tick_interval_ms),
         )

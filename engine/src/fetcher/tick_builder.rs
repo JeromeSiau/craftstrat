@@ -7,11 +7,13 @@ use tokio::sync::RwLock;
 use super::models::{ActiveMarket, OrderBook, Tick};
 use super::websocket::OrderBookCache;
 
+pub type PriceCache = Arc<RwLock<HashMap<String, f64>>>;
+
 pub fn build_tick(
     market: &ActiveMarket,
     book_up: Option<&OrderBook>,
     book_down: Option<&OrderBook>,
-    btc_price: f32,
+    ref_price: f32,
     now_unix: f64,
 ) -> Option<Tick> {
     let minutes_into_slot = (now_unix - market.slot_ts as f64) / 60.0;
@@ -31,9 +33,9 @@ pub fn build_tick(
     let (bid_down_l2, ask_down_l2) = extract_ln(book_down, 1);
     let (bid_down_l3, ask_down_l3) = extract_ln(book_down, 2);
 
-    let btc_start = market.btc_price_start.unwrap_or(btc_price);
-    let dir_move_pct = if btc_start > 0.0 {
-        (btc_price - btc_start) / btc_start * 100.0
+    let price_start = market.ref_price_start.unwrap_or(ref_price);
+    let dir_move_pct = if price_start > 0.0 {
+        (ref_price - price_start) / price_start * 100.0
     } else {
         0.0
     };
@@ -70,15 +72,15 @@ pub fn build_tick(
         mid_down: if bid_down > 0.0 && ask_down > 0.0 { (bid_down + ask_down) / 2.0 } else { 0.0 },
         size_ratio_up: safe_div(bid_sz_up, ask_sz_up),
         size_ratio_down: safe_div(bid_sz_down, ask_sz_down),
-        chainlink_price: btc_price,
+        chainlink_price: ref_price,
         dir_move_pct,
         abs_move_pct: dir_move_pct.abs(),
         hour_utc: dt.hour() as u8,
         day_of_week: dt.weekday().num_days_from_monday() as u8,
         market_volume_usd: 0.0,
         winner: None,
-        btc_price_start: btc_start,
-        btc_price_end: btc_price,
+        btc_price_start: price_start,
+        btc_price_end: ref_price,
     })
 }
 
@@ -107,7 +109,7 @@ fn safe_div(a: f32, b: f32) -> f32 {
 pub async fn run_tick_builder(
     books: OrderBookCache,
     markets: Arc<RwLock<HashMap<String, ActiveMarket>>>,
-    btc_rx: tokio::sync::watch::Receiver<f64>,
+    prices: PriceCache,
     tick_tx: tokio::sync::mpsc::Sender<Tick>,
     interval: Duration,
 ) {
@@ -118,18 +120,23 @@ pub async fn run_tick_builder(
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs_f64();
-        let btc_price = *btc_rx.borrow() as f32;
-        if btc_price <= 0.0 { continue; }
 
         let active = markets.read().await;
         let book_cache = books.read().await;
+        let price_cache = prices.read().await;
 
         for market in active.values() {
+            let ref_price = price_cache
+                .get(&market.binance_symbol)
+                .copied()
+                .unwrap_or(0.0) as f32;
+            if ref_price <= 0.0 { continue; }
+
             let book_up = book_cache.get(&market.token_up);
             let book_down = book_cache.get(&market.token_down);
             if book_up.is_none() && book_down.is_none() { continue; }
 
-            if let Some(tick) = build_tick(market, book_up, book_down, btc_price, now) {
+            if let Some(tick) = build_tick(market, book_up, book_down, ref_price, now) {
                 if tick_tx.send(tick).await.is_err() {
                     return;
                 }
@@ -147,13 +154,13 @@ mod tests {
         ActiveMarket {
             condition_id: "0xabc".into(),
             slug: "btc-updown-15m-1700000000".into(),
-            symbol: "BTC".into(),
+            binance_symbol: "BTCUSDT".into(),
             slot_ts,
             slot_duration: 900,
             end_time: (slot_ts + 900) as f64,
             token_up: "tok_up".into(),
             token_down: "tok_down".into(),
-            btc_price_start: Some(50000.0),
+            ref_price_start: Some(50000.0),
         }
     }
 

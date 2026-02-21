@@ -1,13 +1,9 @@
 use anyhow::Result;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 use super::models::ActiveMarket;
-
-const SYMBOL_TO_SLUG: &[(&str, &str)] = &[
-    ("BTCUSDT", "btc"),
-    ("ETHUSDT", "eth"),
-    ("SOLUSDT", "sol"),
-];
+use crate::config::SymbolConfig;
 
 #[derive(Debug, Deserialize)]
 struct GammaEvent {
@@ -23,72 +19,80 @@ struct GammaMarket {
     end_date: Option<String>,
 }
 
+fn duration_suffix(secs: u32) -> &'static str {
+    match secs {
+        300 => "5m",
+        900 => "15m",
+        3600 => "1h",
+        14400 => "4h",
+        86400 => "24h",
+        _ => "15m",
+    }
+}
+
 pub async fn discover_markets(
     client: &reqwest::Client,
     gamma_url: &str,
-    symbols: &[String],
-    slot_duration: u32,
-    btc_price: f32,
+    symbols: &[SymbolConfig],
+    prices: &HashMap<String, f64>,
 ) -> Result<Vec<ActiveMarket>> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
         .as_secs();
-    let current_slot = (now / slot_duration as u64) * slot_duration as u64;
-    let suffix = match slot_duration {
-        300 => "5m",
-        _ => "15m",
-    };
 
     let mut markets = Vec::new();
 
-    for symbol in symbols {
-        let Some((_, prefix)) = SYMBOL_TO_SLUG.iter().find(|(s, _)| *s == symbol.as_str()) else {
-            continue;
-        };
+    for sym in symbols {
+        let ref_price = prices.get(&sym.binance_symbol).copied().unwrap_or(0.0) as f32;
 
-        for offset in 0..2u64 {
-            let slot_ts = current_slot + offset * slot_duration as u64;
-            let slug = format!("{prefix}-updown-{suffix}-{slot_ts}");
-            let url = format!("{gamma_url}/events?slug={slug}");
+        for &slot_duration in &sym.slot_durations {
+            let current_slot = (now / slot_duration as u64) * slot_duration as u64;
+            let suffix = duration_suffix(slot_duration);
 
-            let resp = match client.get(&url).send().await {
-                Ok(r) if r.status().is_success() => r,
-                _ => continue,
-            };
+            for offset in 0..2u64 {
+                let slot_ts = current_slot + offset * slot_duration as u64;
+                let slug = format!("{}-updown-{suffix}-{slot_ts}", sym.slug_prefix);
+                let url = format!("{gamma_url}/events?slug={slug}");
 
-            let events: Vec<GammaEvent> = match resp.json().await {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
+                let resp = match client.get(&url).send().await {
+                    Ok(r) if r.status().is_success() => r,
+                    _ => continue,
+                };
 
-            for event in &events {
-                let Some(mkts) = &event.markets else { continue };
-                for mkt in mkts {
-                    let Some(ref cid) = mkt.condition_id else { continue };
-                    let tokens = parse_json_str_array(mkt.clob_token_ids.as_deref());
-                    let outcomes = parse_json_str_array(mkt.outcomes.as_deref());
-                    if tokens.len() < 2 || outcomes.len() < 2 {
-                        continue;
+                let events: Vec<GammaEvent> = match resp.json().await {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+
+                for event in &events {
+                    let Some(mkts) = &event.markets else { continue };
+                    for mkt in mkts {
+                        let Some(ref cid) = mkt.condition_id else { continue };
+                        let tokens = parse_json_str_array(mkt.clob_token_ids.as_deref());
+                        let outcomes = parse_json_str_array(mkt.outcomes.as_deref());
+                        if tokens.len() < 2 || outcomes.len() < 2 {
+                            continue;
+                        }
+
+                        let end_time = mkt
+                            .end_date
+                            .as_deref()
+                            .and_then(parse_iso_ts)
+                            .unwrap_or((slot_ts + slot_duration as u64) as f64);
+
+                        markets.push(ActiveMarket {
+                            condition_id: cid.clone(),
+                            slug: slug.clone(),
+                            binance_symbol: sym.binance_symbol.clone(),
+                            slot_ts: slot_ts as u32,
+                            slot_duration,
+                            end_time,
+                            token_up: tokens[0].clone(),
+                            token_down: tokens[1].clone(),
+                            ref_price_start: if ref_price > 0.0 { Some(ref_price) } else { None },
+                        });
+                        break;
                     }
-
-                    let end_time = mkt
-                        .end_date
-                        .as_deref()
-                        .and_then(parse_iso_ts)
-                        .unwrap_or((slot_ts + slot_duration as u64) as f64);
-
-                    markets.push(ActiveMarket {
-                        condition_id: cid.clone(),
-                        slug: slug.clone(),
-                        symbol: prefix.to_uppercase(),
-                        slot_ts: slot_ts as u32,
-                        slot_duration,
-                        end_time,
-                        token_up: tokens[0].clone(),
-                        token_down: tokens[1].clone(),
-                        btc_price_start: if btc_price > 0.0 { Some(btc_price) } else { None },
-                    });
-                    break;
                 }
             }
         }
