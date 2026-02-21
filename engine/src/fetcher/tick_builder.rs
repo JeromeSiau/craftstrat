@@ -7,7 +7,21 @@ use tokio::sync::RwLock;
 use super::models::{ActiveMarket, OrderBook, Tick};
 use super::websocket::OrderBookCache;
 
-pub type PriceCache = Arc<RwLock<HashMap<String, f64>>>;
+#[derive(Clone)]
+pub struct PriceCache(Arc<RwLock<HashMap<String, f64>>>);
+
+impl PriceCache {
+    pub fn new() -> Self {
+        Self(Arc::new(RwLock::new(HashMap::new())))
+    }
+}
+
+impl std::ops::Deref for PriceCache {
+    type Target = RwLock<HashMap<String, f64>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub fn build_tick(
     market: &ActiveMarket,

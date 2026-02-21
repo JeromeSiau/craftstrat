@@ -40,7 +40,7 @@ pub fn spawn_all(
     writers::spawn_kafka_publisher(state, tasks)?;
 
     // Strategy engine + signal logger
-    let engine_registry = crate::strategy::registry::new_registry();
+    let engine_registry = crate::strategy::registry::AssignmentRegistry::new();
     let (signal_tx, signal_rx) = mpsc::channel::<crate::strategy::EngineOutput>(256);
 
     engine_tasks::spawn_strategy_engine(state, engine_registry.clone(), signal_tx, tasks);

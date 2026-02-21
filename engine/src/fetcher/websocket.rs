@@ -8,7 +8,21 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use super::models::{Level, OrderBook, Side};
 
-pub type OrderBookCache = Arc<RwLock<HashMap<String, OrderBook>>>;
+#[derive(Clone)]
+pub struct OrderBookCache(Arc<RwLock<HashMap<String, OrderBook>>>);
+
+impl OrderBookCache {
+    pub fn new() -> Self {
+        Self(Arc::new(RwLock::new(HashMap::new())))
+    }
+}
+
+impl std::ops::Deref for OrderBookCache {
+    type Target = RwLock<HashMap<String, OrderBook>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub enum WsCommand {
     Subscribe { token_ids: Vec<String> },

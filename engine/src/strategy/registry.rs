@@ -15,10 +15,20 @@ pub struct Assignment {
     pub state: Arc<Mutex<StrategyState>>,
 }
 
-pub type AssignmentRegistry = Arc<RwLock<HashMap<String, Vec<Assignment>>>>;
+#[derive(Clone)]
+pub struct AssignmentRegistry(Arc<RwLock<HashMap<String, Vec<Assignment>>>>);
 
-pub fn new_registry() -> AssignmentRegistry {
-    Arc::new(RwLock::new(HashMap::new()))
+impl AssignmentRegistry {
+    pub fn new() -> Self {
+        Self(Arc::new(RwLock::new(HashMap::new())))
+    }
+}
+
+impl std::ops::Deref for AssignmentRegistry {
+    type Target = RwLock<HashMap<String, Vec<Assignment>>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 pub async fn activate(
@@ -63,7 +73,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_activate_and_lookup() {
-        let reg = new_registry();
+        let reg = AssignmentRegistry::new();
         activate(
             &reg,
             1,
@@ -84,7 +94,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_activate_multi_market() {
-        let reg = new_registry();
+        let reg = AssignmentRegistry::new();
         activate(
             &reg,
             1,
@@ -103,7 +113,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_deactivate() {
-        let reg = new_registry();
+        let reg = AssignmentRegistry::new();
         activate(
             &reg,
             1,
@@ -135,7 +145,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_deactivate_removes_empty_entries() {
-        let reg = new_registry();
+        let reg = AssignmentRegistry::new();
         activate(
             &reg,
             1,

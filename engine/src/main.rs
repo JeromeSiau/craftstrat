@@ -13,7 +13,8 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinSet;
 
 use config::Config;
-use fetcher::websocket::WsCommand;
+use fetcher::tick_builder::PriceCache;
+use fetcher::websocket::{OrderBookCache, WsCommand};
 use tasks::SharedState;
 
 #[tokio::main]
@@ -27,9 +28,9 @@ async fn main() -> anyhow::Result<()> {
 
     let state = SharedState {
         config: cfg,
-        books: Arc::new(RwLock::new(HashMap::new())),
+        books: OrderBookCache::new(),
         markets: Arc::new(RwLock::new(HashMap::new())),
-        prices: Arc::new(RwLock::new(HashMap::new())),
+        prices: PriceCache::new(),
         tick_tx: tick_tx.clone(),
         ws_cmd_tx,
         http: reqwest::Client::builder()
