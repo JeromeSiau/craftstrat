@@ -20,7 +20,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement('CREATE INDEX idx_strategies_graph ON strategies USING GIN (graph)');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('CREATE INDEX idx_strategies_graph ON strategies USING GIN (graph)');
+        }
     }
 
     public function down(): void
