@@ -1,0 +1,53 @@
+mod data_feed;
+mod engine_tasks;
+mod persistence;
+mod writers;
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::task::JoinSet;
+
+use crate::config::Config;
+use crate::fetcher::models::{ActiveMarket, Tick};
+use crate::fetcher::tick_builder::PriceCache;
+use crate::fetcher::websocket::{OrderBookCache, WsCommand};
+
+pub struct SharedState {
+    pub config: Config,
+    pub books: OrderBookCache,
+    pub markets: Arc<RwLock<HashMap<String, ActiveMarket>>>,
+    pub prices: PriceCache,
+    pub tick_tx: broadcast::Sender<Tick>,
+    pub ws_cmd_tx: mpsc::Sender<WsCommand>,
+    pub http: reqwest::Client,
+}
+
+pub fn spawn_all(
+    state: &SharedState,
+    ws_cmd_rx: mpsc::Receiver<WsCommand>,
+    tasks: &mut JoinSet<anyhow::Result<()>>,
+) -> anyhow::Result<()> {
+    // Data feed tasks
+    data_feed::spawn_ws_feed(state, ws_cmd_rx, tasks);
+    data_feed::spawn_price_poller(state, tasks);
+    data_feed::spawn_market_discovery(state, tasks);
+    data_feed::spawn_tick_builder(state, tasks);
+
+    // Writer tasks
+    writers::spawn_clickhouse_writer(state, tasks);
+    writers::spawn_kafka_publisher(state, tasks)?;
+
+    // Strategy engine + signal logger
+    let engine_registry = crate::strategy::registry::new_registry();
+    let (signal_tx, signal_rx) = mpsc::channel::<crate::strategy::EngineOutput>(256);
+
+    engine_tasks::spawn_strategy_engine(state, engine_registry.clone(), signal_tx, tasks);
+    engine_tasks::spawn_signal_logger(signal_rx, tasks);
+
+    // Persistence
+    persistence::spawn_redis_state_persister(state, engine_registry, tasks);
+
+    Ok(())
+}
