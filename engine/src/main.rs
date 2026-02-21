@@ -176,6 +176,37 @@ async fn main() -> anyhow::Result<()> {
         Ok(())
     });
 
+    // 7. Strategy engine — Kafka consumer → evaluate → signal output
+    let engine_registry = strategy::registry::new_registry();
+    let (signal_tx, mut signal_rx) = mpsc::channel::<strategy::EngineOutput>(256);
+
+    let eng_brokers = cfg.kafka_brokers.clone();
+    let eng_registry = engine_registry.clone();
+    tasks.spawn(async move {
+        strategy::engine::run(&eng_brokers, eng_registry, signal_tx).await
+    });
+
+    // 8. Signal logger (placeholder — replaced by execution queue in Phase 4)
+    tasks.spawn(async move {
+        while let Some(output) = signal_rx.recv().await {
+            tracing::info!(
+                wallet_id = output.wallet_id,
+                strategy_id = output.strategy_id,
+                symbol = %output.symbol,
+                signal = ?output.signal,
+                "engine_signal_output"
+            );
+        }
+        Ok(())
+    });
+
+    // 9. Redis state persister
+    let redis_registry = engine_registry.clone();
+    let redis_url = cfg.redis_url.clone();
+    tasks.spawn(async move {
+        storage::redis::run_state_persister(&redis_url, redis_registry).await
+    });
+
     tracing::info!("oddex_engine_running");
 
     tokio::select! {
