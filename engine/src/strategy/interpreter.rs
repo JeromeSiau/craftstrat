@@ -121,8 +121,65 @@ fn resolve_indicator(indicator: &Value, tick: &Tick, state: &StrategyState) -> O
             let ticks: Vec<Tick> = state.window.iter().cloned().collect();
             Some(indicators::vwap(&ticks, field))
         }
+        "cross_above" | "cross_below" => {
+            resolve_cross(func, indicator, state)
+        }
         _ => None,
     }
+}
+
+/// Compute a scalar indicator value from a sub-indicator spec over a given window slice.
+fn compute_scalar(spec: &Value, window: &[Tick]) -> Option<f64> {
+    if let Some(name) = spec.as_str() {
+        // Stateless field — use last tick in window
+        return window.last().and_then(|t| get_field(t, name));
+    }
+    let obj = spec.as_object()?;
+    let func = obj.get("fn")?.as_str()?;
+    let field = obj.get("field").and_then(|v| v.as_str()).unwrap_or("mid_up");
+    let values: Vec<f64> = window.iter().filter_map(|t| get_field(t, field)).collect();
+    match func {
+        "EMA" => {
+            let period = obj.get("period").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+            Some(indicators::ema(&values, period))
+        }
+        "SMA" => {
+            let period = obj.get("period").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+            Some(indicators::sma(&values, period))
+        }
+        "RSI" => {
+            let period = obj.get("period").and_then(|v| v.as_u64()).unwrap_or(14) as usize;
+            Some(indicators::rsi(&values, period))
+        }
+        _ => None,
+    }
+}
+
+/// Resolve cross_above / cross_below by comparing two sub-indicators
+/// at the previous tick vs the current tick.
+/// JSON: { "fn": "cross_above", "a": { "fn": "EMA", "period": 10, "field": "mid_up" }, "b": { "fn": "EMA", "period": 20, "field": "mid_up" } }
+fn resolve_cross(func: &str, indicator: &Value, state: &StrategyState) -> Option<f64> {
+    if state.window.len() < 2 {
+        return Some(0.0);
+    }
+    let spec_a = &indicator["a"];
+    let spec_b = &indicator["b"];
+
+    let all_ticks: Vec<Tick> = state.window.iter().cloned().collect();
+    let prev_ticks = &all_ticks[..all_ticks.len() - 1];
+
+    let curr_a = compute_scalar(spec_a, &all_ticks)?;
+    let curr_b = compute_scalar(spec_b, &all_ticks)?;
+    let prev_a = compute_scalar(spec_a, prev_ticks)?;
+    let prev_b = compute_scalar(spec_b, prev_ticks)?;
+
+    let result = match func {
+        "cross_above" => indicators::cross_above(prev_a, curr_a, prev_b, curr_b),
+        "cross_below" => indicators::cross_below(prev_a, curr_a, prev_b, curr_b),
+        _ => false,
+    };
+    // Return 1.0 for true, 0.0 for false — used with operator "==" 1.0 or "> 0"
+    Some(if result { 1.0 } else { 0.0 })
 }
 
 fn check_risk(graph: &Value, tick: &Tick, pos: &Position) -> Option<Signal> {
@@ -604,7 +661,79 @@ mod tests {
         ));
     }
 
+    // ── Cross Indicator Tests ──
+
+    #[test]
+    fn test_form_cross_above_triggers() {
+        let graph = cross_graph("cross_above");
+        let mut state = StrategyState::new(100);
+        // Declining → EMA(2) drops below SMA(4)
+        for mid in [0.80, 0.70, 0.60, 0.50, 0.40] {
+            let mut t = test_tick();
+            t.mid_up = mid;
+            state.push_tick(t);
+        }
+        // Sharp jump → EMA(2) crosses above SMA(4)
+        let mut tick = test_tick();
+        tick.mid_up = 0.90;
+        let signal = evaluate(&graph, &tick, &mut state);
+        assert!(matches!(signal, Signal::Buy { .. }));
+    }
+
+    #[test]
+    fn test_form_cross_above_no_cross() {
+        let graph = cross_graph("cross_above");
+        let mut state = StrategyState::new(100);
+        // Steadily rising → EMA(2) stays above SMA(4), no crossover
+        for mid in [0.50, 0.52, 0.54, 0.56, 0.58] {
+            let mut t = test_tick();
+            t.mid_up = mid;
+            state.push_tick(t);
+        }
+        let mut tick = test_tick();
+        tick.mid_up = 0.60;
+        let signal = evaluate(&graph, &tick, &mut state);
+        assert!(matches!(signal, Signal::Hold));
+    }
+
+    #[test]
+    fn test_form_cross_below_triggers() {
+        let graph = cross_graph("cross_below");
+        let mut state = StrategyState::new(100);
+        // Rising → EMA(2) above SMA(4)
+        for mid in [0.40, 0.50, 0.60, 0.70, 0.80] {
+            let mut t = test_tick();
+            t.mid_up = mid;
+            state.push_tick(t);
+        }
+        // Sharp drop → EMA(2) crosses below SMA(4)
+        let mut tick = test_tick();
+        tick.mid_up = 0.30;
+        let signal = evaluate(&graph, &tick, &mut state);
+        assert!(matches!(signal, Signal::Buy { .. }));
+    }
+
     // ── Helpers ──
+
+    fn cross_graph(func: &str) -> Value {
+        serde_json::json!({
+            "mode": "form",
+            "conditions": [{
+                "type": "AND",
+                "rules": [{
+                    "indicator": {
+                        "fn": func,
+                        "a": { "fn": "EMA", "period": 2, "field": "mid_up" },
+                        "b": { "fn": "SMA", "period": 4, "field": "mid_up" }
+                    },
+                    "operator": ">",
+                    "value": 0
+                }]
+            }],
+            "action": { "signal": "buy", "outcome": "UP", "size_usdc": 25, "order_type": "market" },
+            "risk": {}
+        })
+    }
 
     fn simple_form_graph() -> Value {
         serde_json::json!({

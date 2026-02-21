@@ -14,7 +14,7 @@ pub async fn run(
     registry: AssignmentRegistry,
     signal_tx: mpsc::Sender<EngineOutput>,
 ) -> Result<()> {
-    let consumer = kafka::consumer::create_consumer(brokers, "strategy-engine")?;
+    let consumer = kafka::consumer::create_consumer(brokers, "strategy-engine", &["ticks"])?;
     tracing::info!("strategy_engine_started");
 
     loop {
