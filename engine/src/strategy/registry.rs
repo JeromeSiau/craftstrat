@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use super::state::StrategyState;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Assignment {
     pub wallet_id: u64,
     pub strategy_id: u64,
@@ -31,6 +32,7 @@ impl std::ops::Deref for AssignmentRegistry {
     }
 }
 
+#[allow(dead_code)]
 pub async fn activate(
     registry: &AssignmentRegistry,
     wallet_id: u64,
@@ -58,6 +60,7 @@ pub async fn activate(
     tracing::info!(wallet_id, strategy_id, ?markets, "assignment_activated");
 }
 
+#[allow(dead_code)]
 pub async fn deactivate(registry: &AssignmentRegistry, wallet_id: u64, strategy_id: u64) {
     let mut reg = registry.write().await;
     for assignments in reg.values_mut() {

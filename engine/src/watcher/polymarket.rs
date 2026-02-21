@@ -172,7 +172,7 @@ async fn update_last_seen(
 fn build_copy_order(
     trade: &LeaderTrade,
     follower: &CopyRelationship,
-    _leader_address: &str,
+    leader_address: &str,
 ) -> Option<ExecutionOrder> {
     // 1. Check markets_filter
     if let Some(ref filter_value) = follower.markets_filter {
@@ -226,6 +226,8 @@ fn build_copy_order(
         order_type: OrderType::Market,
         priority: OrderPriority::CopyMarket,
         created_at: chrono::Utc::now().timestamp(),
+        leader_address: leader_address.to_string(),
+        leader_tx_hash: trade.transaction_hash.clone(),
     })
 }
 
@@ -274,6 +276,8 @@ mod tests {
         assert_eq!(order.outcome, Outcome::Up);
         assert!(order.strategy_id.is_none());
         assert_eq!(order.copy_relationship_id, Some(1));
+        assert_eq!(order.leader_address, "0xleader");
+        assert_eq!(order.leader_tx_hash, "0xdeadbeef");
     }
 
     #[test]

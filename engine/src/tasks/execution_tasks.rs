@@ -7,7 +7,7 @@ use tokio::task::JoinSet;
 use super::SharedState;
 use crate::execution::executor;
 use crate::execution::fees::FeeCache;
-use crate::execution::orders::OrderSubmitter;
+use crate::execution::orders::{BuilderCredentials, OrderSubmitter};
 use crate::execution::queue::ExecutionQueue;
 use crate::execution::wallet::WalletKeyStore;
 use crate::execution::{ExecutionOrder, OrderPriority, Side};
@@ -43,15 +43,18 @@ pub fn spawn_execution(
     let fee_cache = Arc::new(FeeCache::new(state.http.clone(), &cfg.clob_api_url));
 
     // Order submitter
+    let credentials = BuilderCredentials {
+        api_key: cfg.builder_api_key.clone(),
+        secret: cfg.builder_secret.clone(),
+        passphrase: cfg.builder_passphrase.clone(),
+    };
     let submitter = Arc::new(OrderSubmitter::new(
         state.http.clone(),
         &cfg.clob_api_url,
-        cfg.builder_api_key.clone(),
-        cfg.builder_secret.clone(),
-        cfg.builder_passphrase.clone(),
+        credentials,
         wallet_keys,
         fee_cache,
-        true, // neg_risk — updown markets use NegRiskCtfExchange
+        cfg.neg_risk,
     ));
 
     // Signal → queue bridge
@@ -173,5 +176,7 @@ fn build_order_from_signal(
         order_type: order_type.clone(),
         priority,
         created_at: chrono::Utc::now().timestamp(),
+        leader_address: String::new(),
+        leader_tx_hash: String::new(),
     }
 }

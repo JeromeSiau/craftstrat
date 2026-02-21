@@ -43,6 +43,7 @@ pub struct Config {
     pub builder_passphrase: String,
     pub encryption_key: String,
     pub max_orders_per_day: u32,
+    pub neg_risk: bool,
 }
 
 fn default_sources() -> Vec<MarketSource> {
@@ -127,6 +128,9 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(3000),
+            neg_risk: std::env::var("ENGINE_NEG_RISK")
+                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                .unwrap_or(true), // updown markets use NegRiskCtfExchange by default
         })
     }
 

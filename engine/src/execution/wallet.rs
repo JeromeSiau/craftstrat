@@ -40,6 +40,7 @@ impl WalletKeyStore {
     }
 
     /// Stores an encrypted private key (base64-encoded) for a wallet.
+    #[allow(dead_code)]
     pub fn store_key(&self, wallet_id: u64, encrypted_b64: &str) -> Result<()> {
         let raw = BASE64
             .decode(encrypted_b64)
@@ -89,6 +90,7 @@ impl WalletKeyStore {
     }
 
     /// Returns the Ethereum address for the stored wallet key.
+    #[allow(dead_code)]
     pub fn get_address(&self, wallet_id: u64) -> Result<Address> {
         let signer = self.get_signer(wallet_id)?;
         Ok(signer.address())
@@ -97,6 +99,7 @@ impl WalletKeyStore {
     /// Encrypts a raw private key with a random nonce. Returns base64-encoded payload.
     ///
     /// Useful for testing and initial key ingestion.
+    #[allow(dead_code)]
     pub fn encrypt_key(&self, private_key_bytes: &[u8]) -> Result<String> {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let ciphertext = self
@@ -111,17 +114,21 @@ impl WalletKeyStore {
     }
 
     /// Returns whether a key is stored for the given wallet.
+    #[allow(dead_code)]
     pub fn has_key(&self, wallet_id: u64) -> bool {
         self.keys
             .read()
+            .map_err(|e| anyhow::anyhow!("lock poisoned: {e}"))
             .map(|keys| keys.contains_key(&wallet_id))
             .unwrap_or(false)
     }
 
     /// Removes the stored key for a wallet.
+    #[allow(dead_code)]
     pub fn remove_key(&self, wallet_id: u64) {
-        if let Ok(mut keys) = self.keys.write() {
-            keys.remove(&wallet_id);
+        match self.keys.write() {
+            Ok(mut keys) => { keys.remove(&wallet_id); }
+            Err(e) => tracing::warn!(wallet_id, error = %e, "remove_key_lock_poisoned"),
         }
     }
 }

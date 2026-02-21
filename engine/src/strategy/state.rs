@@ -25,6 +25,7 @@ pub struct StrategyState {
 }
 
 impl StrategyState {
+    #[allow(dead_code)]
     pub fn new(window_size: usize) -> Self {
         Self {
             window: VecDeque::with_capacity(window_size),

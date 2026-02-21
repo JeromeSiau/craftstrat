@@ -74,12 +74,17 @@ struct AssociateTrade {
 // OrderSubmitter
 // ---------------------------------------------------------------------------
 
+/// Polymarket Builder Program authentication credentials.
+pub struct BuilderCredentials {
+    pub api_key: String,
+    pub secret: String,
+    pub passphrase: String,
+}
+
 pub struct OrderSubmitter {
     http: reqwest::Client,
     clob_url: String,
-    builder_api_key: String,
-    builder_secret: String,
-    builder_passphrase: String,
+    credentials: BuilderCredentials,
     wallet_keys: Arc<WalletKeyStore>,
     fee_cache: Arc<FeeCache>,
     neg_risk: bool,
@@ -89,9 +94,7 @@ impl OrderSubmitter {
     pub fn new(
         http: reqwest::Client,
         clob_url: &str,
-        builder_api_key: String,
-        builder_secret: String,
-        builder_passphrase: String,
+        credentials: BuilderCredentials,
         wallet_keys: Arc<WalletKeyStore>,
         fee_cache: Arc<FeeCache>,
         neg_risk: bool,
@@ -99,9 +102,7 @@ impl OrderSubmitter {
         Self {
             http,
             clob_url: clob_url.trim_end_matches('/').to_string(),
-            builder_api_key,
-            builder_secret,
-            builder_passphrase,
+            credentials,
             wallet_keys,
             fee_cache,
             neg_risk,
@@ -259,12 +260,12 @@ impl OrderSubmitter {
         );
         headers.insert(
             "POLY_API_KEY",
-            HeaderValue::from_str(&self.builder_api_key)
+            HeaderValue::from_str(&self.credentials.api_key)
                 .context("invalid api key header")?,
         );
         headers.insert(
             "POLY_PASSPHRASE",
-            HeaderValue::from_str(&self.builder_passphrase)
+            HeaderValue::from_str(&self.credentials.passphrase)
                 .context("invalid passphrase header")?,
         );
 
@@ -300,19 +301,19 @@ impl OrderSubmitter {
             "order submitted, polling status"
         );
 
-        // 13. Poll for order status
-        let status = self.poll_order_status(&submit_resp.order_id).await;
+        // 13. Poll for order status + extract filled price
+        let (status, filled_price) = self.poll_order_status(&submit_resp.order_id).await;
 
         Ok(OrderResult {
             polymarket_order_id: submit_resp.order_id,
             status,
-            filled_price: None,
+            filled_price,
             fee_bps: Some(fee_rate_bps),
         })
     }
 
     /// Compute HMAC-SHA256 of `{method}{path}{timestamp}{body}`, base64-encoded.
-    pub fn sign_builder_request(
+    pub(crate) fn sign_builder_request(
         &self,
         method: &str,
         path: &str,
@@ -320,7 +321,7 @@ impl OrderSubmitter {
         body: &str,
     ) -> Result<String> {
         let secret_bytes = BASE64
-            .decode(&self.builder_secret)
+            .decode(&self.credentials.secret)
             .context("builder_secret is not valid base64")?;
 
         let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
@@ -334,7 +335,8 @@ impl OrderSubmitter {
     }
 
     /// Poll GET /data/order/{id} every 1s, up to 30 times.
-    async fn poll_order_status(&self, order_id: &str) -> OrderStatus {
+    /// Returns (status, filled_price) — price extracted from associate_trades if filled.
+    async fn poll_order_status(&self, order_id: &str) -> (OrderStatus, Option<f64>) {
         for attempt in 1..=30 {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
@@ -357,16 +359,22 @@ impl OrderSubmitter {
 
             match status_resp.status.as_deref() {
                 Some("matched") | Some("filled") => {
-                    debug!(attempt, %order_id, "order filled");
-                    return OrderStatus::Filled;
+                    let filled_price = status_resp
+                        .associate_trades
+                        .as_ref()
+                        .and_then(|trades| trades.first())
+                        .and_then(|t| t.price.as_ref())
+                        .and_then(|p| p.parse::<f64>().ok());
+                    debug!(attempt, %order_id, ?filled_price, "order filled");
+                    return (OrderStatus::Filled, filled_price);
                 }
                 Some("cancelled") => {
                     debug!(attempt, %order_id, "order cancelled");
-                    return OrderStatus::Cancelled;
+                    return (OrderStatus::Cancelled, None);
                 }
                 Some("failed") => {
                     debug!(attempt, %order_id, "order failed");
-                    return OrderStatus::Failed;
+                    return (OrderStatus::Failed, None);
                 }
                 _ => {
                     debug!(attempt, %order_id, status = ?status_resp.status, "order still pending");
@@ -375,7 +383,7 @@ impl OrderSubmitter {
         }
 
         warn!(%order_id, "order status poll timed out after 30 attempts");
-        OrderStatus::Timeout
+        (OrderStatus::Timeout, None)
     }
 }
 
@@ -412,12 +420,16 @@ mod tests {
         // Use a base64-encoded secret for HMAC
         let secret = BASE64.encode(b"test-secret-key-for-hmac-signing");
 
+        let credentials = BuilderCredentials {
+            api_key: "test-api-key".to_string(),
+            secret,
+            passphrase: "test-passphrase".to_string(),
+        };
+
         OrderSubmitter::new(
             reqwest::Client::new(),
             "http://localhost:8080",
-            "test-api-key".to_string(),
-            secret,
-            "test-passphrase".to_string(),
+            credentials,
             wallet_keys,
             fee_cache,
             true,

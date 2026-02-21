@@ -41,12 +41,12 @@ pub fn get_field(tick: &Tick, name: &str) -> Option<f64> {
 /// Evaluate a comparison operator between a value and a JSON target.
 pub fn evaluate_op(value: f64, operator: &str, target: &serde_json::Value) -> bool {
     match operator {
-        ">" => target.as_f64().map_or(false, |t| value > t),
-        ">=" => target.as_f64().map_or(false, |t| value >= t),
-        "<" => target.as_f64().map_or(false, |t| value < t),
-        "<=" => target.as_f64().map_or(false, |t| value <= t),
-        "==" => target.as_f64().map_or(false, |t| (value - t).abs() < 1e-6),
-        "!=" => target.as_f64().map_or(false, |t| (value - t).abs() >= 1e-6),
+        ">" => target.as_f64().is_some_and(|t| value > t),
+        ">=" => target.as_f64().is_some_and(|t| value >= t),
+        "<" => target.as_f64().is_some_and(|t| value < t),
+        "<=" => target.as_f64().is_some_and(|t| value <= t),
+        "==" => target.as_f64().is_some_and(|t| (value - t).abs() < 1e-6),
+        "!=" => target.as_f64().is_some_and(|t| (value - t).abs() >= 1e-6),
         "between" => {
             if let Some(arr) = target.as_array() {
                 let lo = arr.first().and_then(|v| v.as_f64()).unwrap_or(f64::MIN);

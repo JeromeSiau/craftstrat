@@ -106,22 +106,37 @@ impl ExecutionQueue {
         self.heap.push(PriorityOrder(order));
     }
 
+    #[allow(dead_code)]
     pub fn pop(&mut self) -> Option<ExecutionOrder> {
         self.heap.pop().map(|po| po.0)
     }
 
-    pub fn try_rate_limit(&mut self, wallet_id: u64) -> bool {
+    /// Atomically peek + rate-limit check + pop.
+    /// Returns `None` if the queue is empty.
+    /// Returns `Some(None)` if the next order is rate-limited (stays in queue).
+    /// Returns `Some(Some(order))` if allowed — order is removed and token consumed.
+    pub fn pop_if_allowed(&mut self) -> Option<Option<ExecutionOrder>> {
+        let next = self.heap.peek()?;
+        let wallet_id = next.0.wallet_id;
         let max = self.max_orders_per_day;
-        self.rate_limiters
+        let bucket = self
+            .rate_limiters
             .entry(wallet_id)
-            .or_insert_with(|| TokenBucket::new(max))
-            .try_consume()
+            .or_insert_with(|| TokenBucket::new(max));
+
+        if bucket.try_consume() {
+            Some(self.heap.pop().map(|po| po.0))
+        } else {
+            Some(None) // rate-limited, order stays in queue
+        }
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.heap.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.heap.is_empty()
     }
@@ -140,9 +155,13 @@ mod tests {
     use crate::strategy::{OrderType, Outcome};
 
     fn make_order(priority: OrderPriority, created_at: i64) -> ExecutionOrder {
+        make_order_for_wallet(1, priority, created_at)
+    }
+
+    fn make_order_for_wallet(wallet_id: u64, priority: OrderPriority, created_at: i64) -> ExecutionOrder {
         ExecutionOrder {
             id: Uuid::new_v4(),
-            wallet_id: 1,
+            wallet_id,
             strategy_id: None,
             copy_relationship_id: None,
             symbol: "TEST".to_string(),
@@ -154,6 +173,8 @@ mod tests {
             order_type: OrderType::Market,
             priority,
             created_at,
+            leader_address: String::new(),
+            leader_tx_hash: String::new(),
         }
     }
 
@@ -206,15 +227,28 @@ mod tests {
 
     #[test]
     fn test_rate_limit_per_wallet() {
-        let mut q = ExecutionQueue::new(100);
+        let mut q = ExecutionQueue::new(2);
 
-        // Exhaust wallet 1 by consuming all 100 tokens
-        for _ in 0..100 {
-            assert!(q.try_rate_limit(1));
-        }
-        assert!(!q.try_rate_limit(1), "wallet 1 should be exhausted");
+        // Push 3 orders for wallet 1 and 1 for wallet 2
+        q.push(make_order_for_wallet(1, OrderPriority::StrategyMarket, 1));
+        q.push(make_order_for_wallet(1, OrderPriority::StrategyMarket, 2));
+        q.push(make_order_for_wallet(1, OrderPriority::StrategyMarket, 3));
+        q.push(make_order_for_wallet(2, OrderPriority::StopLoss, 4));
 
-        // Wallet 2 should still have its own independent bucket
-        assert!(q.try_rate_limit(2), "wallet 2 should still have tokens");
+        // Wallet 2's StopLoss has highest priority — should pop first
+        let first = q.pop_if_allowed().unwrap().unwrap();
+        assert_eq!(first.wallet_id, 2);
+
+        // Wallet 1: first two should pop (2 tokens)
+        let second = q.pop_if_allowed().unwrap().unwrap();
+        assert_eq!(second.wallet_id, 1);
+        let third = q.pop_if_allowed().unwrap().unwrap();
+        assert_eq!(third.wallet_id, 1);
+
+        // Wallet 1: third order should be rate-limited (Some(None))
+        assert!(
+            matches!(q.pop_if_allowed(), Some(None)),
+            "wallet 1 should be rate-limited"
+        );
     }
 }

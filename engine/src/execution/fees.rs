@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
 const CACHE_TTL: Duration = Duration::from_secs(60);
 
@@ -49,7 +49,7 @@ impl FeeCache {
     pub async fn get_fee(&self, token_id: &str) -> Result<u16> {
         // Check cache first (read lock).
         {
-            let cache = self.cache.read().unwrap();
+            let cache = self.cache.read().await;
             if let Some(entry) = cache.get(token_id) {
                 if entry.is_fresh() {
                     return Ok(entry.fee_rate_bps);
@@ -71,7 +71,7 @@ impl FeeCache {
 
         // Write to cache.
         {
-            let mut cache = self.cache.write().unwrap();
+            let mut cache = self.cache.write().await;
             cache.insert(
                 token_id.to_string(),
                 CachedFee {
@@ -86,8 +86,8 @@ impl FeeCache {
 
     /// Test helper — manually insert a fee into the cache.
     #[cfg(test)]
-    pub fn set_fee(&self, token_id: &str, fee: u16) {
-        let mut cache = self.cache.write().unwrap();
+    pub async fn set_fee(&self, token_id: &str, fee: u16) {
+        let mut cache = self.cache.write().await;
         cache.insert(
             token_id.to_string(),
             CachedFee {
@@ -110,32 +110,32 @@ mod tests {
         FeeCache::new(reqwest::Client::new(), "http://localhost")
     }
 
-    #[test]
-    fn test_cache_hit() {
+    #[tokio::test]
+    async fn test_cache_hit() {
         let cache = make_cache();
-        cache.set_fee("token_abc", 200);
+        cache.set_fee("token_abc", 200).await;
 
-        let inner = cache.cache.read().unwrap();
+        let inner = cache.cache.read().await;
         let entry = inner.get("token_abc").expect("entry should exist");
         assert_eq!(entry.fee_rate_bps, 200);
         assert!(entry.is_fresh());
     }
 
-    #[test]
-    fn test_cache_miss_returns_none() {
+    #[tokio::test]
+    async fn test_cache_miss_returns_none() {
         let cache = make_cache();
 
-        let inner = cache.cache.read().unwrap();
+        let inner = cache.cache.read().await;
         assert!(inner.get("nonexistent_token").is_none());
     }
 
-    #[test]
-    fn test_cache_expiry() {
+    #[tokio::test]
+    async fn test_cache_expiry() {
         let cache = make_cache();
 
         // Insert an entry with fetched_at 120 seconds in the past.
         {
-            let mut inner = cache.cache.write().unwrap();
+            let mut inner = cache.cache.write().await;
             inner.insert(
                 "token_old".to_string(),
                 CachedFee {
@@ -145,7 +145,7 @@ mod tests {
             );
         }
 
-        let inner = cache.cache.read().unwrap();
+        let inner = cache.cache.read().await;
         let entry = inner.get("token_old").expect("entry should exist");
         assert_eq!(entry.fee_rate_bps, 150);
         assert!(!entry.is_fresh(), "entry should be expired after 120s (TTL is 60s)");

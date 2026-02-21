@@ -26,40 +26,27 @@ pub async fn run(
     info!("executor_started");
 
     loop {
-        // 1. Pop an order from the queue
+        // 1. Atomic peek + rate-limit + pop (no order loss on rate-limit)
         let order = {
             let mut q = queue.lock().await;
-            q.pop()
+            q.pop_if_allowed()
         };
 
         let order = match order {
-            Some(o) => o,
             None => {
                 tokio::time::sleep(Duration::from_millis(50)).await;
                 continue;
             }
+            Some(None) => {
+                // Next order is rate-limited — back off without removing it
+                warn!("rate_limited, backing off");
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                continue;
+            }
+            Some(Some(o)) => o,
         };
 
-        // 2. Check rate limit for this wallet
-        let allowed = {
-            let mut q = queue.lock().await;
-            q.try_rate_limit(order.wallet_id)
-        };
-
-        if !allowed {
-            warn!(
-                wallet_id = order.wallet_id,
-                order_id = %order.id,
-                "rate_limited, re-queuing order"
-            );
-            let mut q = queue.lock().await;
-            q.push(order);
-            drop(q);
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            continue;
-        }
-
-        // 3. Submit order
+        // 2. Submit order
         let result = match submitter.submit(&order).await {
             Ok(r) => r,
             Err(e) => {
@@ -103,13 +90,13 @@ pub async fn run(
             if let Err(e) = crate::storage::postgres::write_copy_trade(
                 &db,
                 copy_rel_id as i64,
-                None,            // follower_trade_id
-                "",              // leader_address (populated upstream)
-                &order.symbol,   // leader_market_id
+                None,
+                &order.leader_address,
+                &order.symbol,
                 outcome_str,
                 order.price.unwrap_or(0.0),
                 order.size_usdc,
-                "",              // leader_tx_hash
+                &order.leader_tx_hash,
                 result.filled_price,
                 status_str,
                 None,
@@ -221,6 +208,8 @@ mod tests {
             order_type: OrderType::Market,
             priority: OrderPriority::StrategyMarket,
             created_at: 0,
+            leader_address: String::new(),
+            leader_tx_hash: String::new(),
         }
     }
 

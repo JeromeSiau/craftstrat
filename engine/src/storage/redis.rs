@@ -36,6 +36,7 @@ pub async fn save_states(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn load_state(
     conn: &mut redis::aio::MultiplexedConnection,
     wallet_id: u64,
