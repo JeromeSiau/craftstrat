@@ -33,103 +33,118 @@ Oddex is a SaaS platform that allows users to create automated trading strategie
 
 ```
 oddex/
-├── app/                                    # Laravel (monolith avec Inertia)
-│   ├── Http/
-│   │   ├── Controllers/
-│   │   │   ├── Auth/
-│   │   │   ├── StrategyController.php
-│   │   │   ├── WalletController.php
-│   │   │   ├── BacktestController.php
-│   │   │   └── BillingController.php
-│   │   └── Middleware/
-│   │       └── CheckPlanLimits.php
-│   ├── Models/
-│   │   ├── User.php
-│   │   ├── Strategy.php
-│   │   ├── Wallet.php
-│   │   ├── WalletStrategy.php
-│   │   ├── Trade.php
-│   │   ├── BacktestResult.php
-│   │   └── Subscription.php
-│   └── Services/
-│       ├── EngineService.php              # HTTP calls to Rust engine
-│       ├── WalletService.php              # Génération + chiffrement clés
-│       └── BillingService.php            # Stripe via Cashier
+├── docker-compose.yml                     # Orchestration de tous les services
+├── .env / .env.example                    # Variables partagées (Laravel + Engine)
+├── CLAUDE.md                              # Contexte AI
 │
-├── resources/
-│   └── js/                               # React 19 via Inertia
-│       ├── Pages/
-│       │   ├── Dashboard.tsx
-│       │   ├── Strategy/
-│       │   │   ├── Index.tsx
-│       │   │   ├── Builder.tsx           # No-code form builder
-│       │   │   └── NodeEditor.tsx        # Advanced React Flow
-│       │   ├── Backtest/
-│       │   │   ├── Index.tsx
-│       │   │   └── Result.tsx
-│       │   ├── Wallets/
-│       │   │   └── Index.tsx
-│       │   └── Billing/
-│       │       └── Index.tsx
-│       ├── Components/
-│       │   ├── Strategy/
-│       │   │   ├── FormBuilder.tsx       # SI/ET/ALORS form mode
-│       │   │   ├── RuleRow.tsx
-│       │   │   └── NodeEditor.tsx        # React Flow node editor
-│       │   ├── Charts/
-│       │   │   ├── PnlChart.tsx
-│       │   │   └── BacktestChart.tsx
-│       │   └── UI/                       # shadcn/ui components
-│       ├── Layouts/
-│       │   └── AppLayout.tsx
-│       └── app.tsx                       # Inertia bootstrap
+├── web/                                   # Laravel 12 (monolith avec Inertia)
+│   ├── app/
+│   │   ├── Http/
+│   │   │   ├── Controllers/
+│   │   │   │   ├── Auth/
+│   │   │   │   ├── StrategyController.php
+│   │   │   │   ├── WalletController.php
+│   │   │   │   ├── BacktestController.php
+│   │   │   │   └── BillingController.php
+│   │   │   └── Middleware/
+│   │   │       └── CheckPlanLimits.php
+│   │   ├── Models/
+│   │   │   ├── User.php
+│   │   │   ├── Strategy.php
+│   │   │   ├── Wallet.php
+│   │   │   ├── WalletStrategy.php
+│   │   │   ├── Trade.php
+│   │   │   ├── BacktestResult.php
+│   │   │   └── Subscription.php
+│   │   └── Services/
+│   │       ├── EngineService.php          # HTTP calls to Rust engine
+│   │       ├── WalletService.php          # Génération + chiffrement clés
+│   │       └── BillingService.php         # Stripe via Cashier
+│   ├── resources/
+│   │   └── js/                            # React 19 via Inertia
+│   │       ├── pages/
+│   │       │   ├── dashboard.tsx
+│   │       │   ├── strategy/
+│   │       │   │   ├── index.tsx
+│   │       │   │   ├── builder.tsx        # No-code form builder
+│   │       │   │   └── node-editor.tsx    # Advanced React Flow
+│   │       │   ├── backtest/
+│   │       │   │   ├── index.tsx
+│   │       │   │   └── result.tsx
+│   │       │   ├── wallets/
+│   │       │   │   └── index.tsx
+│   │       │   └── billing/
+│   │       │       └── index.tsx
+│   │       ├── components/
+│   │       │   ├── strategy/
+│   │       │   │   ├── form-builder.tsx   # SI/ET/ALORS form mode
+│   │       │   │   ├── rule-row.tsx
+│   │       │   │   └── node-editor.tsx    # React Flow node editor
+│   │       │   ├── charts/
+│   │       │   │   ├── pnl-chart.tsx
+│   │       │   │   └── backtest-chart.tsx
+│   │       │   └── ui/                    # shadcn/ui components
+│   │       ├── layouts/
+│   │       │   └── app-layout.tsx
+│   │       └── app.tsx                    # Inertia bootstrap
+│   ├── database/
+│   │   └── migrations/
+│   ├── routes/
+│   │   └── web.php                        # Routes Inertia (pas d'API REST séparée)
+│   ├── config/
+│   ├── public/
+│   ├── storage/
+│   ├── tests/
+│   ├── artisan
+│   ├── composer.json
+│   ├── package.json
+│   └── vite.config.ts
 │
-├── database/
-│   └── migrations/
-│
-├── routes/
-│   └── web.php                           # Routes Inertia (pas d'API REST séparée)
-│
-├── engine/                               # Rust — trading engine
+├── engine/                                # Rust — trading engine
 │   ├── src/
 │   │   ├── main.rs
 │   │   ├── fetcher/
 │   │   │   ├── mod.rs
-│   │   │   ├── polymarket.rs             # API client
-│   │   │   └── batch.rs                  # ClickHouse batch writer
+│   │   │   ├── polymarket.rs              # API client
+│   │   │   └── batch.rs                   # ClickHouse batch writer
 │   │   ├── kafka/
 │   │   │   ├── producer.rs
 │   │   │   └── consumer.rs
 │   │   ├── strategy/
 │   │   │   ├── mod.rs
-│   │   │   ├── engine.rs                 # Main dispatch loop
-│   │   │   ├── interpreter.rs            # JSON graph interpreter
-│   │   │   ├── indicators.rs             # EMA, SMA, RSI, VWAP...
-│   │   │   └── state.rs                  # Stateful strategy state
+│   │   │   ├── engine.rs                  # Main dispatch loop
+│   │   │   ├── interpreter.rs             # JSON graph interpreter
+│   │   │   ├── indicators.rs              # EMA, SMA, RSI, VWAP...
+│   │   │   └── state.rs                   # Stateful strategy state
 │   │   ├── execution/
 │   │   │   ├── mod.rs
-│   │   │   ├── queue.rs                  # Priority queue + throttle
-│   │   │   ├── orders.rs                 # Order signing + submission
-│   │   │   └── wallet.rs                 # Multi-wallet manager
+│   │   │   ├── queue.rs                   # Priority queue + throttle
+│   │   │   ├── orders.rs                  # Order signing + submission
+│   │   │   └── wallet.rs                  # Multi-wallet manager
 │   │   ├── watcher/
 │   │   │   ├── mod.rs
-│   │   │   └── polymarket.rs             # Poll trades des wallets externes surveillés
+│   │   │   └── polymarket.rs              # Poll trades des wallets externes surveillés
 │   │   ├── storage/
 │   │   │   ├── clickhouse.rs
 │   │   │   └── redis.rs
 │   │   ├── backtest/
-│   │   │   └── runner.rs                 # Replay ticks from ClickHouse
+│   │   │   └── runner.rs                  # Replay ticks from ClickHouse
 │   │   └── api/
-│   │       └── server.rs                 # Axum HTTP server (internal)
+│   │       └── server.rs                  # Axum HTTP server (internal)
 │   ├── Cargo.toml
 │   └── Cargo.lock
 │
-├── infra/
-│   ├── docker-compose.yml
-│   ├── docker-compose.prod.yml
-│   └── nginx/
+├── infra/                                 # Infrastructure
+│   ├── docker/
+│   │   └── app.Dockerfile                 # PHP 8.4 + Nginx + Node 22
+│   ├── nginx/
+│   │   └── default.conf
+│   └── clickhouse/
+│       └── init.sql                       # slot_snapshots table
 │
-└── SPEC.md
+└── docs/
+    ├── SPEC.md
+    └── plans/
 ```
 
 ---
@@ -794,11 +809,18 @@ ENCRYPTION_KEY=                    # même clé que Laravel pour déchiffrer les
 ## 12. Docker Compose
 
 ```yaml
-# infra/docker-compose.yml
+# docker-compose.yml (à la racine du projet)
 services:
   app:
-    build: .                              # Laravel (inclut le frontend Inertia/React)
-    ports: ["8000:8000"]
+    build:
+      context: .
+      dockerfile: infra/docker/app.Dockerfile
+    ports: ["8000:80", "5173:5173"]
+    volumes:
+      - ./web:/var/www/html
+      - ./.env:/var/www/html/.env
+      - vendor_data:/var/www/html/vendor
+      - node_modules_data:/var/www/html/node_modules
     depends_on: [postgres, redis]
     env_file: .env
 
@@ -813,28 +835,37 @@ services:
     environment:
       POSTGRES_DB: oddex
       POSTGRES_USER: oddex
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: oddex_secret
     volumes: [postgres_data:/var/lib/postgresql/data]
-    ports: ["5432:5432"]                  # internal only en prod
+    ports: ["5432:5432"]
 
   clickhouse:
     image: clickhouse/clickhouse-server:26.1
-    volumes: [clickhouse_data:/var/lib/clickhouse]
-    ports: ["8123:8123"]                  # internal only en prod
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./infra/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports: ["8123:8123"]
 
   redis:
     image: redis:7-alpine
     volumes: [redis_data:/data]
+    ports: ["6379:6379"]
 
   kafka:
-    image: confluentinc/cp-kafka:8.0.0
+    image: confluentinc/cp-kafka:7.9.0
     environment:
-      KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_NODE_ID: 1
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      CLUSTER_ID: oddex-kafka-cluster
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
   grafana:
     image: grafana/grafana:latest
@@ -846,6 +877,8 @@ volumes:
   clickhouse_data:
   redis_data:
   grafana_data:
+  vendor_data:
+  node_modules_data:
 ```
 
 ---

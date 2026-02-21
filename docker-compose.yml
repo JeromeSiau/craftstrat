@@ -2,12 +2,13 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: infra/docker/app.Dockerfile
     ports:
       - "8000:80"
       - "5173:5173"
     volumes:
-      - .:/var/www/html
+      - ./web:/var/www/html
+      - ./.env:/var/www/html/.env
       - vendor_data:/var/www/html/vendor
       - node_modules_data:/var/www/html/node_modules
     depends_on:

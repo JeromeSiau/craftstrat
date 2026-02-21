@@ -1,29 +1,40 @@
-/.phpunit.cache
-/bootstrap/ssr
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/resources/js/actions
-/resources/js/routes
-/resources/js/wayfinder
-/vendor
-engine/target/
-.DS_Store
+# Environment
 .env
 .env.backup
 .env.production
-.phpactor.json
-.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-npm-debug.log
-yarn-error.log
-/auth.json
+
+# IDE
+.DS_Store
 /.fleet
 /.idea
 /.nova
 /.vscode
 /.zed
+
+# Laravel (web/)
+web/.phpunit.cache
+web/.phpunit.result.cache
+web/.phpactor.json
+web/bootstrap/ssr
+web/node_modules
+web/public/build
+web/public/hot
+web/public/storage
+web/storage/*.key
+web/storage/pail
+web/resources/js/actions
+web/resources/js/routes
+web/resources/js/wayfinder
+web/vendor
+web/auth.json
+web/Homestead.json
+web/Homestead.yaml
+npm-debug.log
+yarn-error.log
+
+# Rust (engine/)
+engine/target/
+
+# Docker
+supervisord.log
+supervisord.pid
