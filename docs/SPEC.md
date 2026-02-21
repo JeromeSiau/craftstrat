@@ -361,7 +361,7 @@ CREATE TABLE slot_snapshots (
     size_ratio_down   Float32,
 
     -- Price context
-    chainlink_price   Float32,
+    chainlink_price   Float32,                         -- alias: ref_price in Rust
     dir_move_pct      Float32,
     abs_move_pct      Float32,
 
@@ -374,8 +374,9 @@ CREATE TABLE slot_snapshots (
 
     -- Market result (filled at slot close, nullable during slot)
     winner            Nullable(Enum8('UP' = 1, 'DOWN' = 2)),
-    btc_price_start   Float32,
-    btc_price_end     Float32
+    btc_price_start   Float32,                         -- alias: ref_price_start in Rust
+    btc_price_end     Float32,                         -- alias: ref_price_end in Rust
+    ref_price_source  LowCardinality(String)            -- "binance", "chainlink", "pyth"
 
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(captured_at)
@@ -388,17 +389,18 @@ SETTINGS index_granularity = 8192;
 ## 4. Rust Engine — Core Types
 
 ```rust
-// src/fetcher/polymarket.rs
+// src/fetcher/models.rs
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Row, Serialize, Deserialize)]
 pub struct Tick {
-    pub captured_at: DateTime<Utc>,
+    pub captured_at: time::OffsetDateTime,
     pub symbol: String,
     pub slot_ts: u32,
     pub slot_duration: u32,
     pub minutes_into_slot: f32,
     pub pct_into_slot: f32,
 
+    // Order book — Level 1
     pub bid_up: f32,
     pub ask_up: f32,
     pub bid_down: f32,
@@ -410,27 +412,50 @@ pub struct Tick {
     pub spread_up: f32,
     pub spread_down: f32,
 
-    pub chainlink_price: f32,
+    // Order book — Level 2 & 3
+    pub bid_up_l2: f32,
+    pub ask_up_l2: f32,
+    pub bid_up_l3: f32,
+    pub ask_up_l3: f32,
+    pub bid_down_l2: f32,
+    pub ask_down_l2: f32,
+    pub bid_down_l3: f32,
+    pub ask_down_l3: f32,
+
+    // Derived
+    pub mid_up: f32,
+    pub mid_down: f32,
+    pub size_ratio_up: f32,
+    pub size_ratio_down: f32,
+
+    // Price context
+    pub ref_price: f32,             // generic reference price (was chainlink_price)
     pub dir_move_pct: f32,
     pub abs_move_pct: f32,
     pub hour_utc: u8,
     pub day_of_week: u8,
     pub market_volume_usd: f32,
+    pub winner: Option<i8>,
+
+    // Price provenance
+    pub ref_price_start: f32,
+    pub ref_price_end: f32,
+    pub ref_price_source: String,   // "binance", "chainlink", "pyth"
 }
 
 // src/strategy/mod.rs
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Signal {
     Buy  { outcome: Outcome, size_usdc: f64, order_type: OrderType },
     Sell { outcome: Outcome, size_usdc: f64, order_type: OrderType },
     Hold,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome { Up, Down }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OrderType {
     Market,
     Limit { price: f64 },
@@ -438,32 +463,44 @@ pub enum OrderType {
     TakeProfit { trigger_price: f64 },
 }
 
-pub trait Strategy: Send {
-    fn on_tick(&mut self, tick: &Tick) -> Signal;
-    fn reset(&mut self);
-    fn name(&self) -> &str;
-}
+// NOTE: Strategy trait deferred to Phase 5 (backtest).
+// Currently interpreter::evaluate() is called directly.
+// The trait will be needed to abstract tick source (live Kafka vs ClickHouse replay).
+// pub trait Strategy: Send {
+//     fn on_tick(&mut self, tick: &Tick) -> Signal;
+//     fn reset(&mut self);
+//     fn name(&self) -> &str;
+// }
 
 // src/strategy/state.rs
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrategyState {
-    pub window: VecDeque<Tick>,         // sliding window of last N ticks
+    pub window: VecDeque<Tick>,             // sliding window of last N ticks
     pub window_size: usize,
-    pub position: Option<Position>,     // current open position
+    pub position: Option<Position>,         // current open position
     pub pnl: f64,
-    pub ema_values: HashMap<String, f64>,
+    pub trades_this_slot: u32,
+    pub current_slot_ts: u32,
+    pub indicator_cache: HashMap<String, f64>,  // was ema_values
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
     pub outcome: Outcome,
     pub entry_price: f64,
     pub size_usdc: f64,
-    pub entry_at: DateTime<Utc>,
-    pub stoploss: Option<f64>,
-    pub take_profit: Option<f64>,
+    pub entry_at: i64,                      // unix timestamp
+    // stoploss/take_profit moved to graph risk config — cleaner separation
 }
 ```
+
+> **Phase 3 implementation notes:**
+> - `chainlink_price` renamed to `ref_price` + `ref_price_source` field for multi-provider support
+> - `Strategy` trait deferred to Phase 5 — interpreter called directly via `interpreter::evaluate()`
+> - `Position.stoploss`/`take_profit` moved to `graph["risk"]` — strategy graph owns risk config, not state
+> - Position lifecycle (set on buy, clear on sell) managed by Phase 4 execution queue, not the strategy engine
+> - `ema_values` renamed to `indicator_cache` for generality
 
 ---
 
@@ -545,18 +582,24 @@ Strategies are stored as a JSON graph in PostgreSQL and interpreted by the Rust 
 | `abs_move_pct` | Absolute move % since slot start | ✅ |
 | `dir_move_pct` | Directional move % (+ UP, - DOWN) | ✅ |
 | `spread_up` / `spread_down` | Current spread | ✅ |
-| `size_ratio_up` | bid_size / ask_size ratio | ✅ |
+| `size_ratio_up` / `size_ratio_down` | bid_size / ask_size ratio | ✅ |
 | `pct_into_slot` | % progress in current slot | ✅ |
+| `minutes_into_slot` | Minutes elapsed in current slot | ✅ |
 | `mid_up` / `mid_down` | Mid price | ✅ |
-| `chainlink_price` | BTC spot price | ✅ |
+| `bid_up` / `ask_up` / `bid_down` / `ask_down` | L1 order book prices | ✅ |
+| `bid_size_up` / `ask_size_up` / `bid_size_down` / `ask_size_down` | L1 order book sizes | ✅ |
+| `bid_up_l2` / `ask_up_l2` / `bid_down_l2` / `ask_down_l2` | L2 order book prices | ✅ |
+| `bid_up_l3` / `ask_up_l3` / `bid_down_l3` / `ask_down_l3` | L3 order book prices | ✅ |
+| `ref_price` | Reference spot price (alias: `chainlink_price`) | ✅ |
 | `hour_utc` | UTC hour 0-23 | ✅ |
 | `day_of_week` | Day 0-6 | ✅ |
+| `market_volume_usd` | Market volume in USD | ✅ |
 | `EMA(n, field)` | Exponential moving average | ❌ stateful |
 | `SMA(n, field)` | Simple moving average | ❌ stateful |
 | `RSI(n, field)` | RSI oscillator | ❌ stateful |
-| `VWAP(field)` | Volume-weighted avg price | ❌ stateful |
-| `cross_above(a, b)` | Crossover detection | ❌ stateful |
-| `cross_below(a, b)` | Crossunder detection | ❌ stateful |
+| `VWAP(field)` | Volume-weighted avg price | ❌ stateful (deferred — not yet in interpreter) |
+| `cross_above(a, b)` | Crossover detection (a crosses above b) | ❌ stateful |
+| `cross_below(a, b)` | Crossunder detection (a crosses below b) | ❌ stateful |
 
 ---
 
@@ -899,13 +942,13 @@ Follow this sequence to build incrementally:
 7. Rust Kafka producer
 8. Verify data flowing into ClickHouse
 
-### Phase 3 — Strategy Engine
-9. Rust Tick struct + Kafka consumer
-10. Strategy trait + StatelessStrategy (simple comparators)
-11. StatefulStrategy (EMA, SMA, RSI with sliding window)
-12. JSON graph interpreter (form mode first, node mode second)
-13. Rayon parallel dispatch across wallet/strategy pairs
-14. Redis state persistence + recovery
+### Phase 3 — Strategy Engine ✅
+9. Rust Tick struct + Kafka consumer (parameterized topics)
+10. ~~Strategy trait~~ → JSON graph interpreter called directly via `interpreter::evaluate()` (trait deferred to Phase 5 for backtest tick source abstraction)
+11. Stateful indicators: EMA, SMA, RSI with sliding window + cross_above/cross_below (VWAP deferred)
+12. JSON graph interpreter: form mode (AND/OR conditions) + node mode (DAG with Kahn's topological sort + cycle detection)
+13. Rayon parallel dispatch across wallet/strategy pairs + universal risk management (stoploss, take_profit, max_trades_per_slot)
+14. Redis state persistence (10s interval, 1h TTL, dedup) + mutex poison recovery
 
 ### Phase 4 — Execution + Copy Trading
 15. Execution queue avec throttling rate limits Polymarket
