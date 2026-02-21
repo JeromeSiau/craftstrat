@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BacktestController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\StrategyController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
@@ -15,9 +16,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Strategies
     Route::resource('strategies', StrategyController::class)->except(['edit', 'store']);

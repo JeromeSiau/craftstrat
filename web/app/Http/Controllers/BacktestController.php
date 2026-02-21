@@ -6,6 +6,7 @@ use App\Http\Requests\RunBacktestRequest;
 use App\Models\BacktestResult;
 use App\Models\Strategy;
 use App\Services\EngineService;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -19,7 +20,7 @@ class BacktestController extends Controller
             'results' => auth()->user()->backtestResults()
                 ->with('strategy:id,name')
                 ->latest('id')
-                ->get(),
+                ->paginate(20),
         ]);
     }
 
@@ -38,12 +39,16 @@ class BacktestController extends Controller
     {
         $validated = $request->validated();
 
-        $engineResult = $engine->runBacktest(
-            $strategy->graph,
-            $validated['market_filter'] ?? [],
-            $validated['date_from'],
-            $validated['date_to'],
-        );
+        try {
+            $engineResult = $engine->runBacktest(
+                $strategy->graph,
+                $validated['market_filter'] ?? [],
+                $validated['date_from'],
+                $validated['date_to'],
+            );
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to run backtest. Engine may be unavailable.');
+        }
 
         $result = BacktestResult::create([
             'user_id' => $request->user()->id,

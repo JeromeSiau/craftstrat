@@ -6,7 +6,9 @@ use App\Http\Requests\AssignStrategyRequest;
 use App\Http\Requests\StoreWalletRequest;
 use App\Models\Strategy;
 use App\Models\Wallet;
+use App\Services\StrategyActivationService;
 use App\Services\WalletService;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -19,7 +21,7 @@ class WalletController extends Controller
         return Inertia::render('wallets/index', [
             'wallets' => auth()->user()->wallets()
                 ->withCount('strategies')
-                ->get(),
+                ->paginate(20),
         ]);
     }
 
@@ -27,18 +29,25 @@ class WalletController extends Controller
     {
         $keypair = $walletService->generateKeypair();
 
-        $request->user()->wallets()->create([
+        $wallet = new Wallet([
             'label' => $request->validated('label'),
             'address' => $keypair['address'],
-            'private_key_enc' => $keypair['private_key_enc'],
         ]);
+        $wallet->private_key_enc = $keypair['private_key_enc'];
+        $request->user()->wallets()->save($wallet);
 
         return back()->with('success', 'Wallet created.');
     }
 
-    public function destroy(Wallet $wallet): RedirectResponse
+    public function destroy(Wallet $wallet, StrategyActivationService $activation): RedirectResponse
     {
         Gate::authorize('delete', $wallet);
+
+        try {
+            $activation->deactivateAllForWallet($wallet);
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to deactivate running strategies on engine. Please try again.');
+        }
 
         $wallet->delete();
 
@@ -47,7 +56,7 @@ class WalletController extends Controller
 
     public function assignStrategy(AssignStrategyRequest $request, Wallet $wallet): RedirectResponse
     {
-        Gate::authorize('view', $wallet);
+        Gate::authorize('update', $wallet);
 
         $strategy = Strategy::findOrFail($request->validated('strategy_id'));
         Gate::authorize('view', $strategy);
@@ -64,7 +73,7 @@ class WalletController extends Controller
 
     public function removeStrategy(Wallet $wallet, Strategy $strategy): RedirectResponse
     {
-        Gate::authorize('view', $wallet);
+        Gate::authorize('update', $wallet);
 
         $wallet->strategies()->detach($strategy->id);
 

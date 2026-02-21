@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreStrategyRequest;
 use App\Http\Requests\UpdateStrategyRequest;
 use App\Models\Strategy;
-use App\Services\EngineService;
+use App\Services\StrategyActivationService;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -19,7 +20,7 @@ class StrategyController extends Controller
             'strategies' => auth()->user()->strategies()
                 ->withCount('wallets')
                 ->latest()
-                ->get(),
+                ->paginate(20),
         ]);
     }
 
@@ -39,7 +40,7 @@ class StrategyController extends Controller
     {
         Gate::authorize('view', $strategy);
 
-        $strategy->load(['walletStrategies.wallet', 'backtestResults' => fn ($q) => $q->latest()->limit(5)]);
+        $strategy->load(['walletStrategies.wallet', 'backtestResults' => fn ($q) => $q->latest('id')->limit(5)]);
 
         return Inertia::render('strategies/show', [
             'strategy' => $strategy,
@@ -53,50 +54,43 @@ class StrategyController extends Controller
         return back()->with('success', 'Strategy updated.');
     }
 
-    public function destroy(Strategy $strategy): RedirectResponse
+    public function destroy(Strategy $strategy, StrategyActivationService $activation): RedirectResponse
     {
         Gate::authorize('delete', $strategy);
+
+        try {
+            $activation->deactivateAllForStrategy($strategy);
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to deactivate strategy on engine. Please try again.');
+        }
 
         $strategy->delete();
 
         return to_route('strategies.index')->with('success', 'Strategy deleted.');
     }
 
-    public function activate(Strategy $strategy, EngineService $engine): RedirectResponse
+    public function activate(Strategy $strategy, StrategyActivationService $activation): RedirectResponse
     {
         Gate::authorize('update', $strategy);
 
-        $runningAssignments = $strategy->walletStrategies()->where('is_running', false)->with('wallet')->get();
-
-        foreach ($runningAssignments as $assignment) {
-            $engine->activateStrategy(
-                $assignment->wallet_id,
-                $strategy->id,
-                $strategy->graph,
-                $assignment->markets ?? [],
-                (float) $assignment->max_position_usdc,
-            );
-
-            $assignment->update(['is_running' => true, 'started_at' => now()]);
+        try {
+            $activation->activate($strategy);
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to activate strategy. Engine may be unavailable.');
         }
-
-        $strategy->update(['is_active' => true]);
 
         return back()->with('success', 'Strategy activated.');
     }
 
-    public function deactivate(Strategy $strategy, EngineService $engine): RedirectResponse
+    public function deactivate(Strategy $strategy, StrategyActivationService $activation): RedirectResponse
     {
         Gate::authorize('update', $strategy);
 
-        $runningAssignments = $strategy->walletStrategies()->where('is_running', true)->get();
-
-        foreach ($runningAssignments as $assignment) {
-            $engine->deactivateStrategy($assignment->wallet_id, $strategy->id);
-            $assignment->update(['is_running' => false, 'started_at' => null]);
+        try {
+            $activation->deactivate($strategy);
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to deactivate strategy. Engine may be unavailable.');
         }
-
-        $strategy->update(['is_active' => false]);
 
         return back()->with('success', 'Strategy deactivated.');
     }
