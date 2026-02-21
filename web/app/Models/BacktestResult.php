@@ -11,7 +11,7 @@ class BacktestResult extends Model
     /** @use HasFactory<\Database\Factories\BacktestResultFactory> */
     use HasFactory;
 
-    public $timestamps = false;
+    const UPDATED_AT = null;
 
     protected $fillable = [
         'user_id',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CopyRelationship;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -9,8 +10,6 @@ use Symfony\Component\HttpFoundation\Response;
 class CheckPlanLimits
 {
     /**
-     * Handle an incoming request.
-     *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next, string $resource): Response
@@ -28,10 +27,7 @@ class CheckPlanLimits
             'strategies' => $this->checkLimit($limits['max_strategies'], $user->strategies()->count()),
             'leaders' => $this->checkLimit(
                 $limits['max_leaders'],
-                $user->wallets()
-                    ->withCount('copyRelationships')
-                    ->get()
-                    ->sum('copy_relationships_count'),
+                CopyRelationship::whereIn('follower_wallet_id', $user->wallets()->select('id'))->count(),
             ),
             default => false,
         };
