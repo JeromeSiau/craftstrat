@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'engine' => [
+        'url' => env('ENGINE_INTERNAL_URL', 'http://engine:8080'),
+        'timeout' => env('ENGINE_TIMEOUT', 30),
+    ],
+
 ];

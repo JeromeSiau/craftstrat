@@ -15,7 +15,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Services\EngineService::class, function ($app) {
+            return new \App\Services\EngineService(
+                baseUrl: config('services.engine.url'),
+                timeout: (int) config('services.engine.timeout'),
+            );
+        });
     }
 
     /**
