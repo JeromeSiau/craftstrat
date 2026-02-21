@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BacktestController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\StrategyController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +36,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('backtests', [BacktestController::class, 'index'])->name('backtests.index');
     Route::get('backtests/{result}', [BacktestController::class, 'show'])->name('backtests.show');
     Route::post('strategies/{strategy}/backtest', [BacktestController::class, 'run'])->name('backtests.run');
+
+    // Billing
+    Route::get('billing', [BillingController::class, 'index'])->name('billing.index');
+    Route::post('billing/subscribe', [BillingController::class, 'subscribe'])->name('billing.subscribe');
+    Route::post('billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
 });
+
+// Stripe Webhook (no auth)
+Route::post('webhooks/stripe', [\Laravel\Cashier\Http\Controllers\WebhookController::class, 'handleWebhook'])
+    ->name('cashier.webhook');
 
 require __DIR__.'/settings.php';
