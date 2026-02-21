@@ -175,11 +175,46 @@ async fn engine_status(State(state): State<Arc<ApiState>>) -> Json<EngineStatusR
     })
 }
 
-// ---------- Copy Trading (stubs) ----------
+// ---------- Copy Trading ----------
 
-async fn copy_watch() -> &'static str {
-    "TODO"
+#[derive(Deserialize)]
+struct CopyWatchRequest {
+    leader_address: String,
 }
-async fn copy_unwatch() -> &'static str {
-    "TODO"
+
+async fn copy_watch(
+    State(state): State<Arc<ApiState>>,
+    Json(req): Json<CopyWatchRequest>,
+) -> StatusCode {
+    let key = format!("oddex:watcher:watched:{}", req.leader_address);
+    let result: Result<(), redis::RedisError> = redis::cmd("SET")
+        .arg(&key)
+        .arg("1")
+        .query_async(&mut state.redis.clone())
+        .await;
+    match result {
+        Ok(()) => StatusCode::OK,
+        Err(e) => {
+            tracing::error!(error = %e, address = %req.leader_address, "copy_watch_failed");
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
+async fn copy_unwatch(
+    State(state): State<Arc<ApiState>>,
+    Json(req): Json<CopyWatchRequest>,
+) -> StatusCode {
+    let key = format!("oddex:watcher:watched:{}", req.leader_address);
+    let result: Result<(), redis::RedisError> = redis::cmd("DEL")
+        .arg(&key)
+        .query_async(&mut state.redis.clone())
+        .await;
+    match result {
+        Ok(()) => StatusCode::OK,
+        Err(e) => {
+            tracing::error!(error = %e, address = %req.leader_address, "copy_unwatch_failed");
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
 }

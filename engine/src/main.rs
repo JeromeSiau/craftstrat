@@ -47,11 +47,14 @@ async fn main() -> anyhow::Result<()> {
 
     // Internal API server
     let ch_client = clickhouse::Client::default().with_url(&state.config.clickhouse_url);
+    let redis_client = redis::Client::open(state.config.redis_url.as_str())?;
+    let redis_conn = redis_client.get_multiplexed_tokio_connection().await?;
     let api_state = std::sync::Arc::new(api::state::ApiState {
         registry: handles.registry,
         exec_queue: handles.exec_queue,
         db: handles.db,
         ch: ch_client,
+        redis: redis_conn,
         start_time: std::time::Instant::now(),
         tick_count: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
     });
