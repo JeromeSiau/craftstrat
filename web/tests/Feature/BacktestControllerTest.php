@@ -23,7 +23,7 @@ it('displays backtests index page', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('backtests/index', false)
-            ->has('results', 2)
+            ->has('results.data', 2)
         );
 });
 
@@ -70,8 +70,8 @@ it('runs a backtest via the engine and stores the result', function () {
 
     $this->actingAs($this->user)
         ->post(route('backtests.run', $strategy), [
-            'date_from' => '2026-01-01',
-            'date_to' => '2026-02-01',
+            'date_from' => now()->subDays(7)->toDateString(),
+            'date_to' => now()->toDateString(),
         ])
         ->assertRedirect();
 
@@ -87,6 +87,38 @@ it('validates backtest request fields', function () {
     $this->actingAs($this->user)
         ->post(route('backtests.run', $strategy), [])
         ->assertSessionHasErrors(['date_from', 'date_to']);
+});
+
+it('enforces backtest_days limit for free plan', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('backtests.run', $strategy), [
+            'date_from' => now()->subDays(60)->toDateString(),
+            'date_to' => now()->toDateString(),
+        ])
+        ->assertSessionHasErrors(['date_from']);
+});
+
+it('allows full history backtest for starter plan', function () {
+    Http::fake(['*/internal/backtest/run' => Http::response([
+        'total_trades' => 10,
+        'win_rate' => 0.50,
+        'pnl' => 50.0,
+        'max_drawdown' => 0.05,
+        'sharpe_ratio' => 1.0,
+        'trades' => [],
+    ])]);
+
+    $user = User::factory()->create(['plan' => 'starter']);
+    $strategy = Strategy::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->post(route('backtests.run', $strategy), [
+            'date_from' => now()->subDays(365)->toDateString(),
+            'date_to' => now()->toDateString(),
+        ])
+        ->assertRedirect();
 });
 
 it('requires authentication', function () {

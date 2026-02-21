@@ -18,7 +18,7 @@ it('displays strategies index page', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('strategies/index', false)
-            ->has('strategies', 3)
+            ->has('strategies.data', 3)
         );
 });
 

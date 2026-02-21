@@ -19,7 +19,7 @@ it('displays wallets index page', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('wallets/index', false)
-            ->has('wallets', 2)
+            ->has('wallets.data', 2)
         );
 });
 
