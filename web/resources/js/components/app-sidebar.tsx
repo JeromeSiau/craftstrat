@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { BookOpen, CreditCard, LayoutGrid, LineChart, Target, Wallet } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -15,26 +15,21 @@ import {
 import type { NavItem } from '@/types';
 import AppLogo from './app-logo';
 import { dashboard } from '@/routes';
+import { index as strategiesIndex } from '@/actions/App/Http/Controllers/StrategyController';
+import { index as walletsIndex } from '@/actions/App/Http/Controllers/WalletController';
+import { index as backtestsIndex } from '@/actions/App/Http/Controllers/BacktestController';
+import { index as billingIndex } from '@/actions/App/Http/Controllers/BillingController';
 
 const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
+    { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+    { title: 'Strategies', href: strategiesIndex.url(), icon: Target },
+    { title: 'Wallets', href: walletsIndex.url(), icon: Wallet },
+    { title: 'Backtests', href: backtestsIndex.url(), icon: LineChart },
+    { title: 'Billing', href: billingIndex.url(), icon: CreditCard },
 ];
 
 const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
+    { title: 'Documentation', href: 'https://docs.oddex.io', icon: BookOpen },
 ];
 
 export function AppSidebar() {
