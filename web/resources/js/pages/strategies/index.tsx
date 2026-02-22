@@ -1,8 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import StatusBadge from '@/components/status-badge';
 import type { BreadcrumbItem } from '@/types';
-import type { Strategy } from '@/types/models';
+import type { Strategy, Paginated } from '@/types/models';
 import { index, show, create } from '@/actions/App/Http/Controllers/StrategyController';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -12,7 +13,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function StrategiesIndex({
     strategies,
 }: {
-    strategies: Strategy[];
+    strategies: Paginated<Strategy>;
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -25,16 +26,16 @@ export default function StrategiesIndex({
                     </Link>
                 </div>
                 <div className="space-y-3">
-                    {strategies.length === 0 && (
+                    {strategies.data.length === 0 && (
                         <p className="text-muted-foreground">
                             No strategies yet. Create your first one.
                         </p>
                     )}
-                    {strategies.map((strategy) => (
+                    {strategies.data.map((strategy) => (
                         <Link
                             key={strategy.id}
                             href={show.url(strategy.id)}
-                            className="block rounded-lg border border-sidebar-border p-4 transition hover:bg-accent"
+                            className="block rounded-lg border p-4 transition hover:bg-accent"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
@@ -43,14 +44,10 @@ export default function StrategiesIndex({
                                     </h3>
                                     <p className="text-sm text-muted-foreground">
                                         {strategy.mode} mode ·{' '}
-                                        {strategy.wallets_count} wallet(s)
+                                        {strategy.wallets_count ?? 0} wallet(s)
                                     </p>
                                 </div>
-                                <span
-                                    className={`rounded-full px-2 py-1 text-xs font-medium ${strategy.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
-                                >
-                                    {strategy.is_active ? 'Active' : 'Inactive'}
-                                </span>
+                                <StatusBadge active={strategy.is_active} />
                             </div>
                         </Link>
                     ))}

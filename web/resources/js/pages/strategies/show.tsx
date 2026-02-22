@@ -1,96 +1,19 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import InputError from '@/components/input-error';
+import ConfirmDialog from '@/components/confirm-dialog';
+import BacktestResultsTable from '@/components/backtest-results-table';
+import StrategyRulesDisplay, { isFormModeGraph } from '@/components/strategy/strategy-rules-display';
 import type { BreadcrumbItem } from '@/types';
-import type { WalletStrategy, BacktestResult, FormModeGraph, ConditionGroup, StrategyRule } from '@/types/models';
-import { indicators } from '@/components/strategy/indicator-options';
+import type { Strategy } from '@/types/models';
 import { index, show, activate, deactivate, destroy } from '@/actions/App/Http/Controllers/StrategyController';
 import { run as runBacktest } from '@/actions/App/Http/Controllers/BacktestController';
 
-interface StrategyShowProps {
-    id: number;
-    name: string;
-    description: string | null;
-    mode: string;
-    graph: Record<string, unknown>;
-    is_active: boolean;
-    wallet_strategies: WalletStrategy[];
-    backtest_results: BacktestResult[];
-}
-
-const indicatorLabelMap = Object.fromEntries(
-    indicators.map((i) => [i.value, i.label]),
-);
-
-function formatRuleValue(rule: StrategyRule): string {
-    if (rule.operator === 'between' && Array.isArray(rule.value)) {
-        return `${rule.value[0]} and ${rule.value[1]}`;
-    }
-    return String(rule.value);
-}
-
-function isFormModeGraph(graph: Record<string, unknown>): graph is FormModeGraph {
-    return graph.mode === 'form' && Array.isArray(graph.conditions);
-}
-
-function StrategyRulesDisplay({ graph }: { graph: FormModeGraph }) {
-    return (
-        <div className="mt-4 space-y-4">
-            <h3 className="text-sm font-semibold">Strategy Rules</h3>
-
-            {graph.conditions.map((group: ConditionGroup, groupIndex: number) => (
-                <div key={groupIndex} className="rounded-md border p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">
-                        Condition Group {groupIndex + 1} ({group.type})
-                    </p>
-                    <ul className="space-y-1 text-sm">
-                        {group.rules.map((rule: StrategyRule, ruleIndex: number) => (
-                            <li key={ruleIndex} className="flex items-center gap-1.5">
-                                <span className="font-medium">
-                                    {indicatorLabelMap[rule.indicator] || rule.indicator}
-                                </span>
-                                <span className="text-muted-foreground">{rule.operator}</span>
-                                <span>{formatRuleValue(rule)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
-
-            <div className="rounded-md border p-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Action</p>
-                <dl className="grid grid-cols-2 gap-1 text-sm">
-                    <dt className="text-muted-foreground">Signal</dt>
-                    <dd className="capitalize">{graph.action.signal}</dd>
-                    <dt className="text-muted-foreground">Outcome</dt>
-                    <dd>{graph.action.outcome}</dd>
-                    <dt className="text-muted-foreground">Size</dt>
-                    <dd>{graph.action.size_usdc} USDC</dd>
-                    <dt className="text-muted-foreground">Order Type</dt>
-                    <dd className="capitalize">{graph.action.order_type}</dd>
-                </dl>
-            </div>
-
-            <div className="rounded-md border p-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Risk</p>
-                <dl className="grid grid-cols-2 gap-1 text-sm">
-                    <dt className="text-muted-foreground">Stop Loss</dt>
-                    <dd>{graph.risk.stoploss_pct}%</dd>
-                    <dt className="text-muted-foreground">Take Profit</dt>
-                    <dd>{graph.risk.take_profit_pct}%</dd>
-                    <dt className="text-muted-foreground">Max Position</dt>
-                    <dd>{graph.risk.max_position_usdc} USDC</dd>
-                    <dt className="text-muted-foreground">Max Trades / Slot</dt>
-                    <dd>{graph.risk.max_trades_per_slot}</dd>
-                </dl>
-            </div>
-        </div>
-    );
-}
-
-export default function StrategiesShow({ strategy }: { strategy: StrategyShowProps }) {
+export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Strategies', href: index.url() },
         { title: strategy.name, href: show.url(strategy.id) },
@@ -124,179 +47,122 @@ export default function StrategiesShow({ strategy }: { strategy: StrategyShowPro
                         {strategy.is_active ? (
                             <Button
                                 variant="outline"
-                                onClick={() =>
-                                    router.post(
-                                        deactivate.url(strategy.id),
-                                    )
-                                }
+                                onClick={() => router.post(deactivate.url(strategy.id))}
                             >
                                 Deactivate
                             </Button>
                         ) : (
-                            <Button
-                                onClick={() =>
-                                    router.post(
-                                        activate.url(strategy.id),
-                                    )
-                                }
-                            >
+                            <Button onClick={() => router.post(activate.url(strategy.id))}>
                                 Activate
                             </Button>
                         )}
-                        <Button
-                            variant="destructive"
-                            onClick={() => {
-                                if (confirm('Are you sure you want to delete this strategy? This action cannot be undone.')) {
-                                    router.delete(destroy.url(strategy.id));
-                                }
-                            }}
-                        >
-                            Delete
-                        </Button>
+                        <ConfirmDialog
+                            trigger={<Button variant="destructive">Delete</Button>}
+                            title="Delete Strategy"
+                            description="Are you sure you want to delete this strategy? This action cannot be undone."
+                            confirmLabel="Delete"
+                            onConfirm={() => router.delete(destroy.url(strategy.id))}
+                        />
                     </div>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                    <div className="rounded-lg border border-sidebar-border p-4">
-                        <h2 className="mb-3 font-semibold">Configuration</h2>
-                        <dl className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <dt className="text-muted-foreground">Mode</dt>
-                                <dd>{strategy.mode}</dd>
-                            </div>
-                            <div className="flex justify-between">
-                                <dt className="text-muted-foreground">
-                                    Status
-                                </dt>
-                                <dd>
-                                    {strategy.is_active ? 'Active' : 'Inactive'}
-                                </dd>
-                            </div>
-                        </dl>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Configuration</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <dl className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">Mode</dt>
+                                    <dd>{strategy.mode}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">Status</dt>
+                                    <dd>{strategy.is_active ? 'Active' : 'Inactive'}</dd>
+                                </div>
+                            </dl>
 
-                        {strategy.graph && isFormModeGraph(strategy.graph) && (
-                            <StrategyRulesDisplay graph={strategy.graph} />
-                        )}
-                    </div>
+                            {strategy.graph && isFormModeGraph(strategy.graph as Record<string, unknown>) && (
+                                <StrategyRulesDisplay graph={strategy.graph} />
+                            )}
+                        </CardContent>
+                    </Card>
 
-                    <div className="rounded-lg border border-sidebar-border p-4">
-                        <h2 className="mb-3 font-semibold">Assigned Wallets</h2>
-                        {strategy.wallet_strategies.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                No wallets assigned.
-                            </p>
-                        ) : (
-                            <ul className="space-y-2 text-sm">
-                                {strategy.wallet_strategies.map((ws) => (
-                                    <li
-                                        key={ws.id}
-                                        className="flex items-center justify-between"
-                                    >
-                                        <span className="font-mono text-xs">
-                                            {ws.wallet.label ||
-                                                ws.wallet.address.slice(0, 10) +
-                                                    '...'}
-                                        </span>
-                                        <span
-                                            className={
-                                                ws.is_running
-                                                    ? 'text-green-600'
-                                                    : 'text-gray-400'
-                                            }
-                                        >
-                                            {ws.is_running
-                                                ? 'Running'
-                                                : 'Stopped'}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-
-                <div className="mt-6 rounded-lg border border-sidebar-border p-4">
-                    <h2 className="mb-3 font-semibold">Recent Backtests</h2>
-                    {strategy.backtest_results.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            No backtests yet.
-                        </p>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <th className="pb-2">Date</th>
-                                        <th className="pb-2">Trades</th>
-                                        <th className="pb-2">Win Rate</th>
-                                        <th className="pb-2">PnL</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {strategy.backtest_results.map((bt) => (
-                                        <tr key={bt.id} className="border-b">
-                                            <td className="py-2">
-                                                {new Date(
-                                                    bt.created_at,
-                                                ).toLocaleDateString()}
-                                            </td>
-                                            <td className="py-2">
-                                                {bt.total_trades}
-                                            </td>
-                                            <td className="py-2">
-                                                {bt.win_rate
-                                                    ? `${(parseFloat(bt.win_rate) * 100).toFixed(1)}%`
-                                                    : '-'}
-                                            </td>
-                                            <td
-                                                className={`py-2 ${bt.total_pnl_usdc && parseFloat(bt.total_pnl_usdc) >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                                            >
-                                                {bt.total_pnl_usdc
-                                                    ? `$${parseFloat(bt.total_pnl_usdc).toFixed(2)}`
-                                                    : '-'}
-                                            </td>
-                                        </tr>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Assigned Wallets</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {!strategy.wallet_strategies?.length ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No wallets assigned.
+                                </p>
+                            ) : (
+                                <ul className="space-y-2 text-sm">
+                                    {strategy.wallet_strategies.map((ws) => (
+                                        <li key={ws.id} className="flex items-center justify-between">
+                                            <span className="font-mono text-xs">
+                                                {ws.wallet.label || `${ws.wallet.address.slice(0, 10)}...`}
+                                            </span>
+                                            <span className={ws.is_running ? 'text-green-600' : 'text-gray-400'}>
+                                                {ws.is_running ? 'Running' : 'Stopped'}
+                                            </span>
+                                        </li>
                                     ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                                </ul>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
 
-                <div className="mt-6 rounded-lg border border-sidebar-border p-4">
-                    <h2 className="mb-3 font-semibold">Run Backtest</h2>
-                    <form onSubmit={handleBacktestSubmit} className="space-y-4">
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="date_from">Date From</Label>
-                                <Input
-                                    id="date_from"
-                                    type="date"
-                                    value={backtestForm.data.date_from}
-                                    onChange={(e) => backtestForm.setData('date_from', e.target.value)}
-                                />
-                                {backtestForm.errors.date_from && (
-                                    <p className="text-sm text-red-500">{backtestForm.errors.date_from}</p>
-                                )}
+                <Card className="mt-6">
+                    <CardHeader>
+                        <CardTitle>Recent Backtests</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {!strategy.backtest_results?.length ? (
+                            <p className="text-sm text-muted-foreground">No backtests yet.</p>
+                        ) : (
+                            <BacktestResultsTable results={strategy.backtest_results} />
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card className="mt-6">
+                    <CardHeader>
+                        <CardTitle>Run Backtest</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleBacktestSubmit} className="space-y-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="date_from">Date From</Label>
+                                    <Input
+                                        id="date_from"
+                                        type="date"
+                                        value={backtestForm.data.date_from}
+                                        onChange={(e) => backtestForm.setData('date_from', e.target.value)}
+                                    />
+                                    <InputError message={backtestForm.errors.date_from} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="date_to">Date To</Label>
+                                    <Input
+                                        id="date_to"
+                                        type="date"
+                                        value={backtestForm.data.date_to}
+                                        onChange={(e) => backtestForm.setData('date_to', e.target.value)}
+                                    />
+                                    <InputError message={backtestForm.errors.date_to} />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="date_to">Date To</Label>
-                                <Input
-                                    id="date_to"
-                                    type="date"
-                                    value={backtestForm.data.date_to}
-                                    onChange={(e) => backtestForm.setData('date_to', e.target.value)}
-                                />
-                                {backtestForm.errors.date_to && (
-                                    <p className="text-sm text-red-500">{backtestForm.errors.date_to}</p>
-                                )}
-                            </div>
-                        </div>
-                        <Button type="submit" disabled={backtestForm.processing}>
-                            {backtestForm.processing ? 'Running...' : 'Run Backtest'}
-                        </Button>
-                    </form>
-                </div>
+                            <Button type="submit" disabled={backtestForm.processing}>
+                                {backtestForm.processing ? 'Running...' : 'Run Backtest'}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

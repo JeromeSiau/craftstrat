@@ -37,6 +37,8 @@ class BacktestController extends Controller
 
     public function run(RunBacktestRequest $request, Strategy $strategy, EngineService $engine): RedirectResponse
     {
+        Gate::authorize('view', $strategy);
+
         $validated = $request->validated();
 
         try {

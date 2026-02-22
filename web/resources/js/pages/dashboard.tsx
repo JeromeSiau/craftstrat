@@ -2,6 +2,8 @@ import { Head, Link } from '@inertiajs/react';
 import { Activity, LineChart, Target, Wallet } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import MetricCard from '@/components/metric-card';
+import StatusBadge from '@/components/status-badge';
 import type { BreadcrumbItem } from '@/types';
 import type { DashboardStats, Strategy } from '@/types/models';
 import { dashboard } from '@/routes';
@@ -34,17 +36,12 @@ export default function Dashboard({ stats, recentStrategies }: Props) {
             <div className="flex flex-1 flex-col gap-6 p-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {cards.map((card) => (
-                        <Card key={card.label}>
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground">
-                                    {card.label}
-                                </CardTitle>
-                                <card.icon className="size-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-2xl font-bold">{card.value}</p>
-                            </CardContent>
-                        </Card>
+                        <MetricCard
+                            key={card.label}
+                            label={card.label}
+                            value={card.value}
+                            icon={card.icon}
+                        />
                     ))}
                 </div>
 
@@ -69,15 +66,7 @@ export default function Dashboard({ stats, recentStrategies }: Props) {
                                                 {strategy.mode} mode · {strategy.wallets_count ?? 0} wallet(s)
                                             </p>
                                         </div>
-                                        <span
-                                            className={`rounded-full px-2 py-1 text-xs font-medium ${
-                                                strategy.is_active
-                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                                            }`}
-                                        >
-                                            {strategy.is_active ? 'Active' : 'Inactive'}
-                                        </span>
+                                        <StatusBadge active={strategy.is_active} />
                                     </Link>
                                 ))}
                             </div>
