@@ -141,3 +141,29 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Landing page */
+@keyframes fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+}
+
+@keyframes ticker-scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.dot-grid {
+    background-image: radial-gradient(
+        circle,
+        color-mix(in oklch, var(--primary) 8%, transparent) 1px,
+        transparent 1px
+    );
+    background-size: 32px 32px;
+}
