@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::execution::queue::ExecutionQueue;
 use crate::execution::{ExecutionOrder, OrderPriority, Side};
+use crate::metrics as m;
 use crate::storage::postgres::{
     self, CopyRelationship,
 };
@@ -81,7 +82,7 @@ pub async fn run(
                         Some(order) => {
                             let mut q = queue.lock().await;
                             q.push(order);
-                            counter!("oddex_copy_trades_total", "status" => "queued").increment(1);
+                            counter!(m::COPY_TRADES_TOTAL, "status" => "queued").increment(1);
                         }
                         None => {
                             let outcome_str = trade.outcome.as_deref().unwrap_or("UP");
@@ -100,7 +101,7 @@ pub async fn run(
                                 Some("exceeds_max_position_or_filtered"),
                             )
                             .await;
-                            counter!("oddex_copy_trades_total", "status" => "skipped").increment(1);
+                            counter!(m::COPY_TRADES_TOTAL, "status" => "skipped").increment(1);
                         }
                     }
                 }

@@ -10,6 +10,7 @@ use tracing::{error, info, warn};
 use super::orders::OrderSubmitter;
 use super::queue::ExecutionQueue;
 use super::{ExecutionOrder, OrderResult, OrderStatus, Side};
+use crate::metrics as m;
 use crate::strategy::registry::AssignmentRegistry;
 use crate::strategy::state::Position;
 use crate::strategy::Outcome;
@@ -66,14 +67,14 @@ pub async fn run(
             }
         };
 
-        histogram!("oddex_order_execution_duration_seconds").record(exec_start.elapsed().as_secs_f64());
+        histogram!(m::ORDER_EXEC_DURATION).record(exec_start.elapsed().as_secs_f64());
         let status_label = match result.status {
             OrderStatus::Filled => "filled",
             OrderStatus::Cancelled => "cancelled",
             OrderStatus::Failed => "failed",
             OrderStatus::Timeout => "timeout",
         };
-        counter!("oddex_orders_total", "status" => status_label.to_string()).increment(1);
+        counter!(m::ORDERS_TOTAL, "status" => status_label).increment(1);
 
         // 4. If filled, update position state
         if result.status == OrderStatus::Filled {
@@ -184,7 +185,7 @@ async fn update_position(
             if let Some(ref pos) = state.position {
                 let pnl = (filled_price - pos.entry_price) * pos.size_usdc;
                 state.pnl += pnl;
-                gauge!("oddex_pnl_usdc").increment(pnl);
+                gauge!(m::PNL_USDC).increment(pnl);
             }
             state.position = None;
         }

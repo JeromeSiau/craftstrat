@@ -9,6 +9,7 @@ use super::registry::AssignmentRegistry;
 use super::{EngineOutput, Signal};
 use crate::fetcher::models::Tick;
 use crate::kafka;
+use crate::metrics as m;
 
 pub async fn run(
     brokers: &str,
@@ -19,6 +20,7 @@ pub async fn run(
     tracing::info!("strategy_engine_started");
 
     let engine_start = std::time::Instant::now();
+    let mut tick_count: u64 = 0;
 
     loop {
         let message = match consumer.recv().await {
@@ -43,8 +45,11 @@ pub async fn run(
             }
         };
 
-        counter!("oddex_ticks_total").increment(1);
-        gauge!("oddex_uptime_seconds").set(engine_start.elapsed().as_secs_f64());
+        counter!(m::TICKS_TOTAL).increment(1);
+        tick_count += 1;
+        if tick_count % 100 == 0 {
+            gauge!(m::UPTIME_SECONDS).set(engine_start.elapsed().as_secs_f64());
+        }
 
         // Read lock -> clone assignments for this symbol -> release lock
         let assignments = {
@@ -84,7 +89,7 @@ pub async fn run(
                 }
             })
             .collect();
-        histogram!("oddex_strategy_eval_duration_seconds").record(eval_start.elapsed().as_secs_f64());
+        histogram!(m::STRATEGY_EVAL_DURATION).record(eval_start.elapsed().as_secs_f64());
 
         for output in signals {
             let signal_type = match &output.signal {
@@ -92,7 +97,7 @@ pub async fn run(
                 Signal::Sell { .. } => "sell",
                 Signal::Hold => "hold",
             };
-            counter!("oddex_signals_total", "signal" => signal_type.to_string()).increment(1);
+            counter!(m::SIGNALS_TOTAL, "signal" => signal_type).increment(1);
 
             tracing::info!(
                 wallet_id = output.wallet_id,
