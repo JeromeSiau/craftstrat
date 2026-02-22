@@ -1,14 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import {
-    ArrowRight,
-    BarChart3,
-    Blocks,
-    Check,
-    Copy,
-    LineChart,
-    Wallet,
-    Zap,
-} from 'lucide-react';
+import { ArrowRight, Check, Copy, LineChart, Zap } from 'lucide-react';
 import type { RefCallback } from 'react';
 import { useEffect, useState } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
@@ -21,70 +12,31 @@ import { dashboard, login, register } from '@/routes';
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 
-const features = [
-    {
-        icon: Blocks,
-        title: 'No-Code Strategy Builder',
-        description:
-            'Design complex trading rules with the visual form builder, or go deeper with the node-based graph editor.',
-    },
-    {
-        icon: Zap,
-        title: 'Real-Time Execution',
-        description:
-            'Strategies execute in milliseconds across multiple Polygon wallets simultaneously. 24/7, fully automated.',
-    },
-    {
-        icon: BarChart3,
-        title: 'Historical Backtesting',
-        description:
-            'Test your strategies against real Polymarket order book data before risking real capital.',
-    },
+const stats = [
+    { value: '<50ms', label: 'Execution Speed' },
+    { value: '24/7', label: 'Automated Trading' },
+    { value: '500+', label: 'Markets Tracked' },
+    { value: '99.9%', label: 'Uptime' },
+];
+
+const secondaryFeatures = [
     {
         icon: Copy,
         title: 'Copy Trading',
         description:
-            'Follow any public Polymarket wallet. Mirror trades automatically with full slippage tracking.',
-    },
-    {
-        icon: Wallet,
-        title: 'Multi-Wallet Management',
-        description:
-            'Generate and manage multiple Polygon wallets. Assign different strategies to each one independently.',
+            'Follow any public Polymarket wallet. Mirror trades automatically with configurable position sizing.',
     },
     {
         icon: LineChart,
         title: 'Advanced Analytics',
         description:
-            'Track win rates, PnL, drawdowns, and market calibration with rich visual dashboards.',
-    },
-];
-
-const stats = [
-    { value: '<50ms', label: 'Execution Speed' },
-    { value: '24/7', label: 'Automated Trading' },
-    { value: '1M+', label: 'Data Points Processed' },
-    { value: '99.9%', label: 'Uptime' },
-];
-
-const steps = [
-    {
-        number: '01',
-        title: 'Build',
-        description:
-            'Create your trading strategy using our visual no-code builder. Define conditions, indicators, and execution rules.',
+            'Track win rates, PnL curves, drawdowns, and calibration metrics across all your strategies.',
     },
     {
-        number: '02',
-        title: 'Backtest',
+        icon: Zap,
+        title: 'Real-Time Execution',
         description:
-            'Test against real historical Polymarket data. Analyze win rates, PnL curves, and risk metrics before going live.',
-    },
-    {
-        number: '03',
-        title: 'Deploy',
-        description:
-            'Activate your strategy across your wallets and let it run 24/7. Monitor performance in real-time.',
+            'Sub-50ms order placement across multiple wallets simultaneously. No manual intervention needed.',
     },
 ];
 
@@ -139,17 +91,6 @@ const plans = [
     },
 ];
 
-const tickerItems = [
-    { event: 'BTC > $100K by March', odds: '0.72', direction: 'up' as const },
-    { event: 'Fed Rate Cut Q1', odds: '0.34', direction: 'down' as const },
-    { event: 'ETH Flip BTC', odds: '0.08', direction: 'down' as const },
-    { event: 'GPT-5 Release 2026', odds: '0.61', direction: 'up' as const },
-    { event: 'Tesla $500', odds: '0.45', direction: 'up' as const },
-    { event: 'US Recession 2026', odds: '0.28', direction: 'down' as const },
-    { event: 'Mars Mission 2030', odds: '0.52', direction: 'up' as const },
-    { event: 'Gold > $3K', odds: '0.67', direction: 'up' as const },
-];
-
 /* ------------------------------------------------------------------ */
 /*  Hooks                                                              */
 /* ------------------------------------------------------------------ */
@@ -174,6 +115,12 @@ function useInView(threshold = 0.15): [RefCallback<HTMLElement>, boolean] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Shared style                                                       */
+/* ------------------------------------------------------------------ */
+
+const jakarta = { fontFamily: 'Plus Jakarta Sans, sans-serif' };
+
+/* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -185,16 +132,18 @@ export default function Welcome({
     const { auth } = usePage<{ auth: { user: unknown } }>().props;
 
     const [statsRef, statsInView] = useInView(0.2);
-    const [featuresRef, featuresInView] = useInView();
-    const [stepsRef, stepsInView] = useInView();
+    const [builderRef, builderInView] = useInView();
+    const [backtestRef, backtestInView] = useInView();
+    const [walletsRef, walletsInView] = useInView();
+    const [extrasRef, extrasInView] = useInView();
     const [pricingRef, pricingInView] = useInView();
 
     return (
         <>
-            <Head title="Oddex — Prediction Market Trading Engine">
+            <Head title="Oddex — Polymarket Automated Trading">
                 <link rel="preconnect" href="https://fonts.bunny.net" />
                 <link
-                    href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|syne:700,800|jetbrains-mono:400"
+                    href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|plus-jakarta-sans:600,700,800"
                     rel="stylesheet"
                 />
             </Head>
@@ -209,7 +158,7 @@ export default function Welcome({
                             </div>
                             <span
                                 className="text-lg font-bold tracking-tight"
-                                style={{ fontFamily: 'Syne, sans-serif' }}
+                                style={jakarta}
                             >
                                 Oddex
                             </span>
@@ -221,12 +170,6 @@ export default function Welcome({
                                 className="transition hover:text-foreground"
                             >
                                 Features
-                            </a>
-                            <a
-                                href="#how-it-works"
-                                className="transition hover:text-foreground"
-                            >
-                                How It Works
                             </a>
                             <a
                                 href="#pricing"
@@ -261,139 +204,113 @@ export default function Welcome({
 
                 {/* ============ HERO ============ */}
                 <section className="relative overflow-hidden">
-                    {/* Dot grid */}
-                    <div className="dot-grid absolute inset-0" />
+                    {/* Warm glow */}
+                    <div className="pointer-events-none absolute top-1/3 left-1/2 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/8 blur-[120px]" />
 
-                    {/* Amber glow */}
-                    <div className="pointer-events-none absolute top-1/3 left-1/2 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[120px]" />
+                    {/* Subtle horizontal lines */}
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-25"
+                        style={{
+                            backgroundImage:
+                                'repeating-linear-gradient(0deg, transparent, transparent 79px, var(--border) 79px, var(--border) 80px)',
+                        }}
+                    />
 
-                    <div className="relative mx-auto max-w-7xl px-4 pt-24 pb-20 sm:px-6 sm:pt-32 lg:px-8 lg:pt-40">
-                        <div className="mx-auto max-w-4xl text-center">
-                            {/* Tag */}
-                            <div
-                                className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium tracking-widest text-primary uppercase"
-                                style={{
-                                    fontFamily: 'JetBrains Mono, monospace',
-                                    animation:
-                                        'fade-up 0.7s ease-out 0.1s backwards',
-                                }}
-                            >
-                                <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-                                Prediction Market Automation
-                            </div>
+                    <div className="relative mx-auto max-w-4xl px-4 pt-24 pb-20 text-center sm:px-6 sm:pt-32 lg:pt-40">
+                        {/* Badge */}
+                        <div
+                            className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium tracking-widest text-primary uppercase"
+                            style={{
+                                ...jakarta,
+                                animation:
+                                    'fade-up 0.7s ease-out 0.1s backwards',
+                            }}
+                        >
+                            <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+                            Polymarket Automation
+                        </div>
 
-                            {/* Headline */}
-                            <h1
-                                className="text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl xl:text-8xl"
-                                style={{
-                                    fontFamily: 'Syne, sans-serif',
-                                    animation:
-                                        'fade-up 0.8s ease-out 0.2s backwards',
-                                }}
-                            >
-                                Your Edge,{' '}
-                                <span className="text-primary">Automated</span>
-                            </h1>
+                        {/* Headline */}
+                        <h1
+                            className="text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
+                            style={{
+                                ...jakarta,
+                                animation:
+                                    'fade-up 0.8s ease-out 0.2s backwards',
+                            }}
+                        >
+                            Trade Polymarket
+                            <br />
+                            <span className="text-primary">on Autopilot</span>
+                        </h1>
 
-                            {/* Description */}
-                            <p
-                                className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl"
-                                style={{
-                                    animation:
-                                        'fade-up 0.8s ease-out 0.35s backwards',
-                                }}
-                            >
-                                Build trading strategies without code, backtest
-                                against real Polymarket data, and deploy across
-                                multiple wallets — all from one platform.
-                            </p>
+                        {/* Description */}
+                        <p
+                            className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl"
+                            style={{
+                                animation:
+                                    'fade-up 0.8s ease-out 0.35s backwards',
+                            }}
+                        >
+                            Build strategies visually, backtest on real order
+                            book data, and deploy across multiple wallets. No
+                            code required.
+                        </p>
 
-                            {/* CTAs */}
-                            <div
-                                className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
-                                style={{
-                                    animation:
-                                        'fade-up 0.8s ease-out 0.5s backwards',
-                                }}
-                            >
-                                {canRegister && (
-                                    <Button
-                                        size="lg"
-                                        className="h-12 px-8 text-base"
-                                        asChild
-                                    >
-                                        <Link href={register()}>
-                                            Start Trading Free
-                                            <ArrowRight className="ml-1 size-4" />
-                                        </Link>
-                                    </Button>
-                                )}
+                        {/* CTAs */}
+                        <div
+                            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+                            style={{
+                                animation:
+                                    'fade-up 0.8s ease-out 0.5s backwards',
+                            }}
+                        >
+                            {canRegister && (
                                 <Button
-                                    variant="outline"
                                     size="lg"
                                     className="h-12 px-8 text-base"
                                     asChild
                                 >
-                                    <a href="#how-it-works">See How It Works</a>
+                                    <Link href={register()}>
+                                        Start Trading Free
+                                        <ArrowRight className="ml-1 size-4" />
+                                    </Link>
                                 </Button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Ticker strip */}
-                    <div className="relative overflow-hidden border-y border-border/50 bg-muted/30 py-3">
-                        <div
-                            className="flex"
-                            style={{
-                                animation: 'ticker-scroll 50s linear infinite',
-                                fontFamily: 'JetBrains Mono, monospace',
-                            }}
-                        >
-                            {[...tickerItems, ...tickerItems].map((item, i) => (
-                                <div
-                                    key={i}
-                                    className="flex shrink-0 items-center gap-5 px-6"
-                                >
-                                    <span className="text-xs whitespace-nowrap text-muted-foreground">
-                                        {item.event}
-                                    </span>
-                                    <span
-                                        className={cn(
-                                            'text-xs font-medium',
-                                            item.direction === 'up'
-                                                ? 'text-chart-3'
-                                                : 'text-chart-5',
-                                        )}
-                                    >
-                                        {item.direction === 'up' ? '↑' : '↓'}{' '}
-                                        {item.odds}
-                                    </span>
-                                    <span className="text-border">│</span>
-                                </div>
-                            ))}
+                            )}
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="h-12 px-8 text-base"
+                                asChild
+                            >
+                                <a href="#features">Explore Features</a>
+                            </Button>
                         </div>
                     </div>
                 </section>
 
                 {/* ============ STATS ============ */}
-                <section ref={statsRef} className="border-b border-border/50">
+                <section
+                    ref={statsRef}
+                    className="border-y border-border/50 bg-card"
+                >
                     <div className="mx-auto grid max-w-7xl grid-cols-2 sm:grid-cols-4">
                         {stats.map((stat, i) => (
                             <div
                                 key={stat.label}
                                 className={cn(
-                                    'flex flex-col items-center gap-1 px-6 py-12 text-center transition-all duration-700',
+                                    'flex flex-col items-center gap-1 border-border/50 px-6 py-12 text-center transition-all duration-700 sm:not-last:border-r',
                                     statsInView
                                         ? 'translate-y-0 opacity-100'
                                         : 'translate-y-4 opacity-0',
                                 )}
-                                style={{ transitionDelay: `${i * 100}ms` }}
+                                style={{
+                                    transitionDelay: `${i * 100}ms`,
+                                }}
                             >
                                 <span
                                     className="text-3xl font-bold text-primary sm:text-4xl"
-                                    style={{
-                                        fontFamily: 'JetBrains Mono, monospace',
-                                    }}
+                                    style={jakarta}
                                 >
                                     {stat.value}
                                 </span>
@@ -405,43 +322,412 @@ export default function Welcome({
                     </div>
                 </section>
 
-                {/* ============ FEATURES ============ */}
+                {/* ============ FEATURE: Strategy Builder ============ */}
                 <section
                     id="features"
-                    ref={featuresRef}
+                    ref={builderRef}
                     className="py-24 sm:py-32"
                 >
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <div className="mx-auto max-w-2xl text-center">
-                            <h2
-                                className="text-3xl font-bold tracking-tight sm:text-4xl"
-                                style={{ fontFamily: 'Syne, sans-serif' }}
+                    <div
+                        className={cn(
+                            'mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20 lg:px-8',
+                            'transition-all duration-700',
+                            builderInView
+                                ? 'translate-y-0 opacity-100'
+                                : 'translate-y-8 opacity-0',
+                        )}
+                    >
+                        {/* Text */}
+                        <div>
+                            <p
+                                className="text-xs font-semibold tracking-widest text-primary uppercase"
+                                style={jakarta}
                             >
-                                Everything You Need to{' '}
-                                <span className="text-primary">Win</span>
-                            </h2>
-                            <p className="mt-4 text-lg text-muted-foreground">
-                                Professional-grade tools designed for prediction
-                                market traders.
+                                Strategy Builder
                             </p>
+                            <h2
+                                className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl"
+                                style={jakarta}
+                            >
+                                Build strategies,
+                                <br />
+                                not spreadsheets
+                            </h2>
+                            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                                Design trading rules with our visual form
+                                builder — no code needed. For power users, the
+                                node-based graph editor lets you wire complex
+                                logic with full control.
+                            </p>
+                            <ul className="mt-6 space-y-3">
+                                {[
+                                    'Drag-and-drop condition blocks',
+                                    'Advanced node/graph editor for complex logic',
+                                    'Reusable strategy templates',
+                                ].map((item) => (
+                                    <li
+                                        key={item}
+                                        className="flex items-center gap-2.5 text-sm"
+                                    >
+                                        <Check className="size-4 shrink-0 text-primary" />
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
 
-                        <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {features.map((feature, i) => (
+                        {/* Mock UI */}
+                        <div className="rounded-xl border border-border/50 bg-card p-6 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2">
+                                <div className="size-2.5 rounded-full bg-red-400/60" />
+                                <div className="size-2.5 rounded-full bg-amber-400/60" />
+                                <div className="size-2.5 rounded-full bg-green-400/60" />
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                    Strategy Editor
+                                </span>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                                    <div className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                                        When
+                                    </div>
+                                    <div className="mt-1 text-sm font-medium">
+                                        Market probability crosses above{' '}
+                                        <span className="text-primary">
+                                            0.65
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-center text-muted-foreground/50">
+                                    <svg
+                                        className="size-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                    >
+                                        <path d="M12 5v14m0 0l-4-4m4 4l4-4" />
+                                    </svg>
+                                </div>
+                                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                                    <div className="text-[10px] font-semibold tracking-widest text-primary uppercase">
+                                        Then
+                                    </div>
+                                    <div className="mt-1 text-sm font-medium">
+                                        Buy{' '}
+                                        <span className="text-primary">
+                                            $50
+                                        </span>{' '}
+                                        on YES
+                                    </div>
+                                </div>
+                                <div className="flex justify-center text-muted-foreground/50">
+                                    <svg
+                                        className="size-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                    >
+                                        <path d="M12 5v14m0 0l-4-4m4 4l4-4" />
+                                    </svg>
+                                </div>
+                                <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                                    <div className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                                        Exit when
+                                    </div>
+                                    <div className="mt-1 text-sm font-medium">
+                                        Profit reaches{' '}
+                                        <span className="text-primary">
+                                            +15%
+                                        </span>{' '}
+                                        or loss exceeds{' '}
+                                        <span className="text-destructive">
+                                            -8%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ============ FEATURE: Backtesting ============ */}
+                <section
+                    ref={backtestRef}
+                    className="border-y border-border/50 bg-muted/20 py-24 sm:py-32"
+                >
+                    <div
+                        className={cn(
+                            'mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20 lg:px-8',
+                            'transition-all duration-700',
+                            backtestInView
+                                ? 'translate-y-0 opacity-100'
+                                : 'translate-y-8 opacity-0',
+                        )}
+                    >
+                        {/* Mock UI (left on desktop) */}
+                        <div className="order-2 rounded-xl border border-border/50 bg-card p-6 shadow-sm lg:order-1">
+                            <div className="mb-4 flex items-center gap-2">
+                                <div className="size-2.5 rounded-full bg-red-400/60" />
+                                <div className="size-2.5 rounded-full bg-amber-400/60" />
+                                <div className="size-2.5 rounded-full bg-green-400/60" />
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                    Backtest Results
+                                </span>
+                            </div>
+                            {/* Mock chart */}
+                            <div className="relative h-32 w-full overflow-hidden rounded-lg bg-muted/30">
+                                <svg
+                                    className="absolute inset-0 size-full"
+                                    viewBox="0 0 400 120"
+                                    fill="none"
+                                    preserveAspectRatio="none"
+                                >
+                                    <path
+                                        d="M0 100 Q50 90 80 75 T160 60 T240 45 T320 55 T400 20"
+                                        stroke="currentColor"
+                                        className="text-primary/40"
+                                        strokeWidth="2"
+                                    />
+                                    <path
+                                        d="M0 100 Q50 90 80 75 T160 60 T240 45 T320 55 T400 20 V120 H0Z"
+                                        className="fill-primary/5"
+                                    />
+                                </svg>
+                            </div>
+                            {/* Mock stats */}
+                            <div className="mt-4 grid grid-cols-3 gap-4">
+                                <div>
+                                    <div
+                                        className="text-lg font-bold text-primary"
+                                        style={jakarta}
+                                    >
+                                        73%
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                        Win Rate
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        className="text-lg font-bold text-chart-3"
+                                        style={jakarta}
+                                    >
+                                        +18.4%
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                        Return
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        className="text-lg font-bold"
+                                        style={jakarta}
+                                    >
+                                        142
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                        Trades
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Text (right on desktop) */}
+                        <div className="order-1 lg:order-2">
+                            <p
+                                className="text-xs font-semibold tracking-widest text-primary uppercase"
+                                style={jakarta}
+                            >
+                                Backtesting
+                            </p>
+                            <h2
+                                className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl"
+                                style={jakarta}
+                            >
+                                Backtest before
+                                <br />
+                                you bet
+                            </h2>
+                            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                                Replay your strategies against real historical
+                                Polymarket order book data. See exactly how they
+                                would have performed before risking real
+                                capital.
+                            </p>
+                            <ul className="mt-6 space-y-3">
+                                {[
+                                    'Real order book data, not simulated prices',
+                                    'Full PnL curves, drawdowns, and risk metrics',
+                                    'Compare multiple strategies side by side',
+                                ].map((item) => (
+                                    <li
+                                        key={item}
+                                        className="flex items-center gap-2.5 text-sm"
+                                    >
+                                        <Check className="size-4 shrink-0 text-primary" />
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ============ FEATURE: Multi-Wallet ============ */}
+                <section ref={walletsRef} className="py-24 sm:py-32">
+                    <div
+                        className={cn(
+                            'mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20 lg:px-8',
+                            'transition-all duration-700',
+                            walletsInView
+                                ? 'translate-y-0 opacity-100'
+                                : 'translate-y-8 opacity-0',
+                        )}
+                    >
+                        {/* Text */}
+                        <div>
+                            <p
+                                className="text-xs font-semibold tracking-widest text-primary uppercase"
+                                style={jakarta}
+                            >
+                                Multi-Wallet
+                            </p>
+                            <h2
+                                className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl"
+                                style={jakarta}
+                            >
+                                One dashboard,
+                                <br />
+                                many wallets
+                            </h2>
+                            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                                Generate and manage multiple Polygon wallets
+                                from a single interface. Assign different
+                                strategies to each wallet and monitor everything
+                                in one place.
+                            </p>
+                            <ul className="mt-6 space-y-3">
+                                {[
+                                    'Generate unlimited Polygon wallets',
+                                    'Assign unique strategies per wallet',
+                                    'Unified PnL and performance view',
+                                ].map((item) => (
+                                    <li
+                                        key={item}
+                                        className="flex items-center gap-2.5 text-sm"
+                                    >
+                                        <Check className="size-4 shrink-0 text-primary" />
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        {/* Mock UI */}
+                        <div className="rounded-xl border border-border/50 bg-card p-6 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2">
+                                <div className="size-2.5 rounded-full bg-red-400/60" />
+                                <div className="size-2.5 rounded-full bg-amber-400/60" />
+                                <div className="size-2.5 rounded-full bg-green-400/60" />
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                    Wallet Manager
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    {
+                                        name: 'Alpha',
+                                        strategies: 3,
+                                        active: true,
+                                        pnl: '+$412',
+                                    },
+                                    {
+                                        name: 'Beta',
+                                        strategies: 1,
+                                        active: true,
+                                        pnl: '+$89',
+                                    },
+                                    {
+                                        name: 'Hedge',
+                                        strategies: 2,
+                                        active: true,
+                                        pnl: '+$203',
+                                    },
+                                    {
+                                        name: 'Test',
+                                        strategies: 1,
+                                        active: false,
+                                        pnl: '$0',
+                                    },
+                                ].map((w) => (
+                                    <div
+                                        key={w.name}
+                                        className="rounded-lg border border-border/50 bg-muted/20 p-3"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-semibold">
+                                                {w.name}
+                                            </span>
+                                            <span
+                                                className={cn(
+                                                    'text-[10px] font-medium',
+                                                    w.active
+                                                        ? 'text-chart-3'
+                                                        : 'text-muted-foreground',
+                                                )}
+                                            >
+                                                {w.active
+                                                    ? '● Active'
+                                                    : '○ Paused'}
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                                            <span>
+                                                {w.strategies}{' '}
+                                                {w.strategies === 1
+                                                    ? 'strategy'
+                                                    : 'strategies'}
+                                            </span>
+                                            <span
+                                                className={cn(
+                                                    'font-medium',
+                                                    w.pnl.startsWith('+') &&
+                                                        'text-chart-3',
+                                                )}
+                                            >
+                                                {w.pnl}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ============ SECONDARY FEATURES ============ */}
+                <section
+                    ref={extrasRef}
+                    className="border-y border-border/50 bg-muted/20 py-24 sm:py-32"
+                >
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <div className="mx-auto grid gap-px overflow-hidden rounded-xl border border-border/50 bg-border/50 sm:grid-cols-3">
+                            {secondaryFeatures.map((feature, i) => (
                                 <div
                                     key={feature.title}
                                     className={cn(
-                                        'group relative rounded-xl border border-border/50 bg-card/50 p-6 transition-all duration-500',
-                                        'hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5',
-                                        featuresInView
+                                        'bg-card p-8 transition-all duration-500 hover:bg-primary/[0.02]',
+                                        extrasInView
                                             ? 'translate-y-0 opacity-100'
                                             : 'translate-y-8 opacity-0',
                                     )}
                                     style={{
-                                        transitionDelay: `${i * 80}ms`,
+                                        transitionDelay: `${i * 100}ms`,
                                     }}
                                 >
-                                    <div className="mb-4 inline-flex rounded-lg bg-primary/10 p-2.5 text-primary transition-colors group-hover:bg-primary/15">
+                                    <div className="mb-4 inline-flex rounded-lg bg-primary/10 p-2.5 text-primary">
                                         <feature.icon className="size-5" />
                                     </div>
                                     <h3 className="mb-2 font-semibold">
@@ -449,67 +735,6 @@ export default function Welcome({
                                     </h3>
                                     <p className="text-sm leading-relaxed text-muted-foreground">
                                         {feature.description}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* ============ HOW IT WORKS ============ */}
-                <section
-                    id="how-it-works"
-                    ref={stepsRef}
-                    className="border-y border-border/50 bg-muted/20 py-24 sm:py-32"
-                >
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <div className="mx-auto max-w-2xl text-center">
-                            <h2
-                                className="text-3xl font-bold tracking-tight sm:text-4xl"
-                                style={{ fontFamily: 'Syne, sans-serif' }}
-                            >
-                                Three Steps to{' '}
-                                <span className="text-primary">
-                                    Automated Trading
-                                </span>
-                            </h2>
-                            <p className="mt-4 text-lg text-muted-foreground">
-                                Go from idea to live execution in minutes, not
-                                days.
-                            </p>
-                        </div>
-
-                        <div className="relative mt-16 grid gap-12 lg:grid-cols-3 lg:gap-8">
-                            {/* Connector line (desktop) */}
-                            <div className="absolute top-8 right-[calc(16.67%+16px)] left-[calc(16.67%+16px)] hidden h-px bg-gradient-to-r from-primary/30 via-primary/15 to-primary/30 lg:block" />
-
-                            {steps.map((step, i) => (
-                                <div
-                                    key={step.number}
-                                    className={cn(
-                                        'relative text-center transition-all duration-700',
-                                        stepsInView
-                                            ? 'translate-y-0 opacity-100'
-                                            : 'translate-y-8 opacity-0',
-                                    )}
-                                    style={{
-                                        transitionDelay: `${i * 150}ms`,
-                                    }}
-                                >
-                                    <div
-                                        className="relative z-10 mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-background text-2xl font-bold text-primary"
-                                        style={{
-                                            fontFamily:
-                                                'JetBrains Mono, monospace',
-                                        }}
-                                    >
-                                        {step.number}
-                                    </div>
-                                    <h3 className="mb-3 text-xl font-semibold">
-                                        {step.title}
-                                    </h3>
-                                    <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">
-                                        {step.description}
                                     </p>
                                 </div>
                             ))}
@@ -527,10 +752,9 @@ export default function Welcome({
                         <div className="mx-auto max-w-2xl text-center">
                             <h2
                                 className="text-3xl font-bold tracking-tight sm:text-4xl"
-                                style={{ fontFamily: 'Syne, sans-serif' }}
+                                style={jakarta}
                             >
-                                Simple, Transparent{' '}
-                                <span className="text-primary">Pricing</span>
+                                Pricing
                             </h2>
                             <p className="mt-4 text-lg text-muted-foreground">
                                 Start for free. Scale as you grow.
@@ -565,9 +789,7 @@ export default function Welcome({
                                     <div className="mt-4 flex items-baseline">
                                         <span
                                             className="text-4xl font-bold tracking-tight"
-                                            style={{
-                                                fontFamily: 'Syne, sans-serif',
-                                            }}
+                                            style={jakarta}
                                         >
                                             {plan.price}
                                         </span>
@@ -622,15 +844,14 @@ export default function Welcome({
                     <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
                         <h2
                             className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl"
-                            style={{ fontFamily: 'Syne, sans-serif' }}
+                            style={jakarta}
                         >
-                            Ready to Trade{' '}
-                            <span className="text-primary">Smarter</span>?
+                            Start trading{' '}
+                            <span className="text-primary">smarter</span>
                         </h2>
                         <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-                            Join traders who automate their prediction market
-                            strategies with Oddex. Start for free — no credit
-                            card required.
+                            Join traders automating their Polymarket strategies.
+                            Free to start, no credit card required.
                         </p>
                         {canRegister && (
                             <Button
@@ -654,10 +875,7 @@ export default function Welcome({
                             <div className="flex size-7 items-center justify-center rounded-md bg-primary">
                                 <AppLogoIcon className="size-3.5 fill-current text-primary-foreground" />
                             </div>
-                            <span
-                                className="font-bold"
-                                style={{ fontFamily: 'Syne, sans-serif' }}
-                            >
+                            <span className="font-bold" style={jakarta}>
                                 Oddex
                             </span>
                         </div>
