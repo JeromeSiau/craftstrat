@@ -1,9 +1,19 @@
+// Pagination wrapper from Laravel's paginate()
+export interface Paginated<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    links: Array<{ url: string | null; label: string; active: boolean }>;
+}
+
 export interface Strategy {
     id: number;
     name: string;
     description: string | null;
-    mode: string;
-    graph: Record<string, unknown>;
+    mode: 'form' | 'node';
+    graph: FormModeGraph | NodeModeGraph;
     is_active: boolean;
     wallets_count?: number;
     wallet_strategies?: WalletStrategy[];
@@ -53,12 +63,14 @@ export interface DashboardStats {
 
 // Strategy graph types for form mode
 export interface StrategyRule {
+    id: string;
     indicator: string;
     operator: string;
     value: number | [number, number];
 }
 
 export interface ConditionGroup {
+    id: string;
     type: 'AND' | 'OR';
     rules: StrategyRule[];
 }
