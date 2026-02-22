@@ -24,17 +24,25 @@ docker compose -f "$PROJECT_DIR/docker-compose.yml" exec -T postgres \
   | gzip > "$BACKUP_DIR/${PREFIX}-db-postgres-${DATE}.sql.gz"
 echo "PostgreSQL done."
 
-# ── ClickHouse (full dump) ───────────────────
+# ── ClickHouse (all tables) ──────────────────
 echo "Dumping ClickHouse..."
-docker compose -f "$PROJECT_DIR/docker-compose.yml" exec -T clickhouse \
-  clickhouse-client --password="${CLICKHOUSE_PASSWORD:-clickhouse}" \
-  --query="BACKUP DATABASE default TO Disk('backups', '${DATE}')" \
-  2>/dev/null
-docker compose -f "$PROJECT_DIR/docker-compose.yml" exec -T clickhouse \
-  tar czf - -C /var/lib/clickhouse/backups/"${DATE}" . \
-  | cat > "$BACKUP_DIR/${PREFIX}-db-clickhouse-${DATE}.tar.gz"
-docker compose -f "$PROJECT_DIR/docker-compose.yml" exec -T clickhouse \
-  rm -rf /var/lib/clickhouse/backups/"${DATE}"
+CH="docker compose -f $PROJECT_DIR/docker-compose.yml exec -T clickhouse clickhouse-client --password=${CLICKHOUSE_PASSWORD:-clickhouse}"
+TABLES=$($CH --query="SELECT name FROM system.tables WHERE database = 'default' AND engine NOT LIKE '%Log'" | tr -d '\r')
+
+# Schema (all CREATE TABLE statements in one file)
+{
+  for TABLE in $TABLES; do
+    $CH --query="SHOW CREATE TABLE default.${TABLE} FORMAT TabSeparatedRaw"
+    echo ";"
+  done
+} | gzip > "$BACKUP_DIR/${PREFIX}-db-clickhouse-schema-${DATE}.sql.gz"
+
+# Data (one file per table in Native format)
+for TABLE in $TABLES; do
+  echo "  - $TABLE"
+  $CH --query="SELECT * FROM default.${TABLE} FORMAT Native" \
+    | gzip > "$BACKUP_DIR/${PREFIX}-db-clickhouse-${TABLE}-${DATE}.native.gz"
+done
 echo "ClickHouse done."
 
 # ── Project files ────────────────────────────
