@@ -1,22 +1,39 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface MetricCardProps {
     label: string;
     value: string | number;
     icon?: React.ComponentType<{ className?: string }>;
+    trend?: 'up' | 'down' | 'neutral';
 }
 
-export default function MetricCard({ label, value, icon: Icon }: MetricCardProps) {
+export default function MetricCard({ label, value, icon: Icon, trend }: MetricCardProps) {
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {label}
-                </CardTitle>
-                {Icon && <Icon className="size-4 text-muted-foreground" />}
-            </CardHeader>
-            <CardContent>
-                <p className="text-2xl font-bold">{value}</p>
+        <Card className="relative overflow-hidden">
+            <CardContent className="pt-5 pb-5">
+                <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                            {label}
+                        </p>
+                        <p
+                            className={`text-3xl font-bold tracking-tight ${
+                                trend === 'up'
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : trend === 'down'
+                                      ? 'text-red-500 dark:text-red-400'
+                                      : ''
+                            }`}
+                        >
+                            {value}
+                        </p>
+                    </div>
+                    {Icon && (
+                        <div className="rounded-lg bg-primary/10 p-2.5">
+                            <Icon className="size-5 text-primary" />
+                        </div>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );

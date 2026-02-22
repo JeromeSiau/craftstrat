@@ -58,9 +58,9 @@ export default function StrategyRulesDisplay({ graph }: { graph: FormModeGraph }
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Risk</p>
                 <dl className="grid grid-cols-2 gap-1 text-sm">
                     <dt className="text-muted-foreground">Stop Loss</dt>
-                    <dd>{graph.risk.stoploss_pct}%</dd>
+                    <dd>{graph.risk.stoploss_pct !== null ? `${graph.risk.stoploss_pct}%` : 'Off'}</dd>
                     <dt className="text-muted-foreground">Take Profit</dt>
-                    <dd>{graph.risk.take_profit_pct}%</dd>
+                    <dd>{graph.risk.take_profit_pct !== null ? `${graph.risk.take_profit_pct}%` : 'Off'}</dd>
                     <dt className="text-muted-foreground">Max Position</dt>
                     <dd>{graph.risk.max_position_usdc} USDC</dd>
                     <dt className="text-muted-foreground">Max Trades / Slot</dt>

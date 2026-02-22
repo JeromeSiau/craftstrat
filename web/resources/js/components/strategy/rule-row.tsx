@@ -63,9 +63,9 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
     }
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/40 p-3">
             <Select value={rule.indicator} onValueChange={handleIndicatorChange}>
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="w-52">
                     <SelectValue placeholder="Indicator" />
                 </SelectTrigger>
                 <SelectContent>
@@ -83,7 +83,7 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
             </Select>
 
             <Select value={rule.operator} onValueChange={handleOperatorChange}>
-                <SelectTrigger className="w-28">
+                <SelectTrigger className="w-32">
                     <SelectValue placeholder="Operator" />
                 </SelectTrigger>
                 <SelectContent>
@@ -96,19 +96,19 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
             </Select>
 
             {isBetween ? (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                     <Input
                         type="number"
                         step="any"
-                        className="w-24"
+                        className="w-28"
                         value={Array.isArray(rule.value) ? rule.value[0] : rule.value}
                         onChange={(e) => handleBetweenMinChange(e.target.value)}
                     />
-                    <span className="text-sm text-muted-foreground">and</span>
+                    <span className="text-sm font-medium text-muted-foreground">and</span>
                     <Input
                         type="number"
                         step="any"
-                        className="w-24"
+                        className="w-28"
                         value={Array.isArray(rule.value) ? rule.value[1] : 0}
                         onChange={(e) => handleBetweenMaxChange(e.target.value)}
                     />
@@ -117,7 +117,7 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
                 <Input
                     type="number"
                     step="any"
-                    className="w-28"
+                    className="w-32"
                     value={typeof rule.value === 'number' ? rule.value : rule.value[0]}
                     onChange={(e) => handleValueChange(e.target.value)}
                 />
@@ -128,7 +128,7 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
                 variant="ghost"
                 size="icon"
                 onClick={onRemove}
-                className="shrink-0 text-muted-foreground hover:text-destructive"
+                className="ml-auto shrink-0 text-muted-foreground hover:text-destructive"
             >
                 <Trash2 className="size-4" />
             </Button>

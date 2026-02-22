@@ -84,8 +84,8 @@ export interface StrategyAction {
 }
 
 export interface StrategyRisk {
-    stoploss_pct: number;
-    take_profit_pct: number;
+    stoploss_pct: number | null;
+    take_profit_pct: number | null;
     max_position_usdc: number;
     max_trades_per_slot: number;
 }

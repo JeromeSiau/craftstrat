@@ -5,12 +5,19 @@ interface StatusBadgeProps {
 export default function StatusBadge({ active }: StatusBadgeProps) {
     return (
         <span
-            className={`rounded-full px-2 py-1 text-xs font-medium ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
                 active
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
+                    : 'bg-muted text-muted-foreground'
             }`}
         >
+            <span
+                className={`size-1.5 rounded-full ${
+                    active
+                        ? 'bg-emerald-500 shadow-[0_0_4px_1px] shadow-emerald-500/40'
+                        : 'bg-muted-foreground/40'
+                }`}
+            />
             {active ? 'Active' : 'Inactive'}
         </span>
     );

@@ -1,3 +1,4 @@
+import { Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,12 +19,22 @@ interface ActionConfigProps {
 
 export default function ActionConfig({ action, onChange }: ActionConfigProps) {
     return (
-        <Card>
+        <Card className="border-l-4 border-l-emerald-500/50">
             <CardHeader>
-                <CardTitle className="text-sm">Action (THEN)</CardTitle>
+                <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-emerald-500/10 p-2 dark:bg-emerald-500/15">
+                        <Zap className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                        <CardTitle>Action</CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                            Configure what happens when conditions are met.
+                        </p>
+                    </div>
+                </div>
             </CardHeader>
             <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                     <div className="space-y-2">
                         <Label htmlFor="signal">Signal</Label>
                         <Select

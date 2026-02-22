@@ -87,39 +87,50 @@ export default function BillingIndex({ plan, subscribed }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Billing" />
-            <div className="p-6">
-                <h1 className="mb-6 text-2xl font-bold">Billing</h1>
+            <div className="p-4 md:p-8">
+                <div className="mb-8">
+                    <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
+                    <p className="mt-1 text-muted-foreground">
+                        Manage your subscription and billing details.
+                    </p>
+                </div>
 
-                <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {plans.map((p) => (
                         <Card
                             key={p.key}
-                            className={`relative ${plan === p.key ? 'ring-2 ring-primary' : ''}`}
+                            className={`relative flex flex-col transition ${
+                                plan === p.key
+                                    ? 'ring-2 ring-primary shadow-lg'
+                                    : p.popular
+                                      ? 'border-primary/30'
+                                      : ''
+                            }`}
                         >
                             {p.popular && (
-                                <Badge className="absolute top-3 right-3">
+                                <Badge className="absolute top-4 right-4">
                                     Popular
                                 </Badge>
                             )}
                             <CardHeader>
-                                <CardTitle>{p.name}</CardTitle>
-                                <div className="mt-1">
-                                    <span className="text-3xl font-bold">
+                                <CardTitle className="text-lg">{p.name}</CardTitle>
+                                <div className="mt-2">
+                                    <span className="text-4xl font-bold tracking-tight">
                                         {p.price}
                                     </span>
-                                    <span className="text-muted-foreground">
+                                    <span className="ml-1 text-muted-foreground">
                                         {p.period}
                                     </span>
                                 </div>
                             </CardHeader>
-                            <CardContent>
-                                <ul className="mb-4 space-y-2">
+                            <CardContent className="flex flex-1 flex-col">
+                                <ul className="mb-6 flex-1 space-y-3">
                                     {p.features.map((feature) => (
                                         <li
                                             key={feature}
-                                            className="flex items-center gap-2 text-sm"
+                                            className="flex items-center gap-2.5 text-sm"
                                         >
-                                            <Check className="h-4 w-4 shrink-0 text-primary" />
+                                            <Check className="size-4 shrink-0 text-primary" />
                                             {feature}
                                         </li>
                                     ))}
@@ -135,6 +146,7 @@ export default function BillingIndex({ plan, subscribed }: Props) {
                                 ) : p.priceId ? (
                                     <Button
                                         className="w-full"
+                                        size="lg"
                                         onClick={() =>
                                             router.post(subscribe.url(), {
                                                 price_id: p.priceId,
@@ -154,6 +166,7 @@ export default function BillingIndex({ plan, subscribed }: Props) {
                 {subscribed && (
                     <Button
                         variant="outline"
+                        size="lg"
                         onClick={() => router.post(portal.url())}
                     >
                         Manage Subscription

@@ -46,19 +46,21 @@ export default function ConditionGroup({ group, index, onChange, onRemove }: Con
     }
 
     return (
-        <Card>
+        <Card className="border-l-4 border-l-blue-500/50">
             <CardHeader className="flex-row items-center justify-between">
                 <div className="flex items-center gap-3">
                     <CardTitle className="text-sm">Group {index + 1}</CardTitle>
-                    <Select value={group.type} onValueChange={handleTypeChange}>
-                        <SelectTrigger className="w-24">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="AND">AND</SelectItem>
-                            <SelectItem value="OR">OR</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    {index > 0 && (
+                        <Select value={group.type} onValueChange={handleTypeChange}>
+                            <SelectTrigger className="w-24 font-mono text-xs font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="AND">AND</SelectItem>
+                                <SelectItem value="OR">OR</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )}
                 </div>
                 <Button
                     type="button"

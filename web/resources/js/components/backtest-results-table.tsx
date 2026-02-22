@@ -1,4 +1,12 @@
 import { Link } from '@inertiajs/react';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatWinRate, formatPnl, pnlColorClass } from '@/lib/formatters';
 import type { BacktestResult } from '@/types/models';
 
@@ -14,46 +22,44 @@ export default function BacktestResultsTable({
     linkBuilder,
 }: BacktestResultsTableProps) {
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-                <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                        {showStrategy && <th className="pb-2">Strategy</th>}
-                        <th className="pb-2">Trades</th>
-                        <th className="pb-2">Win Rate</th>
-                        <th className="pb-2">PnL</th>
-                        <th className="pb-2">Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {results.map((r) => (
-                        <tr key={r.id} className="border-b">
-                            {showStrategy && (
-                                <td className="py-2">
-                                    {linkBuilder ? (
-                                        <Link
-                                            href={linkBuilder(r)}
-                                            className="text-blue-600 hover:underline"
-                                        >
-                                            {r.strategy.name}
-                                        </Link>
-                                    ) : (
-                                        r.strategy.name
-                                    )}
-                                </td>
-                            )}
-                            <td className="py-2">{r.total_trades ?? '-'}</td>
-                            <td className="py-2">{formatWinRate(r.win_rate)}</td>
-                            <td className={`py-2 ${pnlColorClass(r.total_pnl_usdc)}`}>
-                                {formatPnl(r.total_pnl_usdc)}
-                            </td>
-                            <td className="py-2">
-                                {new Date(r.created_at).toLocaleDateString()}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    {showStrategy && <TableHead>Strategy</TableHead>}
+                    <TableHead>Trades</TableHead>
+                    <TableHead>Win Rate</TableHead>
+                    <TableHead>PnL</TableHead>
+                    <TableHead>Date</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {results.map((r) => (
+                    <TableRow key={r.id}>
+                        {showStrategy && (
+                            <TableCell className="font-medium">
+                                {linkBuilder ? (
+                                    <Link
+                                        href={linkBuilder(r)}
+                                        className="text-primary hover:underline"
+                                    >
+                                        {r.strategy.name}
+                                    </Link>
+                                ) : (
+                                    r.strategy.name
+                                )}
+                            </TableCell>
+                        )}
+                        <TableCell className="tabular-nums">{r.total_trades ?? '-'}</TableCell>
+                        <TableCell className="tabular-nums">{formatWinRate(r.win_rate)}</TableCell>
+                        <TableCell className={`tabular-nums font-medium ${pnlColorClass(r.total_pnl_usdc)}`}>
+                            {formatPnl(r.total_pnl_usdc)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                            {new Date(r.created_at).toLocaleDateString()}
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
     );
 }

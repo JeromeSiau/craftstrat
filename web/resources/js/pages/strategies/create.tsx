@@ -3,7 +3,6 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import InputError from '@/components/input-error';
 import FormBuilder from '@/components/strategy/form-builder';
@@ -35,8 +34,8 @@ const defaultFormGraph: FormModeGraph = {
         order_type: 'market',
     },
     risk: {
-        stoploss_pct: 30,
-        take_profit_pct: 80,
+        stoploss_pct: null,
+        take_profit_pct: null,
         max_position_usdc: 200,
         max_trades_per_slot: 1,
     },
@@ -79,26 +78,32 @@ export default function StrategiesCreate() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Strategy" />
-            <div className="mx-auto max-w-3xl p-6">
-                <h1 className="mb-6 text-2xl font-bold">Create Strategy</h1>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid gap-4 sm:grid-cols-2">
+            <div className="p-4 md:p-8">
+                <div className="mb-8">
+                    <h1 className="text-2xl font-bold tracking-tight">Create Strategy</h1>
+                    <p className="mt-1 text-muted-foreground">
+                        Define conditions, actions, and risk parameters for your new strategy.
+                    </p>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-8">
+                    <div className="grid gap-6 sm:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="name">Name</Label>
                             <Input
                                 id="name"
                                 value={data.name}
                                 onChange={(e) => setData('name', e.target.value)}
+                                placeholder="e.g. BTC Momentum Long"
                             />
                             <InputError message={errors.name} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="description">Description</Label>
-                            <Textarea
+                            <Input
                                 id="description"
                                 value={data.description}
                                 onChange={(e) => setData('description', e.target.value)}
-                                rows={1}
+                                placeholder="Describe what this strategy does..."
                             />
                         </div>
                     </div>
@@ -108,13 +113,13 @@ export default function StrategiesCreate() {
                             <TabsTrigger value="form">Form Builder</TabsTrigger>
                             <TabsTrigger value="node">Node Editor</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="form" className="mt-4">
+                        <TabsContent value="form" className="mt-6">
                             <FormBuilder
                                 graph={data.graph as FormModeGraph}
                                 onChange={(graph) => setData('graph', graph)}
                             />
                         </TabsContent>
-                        <TabsContent value="node" className="mt-4">
+                        <TabsContent value="node" className="mt-6">
                             <NodeEditor
                                 graph={data.graph as NodeModeGraph}
                                 onChange={(graph) => setData('graph', graph)}
@@ -124,9 +129,16 @@ export default function StrategiesCreate() {
 
                     <InputError message={errors.graph} />
 
-                    <Button type="submit" disabled={processing}>
-                        Create Strategy
-                    </Button>
+                    <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/80 px-4 py-4 backdrop-blur-sm md:-mx-8 md:px-8">
+                        <div className="flex items-center gap-4">
+                            <Button type="submit" size="lg" disabled={processing}>
+                                Create Strategy
+                            </Button>
+                            <p className="text-sm text-muted-foreground">
+                                You can edit this strategy later.
+                            </p>
+                        </div>
+                    </div>
                 </form>
             </div>
         </AppLayout>

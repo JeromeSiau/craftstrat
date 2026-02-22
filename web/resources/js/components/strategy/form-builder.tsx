@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Filter, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ConditionGroup from '@/components/strategy/condition-group';
 import ActionConfig from '@/components/strategy/action-config';
@@ -54,10 +54,20 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Conditions (IF)</h3>
+                <div className="flex items-center justify-between border-b pb-3">
+                    <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-blue-500/10 p-2 dark:bg-blue-500/15">
+                            <Filter className="size-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold">Conditions</h3>
+                            <p className="text-sm text-muted-foreground">
+                                Define when your strategy should trigger.
+                            </p>
+                        </div>
+                    </div>
                     <Button
                         type="button"
                         variant="outline"
@@ -65,7 +75,7 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
                         onClick={handleAddConditionGroup}
                     >
                         <Plus className="size-4" />
-                        Add Condition Group
+                        Add Group
                     </Button>
                 </div>
                 {graph.conditions.map((group, index) => (
