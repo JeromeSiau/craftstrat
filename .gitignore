@@ -22,9 +22,6 @@ web/public/hot
 web/public/storage
 web/storage/*.key
 web/storage/pail
-web/resources/js/actions
-web/resources/js/routes
-web/resources/js/wayfinder
 web/vendor
 web/auth.json
 web/Homestead.json
