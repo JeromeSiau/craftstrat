@@ -98,7 +98,18 @@ async fn connect_and_stream(
                     tracing::warn!("clob_ws_stale");
                     return Ok(());
                 }
-                write.send(Message::Text("PING".into())).await?;
+                // Timeout the ping to avoid hanging on half-open connections
+                match tokio::time::timeout(
+                    Duration::from_secs(5),
+                    write.send(Message::Text("PING".into())),
+                ).await {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(e)) => return Err(e.into()),
+                    Err(_) => {
+                        tracing::warn!("clob_ws_ping_timeout");
+                        return Ok(());
+                    }
+                }
             }
             cmd = cmd_rx.recv() => {
                 match cmd {
