@@ -24,7 +24,7 @@ RUN npm ci
 
 COPY web/ .
 COPY --from=composer-deps /app/vendor ./vendor
-RUN npx wayfinder:generate && npm run build
+RUN npm run build
 
 # =============================================================================
 # Stage 3: Production image
