@@ -45,6 +45,7 @@ pub struct Config {
     pub max_orders_per_day: u32,
     pub neg_risk: bool,
     pub api_port: u16,
+    pub proxy_urls: Vec<String>,
 }
 
 fn default_sources() -> Vec<MarketSource> {
@@ -136,6 +137,15 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(8080),
+            proxy_urls: std::env::var("PROXY_LIST")
+                .ok()
+                .map(|v| {
+                    v.split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default(),
         })
     }
 

@@ -12,6 +12,7 @@ use crate::metrics as m;
 use crate::storage::postgres::{
     self, CopyRelationship,
 };
+use crate::proxy::HttpPool;
 use crate::strategy::{OrderType, Outcome};
 
 // ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@ pub struct LeaderTrade {
 
 pub async fn run(
     data_api_url: &str,
-    http: reqwest::Client,
+    http: HttpPool,
     queue: Arc<Mutex<ExecutionQueue>>,
     db: PgPool,
     mut redis_conn: redis::aio::MultiplexedConnection,
@@ -120,7 +121,7 @@ pub async fn run(
 
 async fn check_new_trades(
     data_api_url: &str,
-    http: &reqwest::Client,
+    http: &HttpPool,
     address: &str,
     last_seen: i64,
 ) -> Result<Vec<LeaderTrade>> {
@@ -129,7 +130,7 @@ async fn check_new_trades(
         data_api_url, address
     );
 
-    let trades: Vec<LeaderTrade> = http.get(&url).send().await?.json().await?;
+    let trades: Vec<LeaderTrade> = http.proxied().get(&url).send().await?.json().await?;
 
     let new_trades: Vec<LeaderTrade> = trades
         .into_iter()

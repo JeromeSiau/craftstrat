@@ -2,6 +2,7 @@ mod config;
 mod execution;
 mod fetcher;
 mod kafka;
+mod proxy;
 mod storage;
 mod strategy;
 mod tasks;
@@ -20,6 +21,7 @@ use tokio::task::JoinSet;
 use config::Config;
 use fetcher::tick_builder::PriceCache;
 use fetcher::websocket::{OrderBookCache, WsCommand};
+use proxy::HttpPool;
 use tasks::SharedState;
 
 #[tokio::main]
@@ -32,6 +34,8 @@ async fn main() -> anyhow::Result<()> {
     let (ws_cmd_tx, ws_cmd_rx) = mpsc::channel::<WsCommand>(64);
     let (tick_tx, _) = broadcast::channel::<fetcher::models::Tick>(1024);
 
+    let http = HttpPool::new(&cfg.proxy_urls, Duration::from_secs(10))?;
+
     let state = SharedState {
         config: cfg,
         books: OrderBookCache::new(),
@@ -39,9 +43,7 @@ async fn main() -> anyhow::Result<()> {
         prices: PriceCache::new(),
         tick_tx: tick_tx.clone(),
         ws_cmd_tx,
-        http: reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()?,
+        http,
     };
 
     let mut tasks = JoinSet::new();

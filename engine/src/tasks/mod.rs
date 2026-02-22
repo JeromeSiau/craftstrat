@@ -14,6 +14,7 @@ use crate::config::Config;
 use crate::fetcher::models::{ActiveMarket, Tick};
 use crate::fetcher::tick_builder::PriceCache;
 use crate::fetcher::websocket::{OrderBookCache, WsCommand};
+use crate::proxy::HttpPool;
 
 pub struct SpawnedHandles {
     pub registry: crate::strategy::registry::AssignmentRegistry,
@@ -28,7 +29,7 @@ pub struct SharedState {
     pub prices: PriceCache,
     pub tick_tx: broadcast::Sender<Tick>,
     pub ws_cmd_tx: mpsc::Sender<WsCommand>,
-    pub http: reqwest::Client,
+    pub http: HttpPool,
 }
 
 pub async fn spawn_all(

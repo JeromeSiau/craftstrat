@@ -24,7 +24,7 @@ pub fn spawn_price_poller(
     tasks: &mut JoinSet<anyhow::Result<()>>,
 ) {
     let price_url = state.config.binance_api_url.clone();
-    let price_http = state.http.clone();
+    let price_http = state.http.direct().clone();
     let price_cache = state.prices.clone();
     let binance_symbols = state.config.binance_symbols();
     tasks.spawn(async move {

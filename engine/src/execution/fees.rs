@@ -5,6 +5,8 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
+use crate::proxy::HttpPool;
+
 const CACHE_TTL: Duration = Duration::from_secs(60);
 
 // ---------------------------------------------------------------------------
@@ -28,7 +30,7 @@ impl CachedFee {
 
 pub struct FeeCache {
     cache: RwLock<HashMap<String, CachedFee>>,
-    http: reqwest::Client,
+    http: HttpPool,
     clob_url: String,
 }
 
@@ -38,7 +40,7 @@ struct FeeRateResponse {
 }
 
 impl FeeCache {
-    pub fn new(http: reqwest::Client, clob_url: &str) -> Self {
+    pub fn new(http: HttpPool, clob_url: &str) -> Self {
         Self {
             cache: RwLock::new(HashMap::new()),
             http,
@@ -61,6 +63,7 @@ impl FeeCache {
         let url = format!("{}/fee-rate?token_id={}", self.clob_url, token_id);
         let resp: FeeRateResponse = self
             .http
+            .proxied()
             .get(&url)
             .send()
             .await
@@ -107,7 +110,8 @@ mod tests {
     use super::*;
 
     fn make_cache() -> FeeCache {
-        FeeCache::new(reqwest::Client::new(), "http://localhost")
+        let pool = HttpPool::new(&[], std::time::Duration::from_secs(10)).unwrap();
+        FeeCache::new(pool, "http://localhost")
     }
 
     #[tokio::test]

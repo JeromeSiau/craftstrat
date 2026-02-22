@@ -17,6 +17,7 @@ use tracing::{debug, warn};
 use super::fees::FeeCache;
 use super::wallet::WalletKeyStore;
 use super::{ExecutionOrder, OrderResult, OrderStatus, Side};
+use crate::proxy::HttpPool;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -82,7 +83,7 @@ pub struct BuilderCredentials {
 }
 
 pub struct OrderSubmitter {
-    http: reqwest::Client,
+    http: HttpPool,
     clob_url: String,
     credentials: BuilderCredentials,
     wallet_keys: Arc<WalletKeyStore>,
@@ -92,7 +93,7 @@ pub struct OrderSubmitter {
 
 impl OrderSubmitter {
     pub fn new(
-        http: reqwest::Client,
+        http: HttpPool,
         clob_url: &str,
         credentials: BuilderCredentials,
         wallet_keys: Arc<WalletKeyStore>,
@@ -275,6 +276,7 @@ impl OrderSubmitter {
 
         let resp = self
             .http
+            .proxied()
             .post(&url)
             .headers(headers)
             .header("Content-Type", "application/json")
@@ -341,7 +343,7 @@ impl OrderSubmitter {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
             let url = format!("{}/data/order/{}", self.clob_url, order_id);
-            let resp = match self.http.get(&url).send().await {
+            let resp = match self.http.proxied().get(&url).send().await {
                 Ok(r) => r,
                 Err(e) => {
                     warn!(attempt, %order_id, error = %e, "poll request failed");
@@ -412,8 +414,9 @@ mod tests {
             )
             .unwrap(),
         );
+        let pool = HttpPool::new(&[], std::time::Duration::from_secs(10)).unwrap();
         let fee_cache = Arc::new(FeeCache::new(
-            reqwest::Client::new(),
+            pool.clone(),
             "http://localhost",
         ));
 
@@ -427,7 +430,7 @@ mod tests {
         };
 
         OrderSubmitter::new(
-            reqwest::Client::new(),
+            pool,
             "http://localhost:8080",
             credentials,
             wallet_keys,

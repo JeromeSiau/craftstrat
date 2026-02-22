@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use super::models::ActiveMarket;
 use crate::config::MarketSource;
+use crate::proxy::HttpPool;
 
 #[derive(Debug, Deserialize)]
 struct GammaEvent {
@@ -31,7 +32,7 @@ fn duration_suffix(secs: u32) -> &'static str {
 }
 
 pub async fn discover_markets(
-    client: &reqwest::Client,
+    client: &HttpPool,
     gamma_url: &str,
     sources: &[MarketSource],
     prices: &HashMap<String, f64>,
@@ -58,7 +59,7 @@ pub async fn discover_markets(
                 let slug = format!("{slug_prefix}-updown-{suffix}-{slot_ts}");
                 let url = format!("{gamma_url}/events?slug={slug}");
 
-                let resp = match client.get(&url).send().await {
+                let resp = match client.proxied().get(&url).send().await {
                     Ok(r) if r.status().is_success() => r,
                     _ => continue,
                 };
