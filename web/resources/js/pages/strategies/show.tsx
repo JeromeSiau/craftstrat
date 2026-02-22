@@ -1,10 +1,13 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { BreadcrumbItem } from '@/types';
 import type { WalletStrategy, BacktestResult, FormModeGraph, ConditionGroup, StrategyRule } from '@/types/models';
 import { indicators } from '@/components/strategy/indicator-options';
 import { index, show, activate, deactivate, destroy } from '@/actions/App/Http/Controllers/StrategyController';
+import { run as runBacktest } from '@/actions/App/Http/Controllers/BacktestController';
 
 interface StrategyShowProps {
     id: number;
@@ -92,6 +95,17 @@ export default function StrategiesShow({ strategy }: { strategy: StrategyShowPro
         { title: 'Strategies', href: index.url() },
         { title: strategy.name, href: show.url(strategy.id) },
     ];
+
+    const backtestForm = useForm({
+        date_from: '',
+        date_to: '',
+        market_filter: [] as string[],
+    });
+
+    function handleBacktestSubmit(e: React.FormEvent): void {
+        e.preventDefault();
+        backtestForm.post(runBacktest.url(strategy.id));
+    }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -247,6 +261,41 @@ export default function StrategiesShow({ strategy }: { strategy: StrategyShowPro
                             </table>
                         </div>
                     )}
+                </div>
+
+                <div className="mt-6 rounded-lg border border-sidebar-border p-4">
+                    <h2 className="mb-3 font-semibold">Run Backtest</h2>
+                    <form onSubmit={handleBacktestSubmit} className="space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="date_from">Date From</Label>
+                                <Input
+                                    id="date_from"
+                                    type="date"
+                                    value={backtestForm.data.date_from}
+                                    onChange={(e) => backtestForm.setData('date_from', e.target.value)}
+                                />
+                                {backtestForm.errors.date_from && (
+                                    <p className="text-sm text-red-500">{backtestForm.errors.date_from}</p>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="date_to">Date To</Label>
+                                <Input
+                                    id="date_to"
+                                    type="date"
+                                    value={backtestForm.data.date_to}
+                                    onChange={(e) => backtestForm.setData('date_to', e.target.value)}
+                                />
+                                {backtestForm.errors.date_to && (
+                                    <p className="text-sm text-red-500">{backtestForm.errors.date_to}</p>
+                                )}
+                            </div>
+                        </div>
+                        <Button type="submit" disabled={backtestForm.processing}>
+                            {backtestForm.processing ? 'Running...' : 'Run Backtest'}
+                        </Button>
+                    </form>
                 </div>
             </div>
         </AppLayout>

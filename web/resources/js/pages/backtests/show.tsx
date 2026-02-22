@@ -1,5 +1,7 @@
 import { Head } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PnlChart } from '@/components/charts/pnl-chart';
 import type { BreadcrumbItem } from '@/types';
 import type { BacktestResult } from '@/types/models';
 import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
@@ -65,6 +67,17 @@ export default function BacktestsShow({ result }: { result: BacktestResult }) {
                         </div>
                     ))}
                 </div>
+
+                {result.result_detail?.trades && result.result_detail.trades.length > 0 && (
+                    <Card className="mt-6">
+                        <CardHeader>
+                            <CardTitle>Cumulative PnL</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <PnlChart trades={result.result_detail.trades} />
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </AppLayout>
     );

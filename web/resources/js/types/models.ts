@@ -38,6 +38,9 @@ export interface BacktestResult {
     date_to: string | null;
     created_at: string;
     strategy: { id: number; name: string; graph?: Record<string, unknown> };
+    result_detail?: {
+        trades?: BacktestTrade[];
+    } | null;
 }
 
 export interface DashboardStats {
@@ -99,4 +102,14 @@ export interface NodeModeGraph {
     mode: 'node';
     nodes: GraphNode[];
     edges: GraphEdge[];
+}
+
+export interface BacktestTrade {
+    tick_index: number;
+    side: 'buy' | 'sell';
+    outcome: 'UP' | 'DOWN';
+    entry_price: number;
+    exit_price: number | null;
+    pnl: number;
+    cumulative_pnl: number;
 }
