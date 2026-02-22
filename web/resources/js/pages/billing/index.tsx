@@ -1,39 +1,80 @@
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Check } from 'lucide-react';
 import type { BreadcrumbItem } from '@/types';
-import { index, portal } from '@/actions/App/Http/Controllers/BillingController';
+import {
+    index,
+    subscribe,
+    portal,
+} from '@/actions/App/Http/Controllers/BillingController';
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Billing', href: index.url() }];
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Billing', href: index.url() },
+];
 
 const plans = [
     {
         key: 'free',
         name: 'Free',
-        price: '$0/mo',
-        wallets: '1',
-        strategies: '2',
+        price: '$0',
+        period: 'forever',
+        features: [
+            '1 wallet',
+            '2 strategies',
+            '30-day backtest',
+            '1 copy leader',
+        ],
     },
     {
         key: 'starter',
         name: 'Starter',
-        price: '$29/mo',
-        wallets: '5',
-        strategies: '10',
+        price: '$29',
+        period: '/mo',
+        priceId: 'price_starter',
+        features: [
+            '5 wallets',
+            '10 strategies',
+            'Full history backtest',
+            '5 copy leaders',
+            'Revenue sharing',
+        ],
     },
     {
         key: 'pro',
         name: 'Pro',
-        price: '$79/mo',
-        wallets: '25',
-        strategies: 'Unlimited',
+        price: '$79',
+        period: '/mo',
+        priceId: 'price_pro',
+        popular: true,
+        features: [
+            '25 wallets',
+            'Unlimited strategies',
+            'Full history backtest',
+            'Unlimited copy + be leader',
+            'Revenue sharing',
+        ],
     },
     {
         key: 'enterprise',
         name: 'Enterprise',
-        price: '$249/mo',
-        wallets: 'Unlimited',
-        strategies: 'Unlimited',
+        price: '$249',
+        period: '/mo',
+        priceId: 'price_enterprise',
+        features: [
+            'Unlimited wallets',
+            'Unlimited strategies',
+            'Full history + API',
+            'Custom leader fees',
+            'Revenue sharing',
+        ],
     },
 ];
 
@@ -51,22 +92,62 @@ export default function BillingIndex({ plan, subscribed }: Props) {
 
                 <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {plans.map((p) => (
-                        <div
+                        <Card
                             key={p.key}
-                            className={`rounded-xl border border-sidebar-border/70 p-4 dark:border-sidebar-border ${plan === p.key ? 'ring-2 ring-primary' : ''}`}
+                            className={`relative ${plan === p.key ? 'ring-2 ring-primary' : ''}`}
                         >
-                            <h3 className="font-semibold">{p.name}</h3>
-                            <p className="mt-1 text-2xl font-bold">{p.price}</p>
-                            <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-                                <li>{p.wallets} wallet(s)</li>
-                                <li>{p.strategies} strategies</li>
-                            </ul>
-                            {plan === p.key && (
-                                <p className="mt-3 text-sm font-medium text-primary">
-                                    Current plan
-                                </p>
+                            {p.popular && (
+                                <Badge className="absolute top-3 right-3">
+                                    Popular
+                                </Badge>
                             )}
-                        </div>
+                            <CardHeader>
+                                <CardTitle>{p.name}</CardTitle>
+                                <div className="mt-1">
+                                    <span className="text-3xl font-bold">
+                                        {p.price}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                        {p.period}
+                                    </span>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <ul className="mb-4 space-y-2">
+                                    {p.features.map((feature) => (
+                                        <li
+                                            key={feature}
+                                            className="flex items-center gap-2 text-sm"
+                                        >
+                                            <Check className="h-4 w-4 shrink-0 text-primary" />
+                                            {feature}
+                                        </li>
+                                    ))}
+                                </ul>
+                                {plan === p.key ? (
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        disabled
+                                    >
+                                        Current Plan
+                                    </Button>
+                                ) : p.priceId ? (
+                                    <Button
+                                        className="w-full"
+                                        onClick={() =>
+                                            router.post(subscribe.url(), {
+                                                price_id: p.priceId,
+                                            })
+                                        }
+                                    >
+                                        {plan === 'free'
+                                            ? 'Subscribe'
+                                            : 'Upgrade'}
+                                    </Button>
+                                ) : null}
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
 
