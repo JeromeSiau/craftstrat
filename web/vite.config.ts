@@ -17,10 +17,10 @@ export default defineConfig({
             },
         }),
         tailwindcss(),
-        !process.env.SKIP_WAYFINDER && wayfinder({
+        wayfinder({
             formVariants: true,
         }),
-    ].filter(Boolean),
+    ],
     esbuild: {
         jsx: 'automatic',
     },

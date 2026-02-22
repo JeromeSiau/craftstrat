@@ -24,7 +24,12 @@ RUN npm ci
 
 COPY web/ .
 COPY --from=composer-deps /app/vendor ./vendor
-RUN SKIP_WAYFINDER=1 npm run build
+
+# Fake php binary so the wayfinder Vite plugin doesn't crash
+# (the generated route files are already in the repo)
+RUN printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/php && chmod +x /usr/local/bin/php
+
+RUN npm run build
 
 # =============================================================================
 # Stage 3: Production image
