@@ -6,7 +6,25 @@ use std::time::Duration;
 use crate::fetcher::models::Tick;
 
 pub fn create_client(url: &str) -> Client {
-    Client::default().with_url(url)
+    // The clickhouse crate doesn't extract user:password from the URL,
+    // so we parse them out and set them separately.
+    let mut client = Client::default();
+    if let Some(at_pos) = url.find('@') {
+        let scheme_end = url.find("://").map(|p| p + 3).unwrap_or(0);
+        let userinfo = &url[scheme_end..at_pos];
+        let base_url = format!("{}{}", &url[..scheme_end], &url[at_pos + 1..]);
+        client = client.with_url(base_url);
+        if let Some(colon) = userinfo.find(':') {
+            client = client
+                .with_user(&userinfo[..colon])
+                .with_password(&userinfo[colon + 1..]);
+        } else {
+            client = client.with_user(userinfo);
+        }
+    } else {
+        client = client.with_url(url);
+    }
+    client
 }
 
 pub async fn run_writer(client: Client, mut tick_rx: tokio::sync::broadcast::Receiver<Tick>) -> Result<()> {

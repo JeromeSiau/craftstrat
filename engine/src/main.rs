@@ -50,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
     let handles = tasks::spawn_all(&state, ws_cmd_rx, &mut tasks).await?;
 
     // Internal API server
-    let ch_client = clickhouse::Client::default().with_url(&state.config.clickhouse_url);
+    let ch_client = storage::clickhouse::create_client(&state.config.clickhouse_url);
     let redis_client = redis::Client::open(state.config.redis_url.as_str())?;
     let redis_conn = redis_client.get_multiplexed_tokio_connection().await?;
     let api_state = std::sync::Arc::new(api::state::ApiState {
