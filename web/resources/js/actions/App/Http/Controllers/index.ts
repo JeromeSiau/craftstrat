@@ -3,6 +3,7 @@ import StrategyController from './StrategyController'
 import WalletController from './WalletController'
 import BacktestController from './BacktestController'
 import BillingController from './BillingController'
+import AnalyticsController from './AnalyticsController'
 import Settings from './Settings'
 
 const Controllers = {
@@ -11,6 +12,7 @@ const Controllers = {
     WalletController: Object.assign(WalletController, WalletController),
     BacktestController: Object.assign(BacktestController, BacktestController),
     BillingController: Object.assign(BillingController, BillingController),
+    AnalyticsController: Object.assign(AnalyticsController, AnalyticsController),
     Settings: Object.assign(Settings, Settings),
 }
 

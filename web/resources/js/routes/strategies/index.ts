@@ -268,7 +268,7 @@ show.form = showForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
-* @see app/Http/Controllers/StrategyController.php:50
+* @see app/Http/Controllers/StrategyController.php:71
 * @route '/strategies/{strategy}'
 */
 export const update = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -283,7 +283,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
-* @see app/Http/Controllers/StrategyController.php:50
+* @see app/Http/Controllers/StrategyController.php:71
 * @route '/strategies/{strategy}'
 */
 update.url = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -316,7 +316,7 @@ update.url = (args: { strategy: number | { id: number } } | [strategy: number | 
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
-* @see app/Http/Controllers/StrategyController.php:50
+* @see app/Http/Controllers/StrategyController.php:71
 * @route '/strategies/{strategy}'
 */
 update.put = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -326,7 +326,7 @@ update.put = (args: { strategy: number | { id: number } } | [strategy: number | 
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
-* @see app/Http/Controllers/StrategyController.php:50
+* @see app/Http/Controllers/StrategyController.php:71
 * @route '/strategies/{strategy}'
 */
 update.patch = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -336,7 +336,7 @@ update.patch = (args: { strategy: number | { id: number } } | [strategy: number 
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
-* @see app/Http/Controllers/StrategyController.php:50
+* @see app/Http/Controllers/StrategyController.php:71
 * @route '/strategies/{strategy}'
 */
 const updateForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -351,7 +351,7 @@ const updateForm = (args: { strategy: number | { id: number } } | [strategy: num
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
-* @see app/Http/Controllers/StrategyController.php:50
+* @see app/Http/Controllers/StrategyController.php:71
 * @route '/strategies/{strategy}'
 */
 updateForm.put = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -366,7 +366,7 @@ updateForm.put = (args: { strategy: number | { id: number } } | [strategy: numbe
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
-* @see app/Http/Controllers/StrategyController.php:50
+* @see app/Http/Controllers/StrategyController.php:71
 * @route '/strategies/{strategy}'
 */
 updateForm.patch = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -383,7 +383,7 @@ update.form = updateForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::destroy
-* @see app/Http/Controllers/StrategyController.php:57
+* @see app/Http/Controllers/StrategyController.php:78
 * @route '/strategies/{strategy}'
 */
 export const destroy = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -398,7 +398,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\StrategyController::destroy
-* @see app/Http/Controllers/StrategyController.php:57
+* @see app/Http/Controllers/StrategyController.php:78
 * @route '/strategies/{strategy}'
 */
 destroy.url = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -431,7 +431,7 @@ destroy.url = (args: { strategy: number | { id: number } } | [strategy: number |
 
 /**
 * @see \App\Http\Controllers\StrategyController::destroy
-* @see app/Http/Controllers/StrategyController.php:57
+* @see app/Http/Controllers/StrategyController.php:78
 * @route '/strategies/{strategy}'
 */
 destroy.delete = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -441,7 +441,7 @@ destroy.delete = (args: { strategy: number | { id: number } } | [strategy: numbe
 
 /**
 * @see \App\Http\Controllers\StrategyController::destroy
-* @see app/Http/Controllers/StrategyController.php:57
+* @see app/Http/Controllers/StrategyController.php:78
 * @route '/strategies/{strategy}'
 */
 const destroyForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -456,7 +456,7 @@ const destroyForm = (args: { strategy: number | { id: number } } | [strategy: nu
 
 /**
 * @see \App\Http\Controllers\StrategyController::destroy
-* @see app/Http/Controllers/StrategyController.php:57
+* @see app/Http/Controllers/StrategyController.php:78
 * @route '/strategies/{strategy}'
 */
 destroyForm.delete = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -529,7 +529,7 @@ store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::activate
-* @see app/Http/Controllers/StrategyController.php:72
+* @see app/Http/Controllers/StrategyController.php:93
 * @route '/strategies/{strategy}/activate'
 */
 export const activate = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -544,7 +544,7 @@ activate.definition = {
 
 /**
 * @see \App\Http\Controllers\StrategyController::activate
-* @see app/Http/Controllers/StrategyController.php:72
+* @see app/Http/Controllers/StrategyController.php:93
 * @route '/strategies/{strategy}/activate'
 */
 activate.url = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -577,7 +577,7 @@ activate.url = (args: { strategy: number | { id: number } } | [strategy: number 
 
 /**
 * @see \App\Http\Controllers\StrategyController::activate
-* @see app/Http/Controllers/StrategyController.php:72
+* @see app/Http/Controllers/StrategyController.php:93
 * @route '/strategies/{strategy}/activate'
 */
 activate.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -587,7 +587,7 @@ activate.post = (args: { strategy: number | { id: number } } | [strategy: number
 
 /**
 * @see \App\Http\Controllers\StrategyController::activate
-* @see app/Http/Controllers/StrategyController.php:72
+* @see app/Http/Controllers/StrategyController.php:93
 * @route '/strategies/{strategy}/activate'
 */
 const activateForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -597,7 +597,7 @@ const activateForm = (args: { strategy: number | { id: number } } | [strategy: n
 
 /**
 * @see \App\Http\Controllers\StrategyController::activate
-* @see app/Http/Controllers/StrategyController.php:72
+* @see app/Http/Controllers/StrategyController.php:93
 * @route '/strategies/{strategy}/activate'
 */
 activateForm.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -609,7 +609,7 @@ activate.form = activateForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::deactivate
-* @see app/Http/Controllers/StrategyController.php:85
+* @see app/Http/Controllers/StrategyController.php:106
 * @route '/strategies/{strategy}/deactivate'
 */
 export const deactivate = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -624,7 +624,7 @@ deactivate.definition = {
 
 /**
 * @see \App\Http\Controllers\StrategyController::deactivate
-* @see app/Http/Controllers/StrategyController.php:85
+* @see app/Http/Controllers/StrategyController.php:106
 * @route '/strategies/{strategy}/deactivate'
 */
 deactivate.url = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -657,7 +657,7 @@ deactivate.url = (args: { strategy: number | { id: number } } | [strategy: numbe
 
 /**
 * @see \App\Http\Controllers\StrategyController::deactivate
-* @see app/Http/Controllers/StrategyController.php:85
+* @see app/Http/Controllers/StrategyController.php:106
 * @route '/strategies/{strategy}/deactivate'
 */
 deactivate.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -667,7 +667,7 @@ deactivate.post = (args: { strategy: number | { id: number } } | [strategy: numb
 
 /**
 * @see \App\Http\Controllers\StrategyController::deactivate
-* @see app/Http/Controllers/StrategyController.php:85
+* @see app/Http/Controllers/StrategyController.php:106
 * @route '/strategies/{strategy}/deactivate'
 */
 const deactivateForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -677,7 +677,7 @@ const deactivateForm = (args: { strategy: number | { id: number } } | [strategy:
 
 /**
 * @see \App\Http\Controllers\StrategyController::deactivate
-* @see app/Http/Controllers/StrategyController.php:85
+* @see app/Http/Controllers/StrategyController.php:106
 * @route '/strategies/{strategy}/deactivate'
 */
 deactivateForm.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
