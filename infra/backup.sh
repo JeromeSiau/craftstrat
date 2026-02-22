@@ -9,6 +9,7 @@ set -euo pipefail
 
 BACKUP_DIR="/home/ploi/server/backups/craftstrat"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+set -a; source "$PROJECT_DIR/.env"; set +a
 DATE=$(date +%Y-%m-%d-%H%M%S)
 PREFIX="craftstrat"
 RETENTION_DAYS=7
