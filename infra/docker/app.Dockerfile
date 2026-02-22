@@ -3,6 +3,9 @@
 # =============================================================================
 FROM composer:latest AS composer-deps
 
+RUN apk add --no-cache gmp-dev \
+    && docker-php-ext-install bcmath gmp
+
 WORKDIR /app
 COPY web/composer.json web/composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
@@ -30,9 +33,9 @@ FROM php:8.4-fpm AS production
 
 # System deps
 RUN apt-get update && apt-get install -y \
-    curl libpq-dev libzip-dev libicu-dev \
+    curl libpq-dev libzip-dev libicu-dev libgmp-dev \
     nginx supervisor cron \
-    && docker-php-ext-install pdo_pgsql pgsql zip intl pcntl bcmath \
+    && docker-php-ext-install pdo_pgsql pgsql zip intl pcntl bcmath gmp \
     && pecl install redis && docker-php-ext-enable redis \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
