@@ -1290,6 +1290,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "craftstrat-engine"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "alloy",
+ "anyhow",
+ "axum",
+ "base64",
+ "chrono",
+ "clickhouse",
+ "dotenvy",
+ "futures-util",
+ "hex",
+ "hmac",
+ "http-body-util",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "rand 0.8.5",
+ "rayon",
+ "rdkafka",
+ "redis",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "time",
+ "tokio",
+ "tokio-tungstenite",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "crc"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2774,43 +2811,6 @@ dependencies = [
  "proptest",
  "serde",
  "smallvec",
-]
-
-[[package]]
-name = "oddex-engine"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "alloy",
- "anyhow",
- "axum",
- "base64",
- "chrono",
- "clickhouse",
- "dotenvy",
- "futures-util",
- "hex",
- "hmac",
- "http-body-util",
- "metrics",
- "metrics-exporter-prometheus",
- "rand 0.8.5",
- "rayon",
- "rdkafka",
- "redis",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "time",
- "tokio",
- "tokio-tungstenite",
- "tower",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "zeroize",
 ]
 
 [[package]]

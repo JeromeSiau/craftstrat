@@ -1768,7 +1768,7 @@ pub async fn save_states(
     for assignments in reg.values() {
         for a in assignments {
             let state = a.state.lock().unwrap();
-            let key = format!("oddex:strategy_state:{}:{}", a.wallet_id, a.strategy_id);
+            let key = format!("craftstrat:strategy_state:{}:{}", a.wallet_id, a.strategy_id);
             let json = serde_json::to_string(&*state)?;
             pipe.set_ex(&key, json, 3600);
             count += 1;
@@ -1787,7 +1787,7 @@ pub async fn load_state(
     wallet_id: u64,
     strategy_id: u64,
 ) -> Result<Option<StrategyState>> {
-    let key = format!("oddex:strategy_state:{}:{}", wallet_id, strategy_id);
+    let key = format!("craftstrat:strategy_state:{}:{}", wallet_id, strategy_id);
     let json: Option<String> = redis::cmd("GET").arg(&key).query_async(conn).await?;
     match json {
         Some(s) => Ok(Some(serde_json::from_str(&s)?)),
@@ -1834,8 +1834,8 @@ mod tests {
 
     #[test]
     fn test_state_key_format() {
-        let key = format!("oddex:strategy_state:{}:{}", 42u64, 100u64);
-        assert_eq!(key, "oddex:strategy_state:42:100");
+        let key = format!("craftstrat:strategy_state:{}:{}", 42u64, 100u64);
+        assert_eq!(key, "craftstrat:strategy_state:42:100");
     }
 
     #[test]

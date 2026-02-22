@@ -113,7 +113,7 @@ impl Config {
             tick_interval_ms: 1000,
             discovery_interval_secs: 60,
             database_url: std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://oddex:oddex_secret@localhost:5432/oddex".into()),
+                .unwrap_or_else(|_| "postgres://craftstrat:craftstrat_secret@localhost:5432/craftstrat".into()),
             clob_api_url: std::env::var("POLYMARKET_CLOB_URL")
                 .unwrap_or_else(|_| "https://clob.polymarket.com".into()),
             data_api_url: std::env::var("POLYMARKET_DATA_API_URL")

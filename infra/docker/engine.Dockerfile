@@ -16,6 +16,6 @@ RUN apt-get update && apt-get install -y \
     ca-certificates librdkafka1 libssl3 libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /build/target/release/oddex-engine /usr/local/bin/oddex-engine
+COPY --from=builder /build/target/release/craftstrat-engine /usr/local/bin/craftstrat-engine
 
-ENTRYPOINT ["oddex-engine"]
+ENTRYPOINT ["craftstrat-engine"]

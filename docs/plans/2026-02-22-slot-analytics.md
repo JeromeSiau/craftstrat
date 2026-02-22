@@ -2,13 +2,13 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replicate the Python Streamlit "ML" dashboard as a new Analytics page in oddex, showing 7 visualizations: KPIs, Win Rate Heatmap, Market Calibration, WR by Symbol, Stop-Loss Sweep, WR by Hour, WR by Day.
+**Goal:** Replicate the Python Streamlit "ML" dashboard as a new Analytics page in CraftStrat, showing 7 visualizations: KPIs, Win Rate Heatmap, Market Calibration, WR by Symbol, Stop-Loss Sweep, WR by Hour, WR by Day.
 
 **Architecture:** New Rust endpoint `GET /internal/stats/slots` runs 7 ClickHouse aggregation queries in parallel via `tokio::join!`, returns a single JSON response. Laravel `AnalyticsController` calls it via `EngineService` and passes data to an Inertia React page. Frontend uses Recharts for all charts.
 
 **Tech Stack:** Rust (Axum, clickhouse crate), Laravel 12, Inertia.js v2, React 19, Recharts, Tailwind CSS v4.
 
-**Key data difference from Python project:** oddex has a single `slot_snapshots` table in ClickHouse with a `winner` column (`Nullable(Enum8('UP'=1, 'DOWN'=2))`) instead of separate `slot_snapshots` + `slot_resolutions` tables. The `winner` column is denormalized into every snapshot row, so slot-level queries must deduplicate via `GROUP BY (symbol, slot_ts, slot_duration)`.
+**Key data difference from Python project:** CraftStrat has a single `slot_snapshots` table in ClickHouse with a `winner` column (`Nullable(Enum8('UP'=1, 'DOWN'=2))`) instead of separate `slot_snapshots` + `slot_resolutions` tables. The `winner` column is denormalized into every snapshot row, so slot-level queries must deduplicate via `GROUP BY (symbol, slot_ts, slot_duration)`.
 
 ---
 

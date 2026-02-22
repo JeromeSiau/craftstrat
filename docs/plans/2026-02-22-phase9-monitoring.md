@@ -4,7 +4,7 @@
 
 **Goal:** Add Prometheus metrics to the Rust engine and set up Grafana dashboards for full-stack observability.
 
-**Architecture:** The Rust engine exposes a `/metrics` Prometheus endpoint on its existing Axum server. Prometheus scrapes the engine plus exporters for PostgreSQL, Redis, and Kafka. Grafana is auto-provisioned with a single "Oddex Overview" dashboard.
+**Architecture:** The Rust engine exposes a `/metrics` Prometheus endpoint on its existing Axum server. Prometheus scrapes the engine plus exporters for PostgreSQL, Redis, and Kafka. Grafana is auto-provisioned with a single "CraftStrat Overview" dashboard.
 
 **Tech Stack:** metrics + metrics-exporter-prometheus (Rust), Prometheus, Grafana, postgres_exporter, redis_exporter, kafka_exporter
 
@@ -152,7 +152,7 @@ use metrics::{counter, histogram};
 After the tick is deserialized successfully (after the `let tick: Tick = match ...` block, before reading assignments), add:
 
 ```rust
-counter!("oddex_ticks_total").increment(1);
+counter!("craftstrat_ticks_total").increment(1);
 ```
 
 Wrap the Rayon parallel dispatch in a timing measurement. Replace the existing `let signals: Vec<EngineOutput> = assignments...collect();` block with:
@@ -185,7 +185,7 @@ let signals: Vec<EngineOutput> = assignments
         }
     })
     .collect();
-histogram!("oddex_strategy_eval_duration_seconds").record(eval_start.elapsed().as_secs_f64());
+histogram!("craftstrat_strategy_eval_duration_seconds").record(eval_start.elapsed().as_secs_f64());
 ```
 
 After the `for output in signals` loop, add signal counters. Replace the loop with:
@@ -197,7 +197,7 @@ for output in signals {
         Signal::Sell { .. } => "sell",
         Signal::Hold => "hold",
     };
-    counter!("oddex_signals_total", "signal" => signal_type.to_string()).increment(1);
+    counter!("craftstrat_signals_total", "signal" => signal_type.to_string()).increment(1);
 
     tracing::info!(
         wallet_id = output.wallet_id,
@@ -222,8 +222,8 @@ Run: `cd engine && cargo check`
 ```
 feat(engine): instrument strategy engine with Prometheus metrics
 
-Add oddex_ticks_total counter, oddex_signals_total counter (by signal
-type), and oddex_strategy_eval_duration_seconds histogram.
+Add craftstrat_ticks_total counter, craftstrat_signals_total counter (by signal
+type), and craftstrat_strategy_eval_duration_seconds histogram.
 ```
 
 ---
@@ -258,20 +258,20 @@ let result = match submitter.submit(&order).await {
 After the `match submitter.submit` block completes (after the closing `};` of the match), add:
 
 ```rust
-histogram!("oddex_order_execution_duration_seconds").record(exec_start.elapsed().as_secs_f64());
+histogram!("craftstrat_order_execution_duration_seconds").record(exec_start.elapsed().as_secs_f64());
 let status_label = match result.status {
     OrderStatus::Filled => "filled",
     OrderStatus::Cancelled => "cancelled",
     OrderStatus::Failed => "failed",
     OrderStatus::Timeout => "timeout",
 };
-counter!("oddex_orders_total", "status" => status_label.to_string()).increment(1);
+counter!("craftstrat_orders_total", "status" => status_label.to_string()).increment(1);
 ```
 
 In the `update_position` function, after `state.pnl += pnl;`, add the PnL gauge update:
 
 ```rust
-gauge!("oddex_pnl_usdc").increment(pnl);
+gauge!("craftstrat_pnl_usdc").increment(pnl);
 ```
 
 (This requires adding `use metrics::{counter, gauge, histogram};` which is already done above.)
@@ -289,8 +289,8 @@ Run: `cd engine && cargo check`
 ```
 feat(engine): instrument execution with order and PnL metrics
 
-Add oddex_orders_total counter (by status), oddex_order_execution_duration_seconds
-histogram, and oddex_pnl_usdc gauge.
+Add craftstrat_orders_total counter (by status), craftstrat_order_execution_duration_seconds
+histogram, and craftstrat_pnl_usdc gauge.
 ```
 
 ---
@@ -312,13 +312,13 @@ use metrics::counter;
 In the `run()` function, inside the loop where copy orders are pushed to the queue, after `q.push(order);` add:
 
 ```rust
-counter!("oddex_copy_trades_total", "status" => "queued").increment(1);
+counter!("craftstrat_copy_trades_total", "status" => "queued").increment(1);
 ```
 
 In the `None` branch (skipped trades), after the `write_copy_trade` call, add:
 
 ```rust
-counter!("oddex_copy_trades_total", "status" => "skipped").increment(1);
+counter!("craftstrat_copy_trades_total", "status" => "skipped").increment(1);
 ```
 
 **Step 2: Add registry gauge updates**
@@ -333,16 +333,16 @@ At the end of the `activate()` function (after the `tracing::info!`), add:
 
 ```rust
 let (wallets, assignments) = count_registry(&registry).await;
-gauge!("oddex_active_wallets").set(wallets as f64);
-gauge!("oddex_active_assignments").set(assignments as f64);
+gauge!("craftstrat_active_wallets").set(wallets as f64);
+gauge!("craftstrat_active_assignments").set(assignments as f64);
 ```
 
 At the end of the `deactivate()` function (after the `tracing::info!`), add:
 
 ```rust
 let (wallets, assignments) = count_registry(&registry).await;
-gauge!("oddex_active_wallets").set(wallets as f64);
-gauge!("oddex_active_assignments").set(assignments as f64);
+gauge!("craftstrat_active_wallets").set(wallets as f64);
+gauge!("craftstrat_active_assignments").set(assignments as f64);
 ```
 
 Add a helper function after `deactivate()`:
@@ -376,8 +376,8 @@ Expected: All existing tests pass (metrics macros are no-ops without an installe
 ```
 feat(engine): instrument watcher and registry with Prometheus metrics
 
-Add oddex_copy_trades_total counter (by status) and oddex_active_wallets
-/ oddex_active_assignments gauges updated on activate/deactivate.
+Add craftstrat_copy_trades_total counter (by status) and craftstrat_active_wallets
+/ craftstrat_active_assignments gauges updated on activate/deactivate.
 ```
 
 ---
@@ -402,7 +402,7 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'oddex-engine'
+  - job_name: 'craftstrat-engine'
     metrics_path: '/metrics'
     static_configs:
       - targets: ['engine:8080']
@@ -435,17 +435,17 @@ Add after the `grafana` service (before `networks:`):
     depends_on:
       - app
     networks:
-      - oddex
+      - craftstrat
 
   postgres_exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:latest
     environment:
-      DATA_SOURCE_NAME: "postgresql://oddex:oddex_secret@postgres:5432/oddex?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://craftstrat:craftstrat_secret@postgres:5432/craftstrat?sslmode=disable"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - oddex
+      - craftstrat
 
   redis_exporter:
     image: oliver006/redis_exporter:latest
@@ -455,7 +455,7 @@ Add after the `grafana` service (before `networks:`):
       redis:
         condition: service_healthy
     networks:
-      - oddex
+      - craftstrat
 
   kafka_exporter:
     image: danielqsj/kafka-exporter:latest
@@ -463,7 +463,7 @@ Add after the `grafana` service (before `networks:`):
     depends_on:
       - kafka
     networks:
-      - oddex
+      - craftstrat
 ```
 
 Add `prometheus_data:` to the `volumes:` section.
@@ -474,7 +474,7 @@ Add `prometheus_data:` to the `volumes:` section.
 feat(infra): add Prometheus and metric exporters
 
 Add Prometheus server with scrape config for the engine, postgres_exporter,
-redis_exporter, and kafka_exporter. All on the oddex Docker network.
+redis_exporter, and kafka_exporter. All on the craftstrat Docker network.
 ```
 
 ---
@@ -484,7 +484,7 @@ redis_exporter, and kafka_exporter. All on the oddex Docker network.
 **Files:**
 - Create: `infra/grafana/provisioning/datasources/datasources.yml`
 - Create: `infra/grafana/provisioning/dashboards/dashboards.yml`
-- Create: `infra/grafana/dashboards/oddex-overview.json`
+- Create: `infra/grafana/dashboards/craftstrat-overview.json`
 - Modify: `docker-compose.yml` (grafana service)
 
 **Step 1: Create Grafana datasource provisioning**
@@ -512,7 +512,7 @@ Create `infra/grafana/provisioning/dashboards/dashboards.yml`:
 apiVersion: 1
 
 providers:
-  - name: Oddex
+  - name: CraftStrat
     orgId: 1
     folder: ''
     type: file
@@ -523,17 +523,17 @@ providers:
       foldersFromFilesStructure: false
 ```
 
-**Step 3: Create the Oddex Overview dashboard**
+**Step 3: Create the CraftStrat Overview dashboard**
 
-Create `infra/grafana/dashboards/oddex-overview.json`:
+Create `infra/grafana/dashboards/craftstrat-overview.json`:
 
 ```json
 {
   "dashboard": {
     "id": null,
-    "uid": "oddex-overview",
-    "title": "Oddex Overview",
-    "tags": ["oddex"],
+    "uid": "craftstrat-overview",
+    "title": "CraftStrat Overview",
+    "tags": ["craftstrat"],
     "timezone": "utc",
     "schemaVersion": 39,
     "version": 1,
@@ -558,7 +558,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "rate(oddex_ticks_total[1m])",
+            "expr": "rate(craftstrat_ticks_total[1m])",
             "legendFormat": "",
             "refId": "A"
           }
@@ -591,7 +591,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "oddex_active_wallets",
+            "expr": "craftstrat_active_wallets",
             "refId": "A"
           }
         ],
@@ -620,7 +620,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "oddex_active_assignments",
+            "expr": "craftstrat_active_assignments",
             "refId": "A"
           }
         ],
@@ -649,7 +649,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "oddex_uptime_seconds",
+            "expr": "craftstrat_uptime_seconds",
             "refId": "A"
           }
         ],
@@ -679,17 +679,17 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, rate(oddex_strategy_eval_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.50, rate(craftstrat_strategy_eval_duration_seconds_bucket[5m]))",
             "legendFormat": "p50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, rate(oddex_strategy_eval_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.95, rate(craftstrat_strategy_eval_duration_seconds_bucket[5m]))",
             "legendFormat": "p95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, rate(oddex_strategy_eval_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.99, rate(craftstrat_strategy_eval_duration_seconds_bucket[5m]))",
             "legendFormat": "p99",
             "refId": "C"
           }
@@ -717,17 +717,17 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, rate(oddex_order_execution_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.50, rate(craftstrat_order_execution_duration_seconds_bucket[5m]))",
             "legendFormat": "p50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, rate(oddex_order_execution_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.95, rate(craftstrat_order_execution_duration_seconds_bucket[5m]))",
             "legendFormat": "p95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, rate(oddex_order_execution_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.99, rate(craftstrat_order_execution_duration_seconds_bucket[5m]))",
             "legendFormat": "p99",
             "refId": "C"
           }
@@ -762,7 +762,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "rate(oddex_signals_total[5m])",
+            "expr": "rate(craftstrat_signals_total[5m])",
             "legendFormat": "{{signal}}",
             "refId": "A"
           }
@@ -790,7 +790,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "rate(oddex_orders_total[5m])",
+            "expr": "rate(craftstrat_orders_total[5m])",
             "legendFormat": "{{status}}",
             "refId": "A"
           }
@@ -818,7 +818,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "rate(oddex_copy_trades_total[5m])",
+            "expr": "rate(craftstrat_copy_trades_total[5m])",
             "legendFormat": "{{status}}",
             "refId": "A"
           }
@@ -846,7 +846,7 @@ Create `infra/grafana/dashboards/oddex-overview.json`:
         "datasource": {"type": "prometheus", "uid": "prometheus"},
         "targets": [
           {
-            "expr": "oddex_pnl_usdc",
+            "expr": "craftstrat_pnl_usdc",
             "refId": "A"
           }
         ],
@@ -1028,13 +1028,13 @@ Replace the existing `grafana` service with:
     depends_on:
       - prometheus
     networks:
-      - oddex
+      - craftstrat
 ```
 
 **Step 5: Commit**
 
 ```
-feat(infra): provision Grafana with Prometheus datasource and Oddex Overview dashboard
+feat(infra): provision Grafana with Prometheus datasource and CraftStrat Overview dashboard
 
 Auto-provision Grafana with Prometheus datasource and a 14-panel dashboard
 covering engine metrics, trading activity, and infrastructure health.
@@ -1049,16 +1049,16 @@ covering engine metrics, trading activity, and infrastructure health.
 
 **Step 1: Add uptime gauge to the tick processing loop**
 
-The `oddex_uptime_seconds` metric needs a source. Add it to the strategy engine tick loop since it runs continuously. At the top of the `run()` function, after `tracing::info!("strategy_engine_started");`, add:
+The `craftstrat_uptime_seconds` metric needs a source. Add it to the strategy engine tick loop since it runs continuously. At the top of the `run()` function, after `tracing::info!("strategy_engine_started");`, add:
 
 ```rust
 let engine_start = std::time::Instant::now();
 ```
 
-Inside the loop, after `counter!("oddex_ticks_total").increment(1);`, add:
+Inside the loop, after `counter!("craftstrat_ticks_total").increment(1);`, add:
 
 ```rust
-metrics::gauge!("oddex_uptime_seconds").set(engine_start.elapsed().as_secs_f64());
+metrics::gauge!("craftstrat_uptime_seconds").set(engine_start.elapsed().as_secs_f64());
 ```
 
 Add `metrics` to the existing import:
@@ -1072,7 +1072,7 @@ use metrics::{counter, gauge, histogram};
 Run: `cd engine && cargo check`
 
 ```
-feat(engine): add oddex_uptime_seconds gauge
+feat(engine): add craftstrat_uptime_seconds gauge
 ```
 
 ---

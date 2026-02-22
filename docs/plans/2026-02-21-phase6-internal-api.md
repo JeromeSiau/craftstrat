@@ -490,7 +490,7 @@ async fn copy_watch(
     State(state): State<Arc<ApiState>>,
     Json(req): Json<CopyWatchRequest>,
 ) -> StatusCode {
-    let key = format!("oddex:watcher:watched:{}", req.leader_address);
+    let key = format!("craftstrat:watcher:watched:{}", req.leader_address);
     let result: Result<(), _> = redis::cmd("SET")
         .arg(&key)
         .arg("1")
@@ -513,7 +513,7 @@ async fn copy_unwatch(
     State(state): State<Arc<ApiState>>,
     Json(req): Json<CopyWatchRequest>,
 ) -> StatusCode {
-    let key = format!("oddex:watcher:watched:{}", req.leader_address);
+    let key = format!("craftstrat:watcher:watched:{}", req.leader_address);
     let result: Result<(), _> = redis::cmd("DEL")
         .arg(&key)
         .query_async(&mut state.redis.clone())
@@ -561,7 +561,7 @@ fn test_state() -> Arc<ApiState> { /* ... */ }
 #[tokio::test]
 async fn test_activate_then_deactivate() {
     let state = test_state();
-    let app = oddex_engine::api::routes::router(state.clone());
+    let app = craftstrat_engine::api::routes::router(state.clone());
 
     // Activate
     let body = serde_json::json!({
@@ -606,7 +606,7 @@ async fn test_activate_then_deactivate() {
 #[tokio::test]
 async fn test_wallet_state_empty() {
     let state = test_state();
-    let app = oddex_engine::api::routes::router(state);
+    let app = craftstrat_engine::api::routes::router(state);
 
     let req = Request::builder()
         .uri("/internal/wallet/999/state")
@@ -624,7 +624,7 @@ async fn test_wallet_state_empty() {
 #[tokio::test]
 async fn test_engine_status() {
     let state = test_state();
-    let app = oddex_engine::api::routes::router(state);
+    let app = craftstrat_engine::api::routes::router(state);
 
     let req = Request::builder()
         .uri("/internal/engine/status")

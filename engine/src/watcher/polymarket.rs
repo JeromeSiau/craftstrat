@@ -148,7 +148,7 @@ async fn get_last_seen(
     conn: &mut redis::aio::MultiplexedConnection,
     address: &str,
 ) -> Result<i64> {
-    let key = format!("oddex:watcher:last_seen:{}", address);
+    let key = format!("craftstrat:watcher:last_seen:{}", address);
     let val: Option<String> = redis::cmd("GET")
         .arg(&key)
         .query_async(conn)
@@ -161,7 +161,7 @@ async fn update_last_seen(
     address: &str,
     timestamp: i64,
 ) -> Result<()> {
-    let key = format!("oddex:watcher:last_seen:{}", address);
+    let key = format!("craftstrat:watcher:last_seen:{}", address);
     redis::cmd("SET")
         .arg(&key)
         .arg(timestamp.to_string())

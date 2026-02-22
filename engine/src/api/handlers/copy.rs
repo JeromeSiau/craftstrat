@@ -40,7 +40,7 @@ async fn redis_key_op(
     let Some(ref redis) = state.redis else {
         return Err(ApiError::ServiceUnavailable);
     };
-    let key = format!("oddex:watcher:watched:{}", leader_address);
+    let key = format!("craftstrat:watcher:watched:{}", leader_address);
     let cmd = match op {
         RedisOp::Set => "SET",
         RedisOp::Del => "DEL",

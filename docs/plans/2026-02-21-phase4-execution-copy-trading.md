@@ -523,7 +523,7 @@ Add to `from_env()`, after the existing redis_url line:
 ```rust
             // Execution config
             database_url: std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://oddex:oddex_secret@localhost:5432/oddex".into()),
+                .unwrap_or_else(|_| "postgres://craftstrat:craftstrat_secret@localhost:5432/craftstrat".into()),
             clob_api_url: std::env::var("POLYMARKET_CLOB_URL")
                 .unwrap_or_else(|_| "https://clob.polymarket.com".into()),
             data_api_url: std::env::var("POLYMARKET_DATA_API_URL")
@@ -2029,7 +2029,7 @@ async fn get_last_seen(
     conn: &mut redis::aio::MultiplexedConnection,
     address: &str,
 ) -> i64 {
-    let key = format!("oddex:watcher:last_seen:{address}");
+    let key = format!("craftstrat:watcher:last_seen:{address}");
     redis::cmd("GET")
         .arg(&key)
         .query_async::<Option<i64>>(conn)
@@ -2043,7 +2043,7 @@ async fn update_last_seen(
     address: &str,
     trade: &LeaderTrade,
 ) {
-    let key = format!("oddex:watcher:last_seen:{address}");
+    let key = format!("craftstrat:watcher:last_seen:{address}");
     let _: Result<(), _> = redis::cmd("SET")
         .arg(&key)
         .arg(trade.timestamp)

@@ -31,7 +31,7 @@ const mainNavItems: NavItem[] = [
 ];
 
 const footerNavItems: NavItem[] = [
-    { title: 'Documentation', href: 'https://docs.oddex.io', icon: BookOpen },
+    { title: 'Documentation', href: 'https://docs.craftstrat.com', icon: BookOpen },
 ];
 
 export function AppSidebar() {

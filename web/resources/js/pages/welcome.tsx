@@ -140,7 +140,7 @@ export default function Welcome({
 
     return (
         <>
-            <Head title="Oddex — Polymarket Automated Trading">
+            <Head title="CraftStrat — Polymarket Automated Trading">
                 <link rel="preconnect" href="https://fonts.bunny.net" />
                 <link
                     href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|plus-jakarta-sans:600,700,800"
@@ -160,7 +160,7 @@ export default function Welcome({
                                 className="text-lg font-bold tracking-tight"
                                 style={jakarta}
                             >
-                                Oddex
+                                CraftStrat
                             </span>
                         </Link>
 
@@ -876,7 +876,7 @@ export default function Welcome({
                                 <AppLogoIcon className="size-3.5 fill-current text-primary-foreground" />
                             </div>
                             <span className="font-bold" style={jakarta}>
-                                Oddex
+                                CraftStrat
                             </span>
                         </div>
 
@@ -911,7 +911,7 @@ export default function Welcome({
                         </div>
 
                         <p className="text-xs text-muted-foreground">
-                            &copy; {new Date().getFullYear()} Oddex. All rights
+                            &copy; {new Date().getFullYear()} CraftStrat. All rights
                             reserved.
                         </p>
                     </div>

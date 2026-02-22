@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Set up the complete development infrastructure for Oddex — Laravel 12 app with React/Inertia, all Docker services, PostgreSQL migrations, ClickHouse schema, and Rust engine skeleton. Everything runs in Docker via OrbStack.
+**Goal:** Set up the complete development infrastructure for CraftStrat — Laravel 12 app with React/Inertia, all Docker services, PostgreSQL migrations, ClickHouse schema, and Rust engine skeleton. Everything runs in Docker via OrbStack.
 
 **Architecture:** Laravel 12 with React starter kit (Inertia 2, TypeScript, shadcn/ui, Tailwind) running behind Nginx/PHP-FPM in Docker. All dependencies (PostgreSQL 17, ClickHouse 26.1, Redis 7, Kafka KRaft, Grafana) containerized via Docker Compose. Dev workflow: source code mounted as volume, all commands run via `docker compose exec`. OrbStack for fast I/O on macOS.
 
@@ -116,25 +116,25 @@ services:
     env_file:
       - .env
     networks:
-      - oddex
+      - craftstrat
 
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: oddex
-      POSTGRES_USER: oddex
-      POSTGRES_PASSWORD: oddex_secret
+      POSTGRES_DB: craftstrat
+      POSTGRES_USER: craftstrat
+      POSTGRES_PASSWORD: craftstrat_secret
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oddex"]
+      test: ["CMD-SHELL", "pg_isready -U craftstrat"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - oddex
+      - craftstrat
 
   clickhouse:
     image: clickhouse/clickhouse-server:26.1
@@ -144,7 +144,7 @@ services:
     ports:
       - "8123:8123"
     networks:
-      - oddex
+      - craftstrat
 
   redis:
     image: redis:7-alpine
@@ -158,7 +158,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - oddex
+      - craftstrat
 
   kafka:
     image: confluentinc/cp-kafka:7.9.0
@@ -174,11 +174,11 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      CLUSTER_ID: oddex-kafka-cluster-001
+      CLUSTER_ID: craftstrat-kafka-cluster-001
     ports:
       - "9092:9092"
     networks:
-      - oddex
+      - craftstrat
 
   grafana:
     image: grafana/grafana:latest
@@ -187,10 +187,10 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
-      - oddex
+      - craftstrat
 
 networks:
-  oddex:
+  craftstrat:
     driver: bridge
 
 volumes:
@@ -285,7 +285,7 @@ git commit -m "infra: add ClickHouse slot_snapshots schema"
 ### Step 1: Create .env and .env.example (identical for now)
 
 ```env
-APP_NAME=Oddex
+APP_NAME=CraftStrat
 APP_ENV=local
 APP_KEY=
 APP_DEBUG=true
@@ -296,9 +296,9 @@ LOG_CHANNEL=stack
 DB_CONNECTION=pgsql
 DB_HOST=postgres
 DB_PORT=5432
-DB_DATABASE=oddex
-DB_USERNAME=oddex
-DB_PASSWORD=oddex_secret
+DB_DATABASE=craftstrat
+DB_USERNAME=craftstrat
+DB_PASSWORD=craftstrat_secret
 
 REDIS_HOST=redis
 REDIS_PORT=6379
@@ -307,7 +307,7 @@ CACHE_STORE=redis
 SESSION_DRIVER=redis
 QUEUE_CONNECTION=redis
 
-# Oddex-specific
+# CraftStrat-specific
 ENGINE_INTERNAL_URL=http://engine:8080
 ENCRYPTION_KEY=
 
@@ -849,7 +849,7 @@ git commit -m "db: create subscriptions and subscription_items tables"
 
 ```toml
 [package]
-name = "oddex-engine"
+name = "craftstrat-engine"
 version = "0.1.0"
 edition = "2021"
 
@@ -876,7 +876,7 @@ use tracing_subscriber;
 #[tokio::main]
 async fn main() {
     tracing_subscriber::init();
-    tracing::info!("Oddex engine starting...");
+    tracing::info!("CraftStrat engine starting...");
 }
 ```
 

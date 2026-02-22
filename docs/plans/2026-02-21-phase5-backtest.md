@@ -150,7 +150,7 @@ mod tests {
 
 ### Step 6: Run test
 
-Run: `cargo test -p oddex-engine test_backtest_result_serialization_roundtrip`
+Run: `cargo test -p craftstrat-engine test_backtest_result_serialization_roundtrip`
 Expected: PASS
 
 ### Step 7: Commit
@@ -266,7 +266,7 @@ mod tests {
 
 ### Step 2: Verify tests fail
 
-Run: `cargo test -p oddex-engine backtest::metrics`
+Run: `cargo test -p craftstrat-engine backtest::metrics`
 Expected: FAIL with `not yet implemented`
 
 ### Step 3: Implement `compute()`, `compute_max_drawdown()`, `compute_sharpe()`
@@ -343,7 +343,7 @@ fn compute_sharpe(trades: &[&BacktestTrade]) -> f64 {
 
 ### Step 4: Run tests
 
-Run: `cargo test -p oddex-engine backtest::metrics`
+Run: `cargo test -p craftstrat-engine backtest::metrics`
 Expected: all 5 tests PASS
 
 ### Step 5: Commit
@@ -482,7 +482,7 @@ mod tests {
 
 ### Step 2: Verify test fails
 
-Run: `cargo test -p oddex-engine backtest::runner::tests::test_buy_then_stoploss_exit`
+Run: `cargo test -p craftstrat-engine backtest::runner::tests::test_buy_then_stoploss_exit`
 Expected: FAIL with `not yet implemented`
 
 ### Step 3: Implement BacktestEngine
@@ -627,7 +627,7 @@ fn exit_reason(order_type: &OrderType) -> String {
 
 ### Step 4: Run stoploss test
 
-Run: `cargo test -p oddex-engine backtest::runner::tests::test_buy_then_stoploss_exit`
+Run: `cargo test -p craftstrat-engine backtest::runner::tests::test_buy_then_stoploss_exit`
 Expected: PASS
 
 ### Step 5: Write test — take_profit exit
@@ -665,7 +665,7 @@ Expected: PASS
 
 ### Step 6: Run take_profit test
 
-Run: `cargo test -p oddex-engine backtest::runner::tests::test_buy_then_take_profit_exit`
+Run: `cargo test -p craftstrat-engine backtest::runner::tests::test_buy_then_take_profit_exit`
 Expected: PASS (logic already implemented)
 
 ### Step 7: Write test — force-close at end of data
@@ -702,7 +702,7 @@ Expected: PASS (logic already implemented)
 
 ### Step 8: Run force-close test
 
-Run: `cargo test -p oddex-engine backtest::runner::tests::test_force_close_at_end_of_data`
+Run: `cargo test -p craftstrat-engine backtest::runner::tests::test_force_close_at_end_of_data`
 Expected: PASS
 
 ### Step 9: Write test — multi-market isolation
@@ -742,7 +742,7 @@ Expected: PASS
 
 ### Step 10: Run all runner tests
 
-Run: `cargo test -p oddex-engine backtest::runner`
+Run: `cargo test -p craftstrat-engine backtest::runner`
 Expected: all 4 tests PASS
 
 ### Step 11: Commit
@@ -817,7 +817,7 @@ pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<Ba
 
 ### Step 3: Verify compilation
 
-Run: `cargo check -p oddex-engine`
+Run: `cargo check -p craftstrat-engine`
 Expected: compiles (may have warnings about unused imports, that's fine)
 
 ### Step 4: Commit
@@ -895,7 +895,7 @@ This test verifies the entire pipeline: multiple ticks, buy entry, risk exit, se
 
 ### Step 2: Run all backtest tests
 
-Run: `cargo test -p oddex-engine backtest`
+Run: `cargo test -p craftstrat-engine backtest`
 Expected: all tests PASS (types: 1, metrics: 5, runner: 5)
 
 ### Step 3: Final commit

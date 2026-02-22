@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let prometheus_handle = metrics::init();
     let cfg = Config::from_env()?;
-    tracing::info!(sources = cfg.sources.len(), "oddex_engine_starting");
+    tracing::info!(sources = cfg.sources.len(), "craftstrat_engine_starting");
 
     let (ws_cmd_tx, ws_cmd_rx) = mpsc::channel::<WsCommand>(64);
     let (tick_tx, _) = broadcast::channel::<fetcher::models::Tick>(1024);
@@ -69,11 +69,11 @@ async fn main() -> anyhow::Result<()> {
         api::serve(api_state, api_port).await
     });
 
-    tracing::info!("oddex_engine_running");
+    tracing::info!("craftstrat_engine_running");
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-            tracing::info!("oddex_engine_shutdown");
+            tracing::info!("craftstrat_engine_shutdown");
         }
         result = async { tasks.join_next().await.unwrap() } => {
             match result {
@@ -87,6 +87,6 @@ async fn main() -> anyhow::Result<()> {
     drop(tick_tx);
     tokio::time::sleep(Duration::from_millis(500)).await;
     tasks.shutdown().await;
-    tracing::info!("oddex_engine_stopped");
+    tracing::info!("craftstrat_engine_stopped");
     Ok(())
 }

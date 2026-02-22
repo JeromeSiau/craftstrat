@@ -4,16 +4,16 @@ use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 // Metric name constants
 // ---------------------------------------------------------------------------
 
-pub const TICKS_TOTAL: &str = "oddex_ticks_total";
-pub const UPTIME_SECONDS: &str = "oddex_uptime_seconds";
-pub const STRATEGY_EVAL_DURATION: &str = "oddex_strategy_eval_duration_seconds";
-pub const SIGNALS_TOTAL: &str = "oddex_signals_total";
-pub const ORDERS_TOTAL: &str = "oddex_orders_total";
-pub const ORDER_EXEC_DURATION: &str = "oddex_order_execution_duration_seconds";
-pub const PNL_USDC: &str = "oddex_pnl_usdc";
-pub const COPY_TRADES_TOTAL: &str = "oddex_copy_trades_total";
-pub const ACTIVE_WALLETS: &str = "oddex_active_wallets";
-pub const ACTIVE_ASSIGNMENTS: &str = "oddex_active_assignments";
+pub const TICKS_TOTAL: &str = "craftstrat_ticks_total";
+pub const UPTIME_SECONDS: &str = "craftstrat_uptime_seconds";
+pub const STRATEGY_EVAL_DURATION: &str = "craftstrat_strategy_eval_duration_seconds";
+pub const SIGNALS_TOTAL: &str = "craftstrat_signals_total";
+pub const ORDERS_TOTAL: &str = "craftstrat_orders_total";
+pub const ORDER_EXEC_DURATION: &str = "craftstrat_order_execution_duration_seconds";
+pub const PNL_USDC: &str = "craftstrat_pnl_usdc";
+pub const COPY_TRADES_TOTAL: &str = "craftstrat_copy_trades_total";
+pub const ACTIVE_WALLETS: &str = "craftstrat_active_wallets";
+pub const ACTIVE_ASSIGNMENTS: &str = "craftstrat_active_assignments";
 
 // ---------------------------------------------------------------------------
 // Init

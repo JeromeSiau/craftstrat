@@ -1,11 +1,11 @@
-# Oddex — Technical Specification
+# CraftStrat — Technical Specification
 > Polymarket automated trading platform: data ingestion, strategy engine, no-code builder, backtesting, multi-wallet execution
 
 ---
 
 ## 1. Overview
 
-Oddex is a SaaS platform that allows users to create automated trading strategies on Polymarket prediction markets via a no-code interface, backtest them against historical data, and run them live across multiple wallets simultaneously.
+CraftStrat is a SaaS platform that allows users to create automated trading strategies on Polymarket prediction markets via a no-code interface, backtest them against historical data, and run them live across multiple wallets simultaneously.
 
 ### 1.1 Core Value Proposition
 - No-code strategy builder (form-based + advanced node editor)
@@ -219,7 +219,7 @@ CREATE TABLE watched_wallets (
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Copy trading : un wallet Oddex suit un wallet externe
+-- Copy trading : un wallet CraftStrat suit un wallet externe
 CREATE TABLE copy_relationships (
     id                  BIGSERIAL PRIMARY KEY,
     follower_wallet_id  BIGINT NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
@@ -255,7 +255,7 @@ CREATE TABLE copy_trades (
     created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trades Oddex (strategy-driven ou copy-driven)
+-- Trades CraftStrat (strategy-driven ou copy-driven)
 CREATE TABLE trades (
     id                      BIGSERIAL PRIMARY KEY,
     wallet_id               BIGINT NOT NULL REFERENCES wallets(id),
@@ -810,7 +810,7 @@ pub async fn run() {
 
 ## 10. Security
 
-- **Wallet model** : wallets générés par la plateforme (pas de clé importée par l'user). L'utilisateur dépose des USDC sur l'adresse fournie — c'est un wallet dédié Oddex, pas son wallet principal. Psychologiquement bien plus rassurant.
+- **Wallet model** : wallets générés par la plateforme (pas de clé importée par l'user). L'utilisateur dépose des USDC sur l'adresse fournie — c'est un wallet dédié CraftStrat, pas son wallet principal. Psychologiquement bien plus rassurant.
 - **Private keys** chiffrées AES-256 dans PostgreSQL via `ENCRYPTION_KEY` — jamais loggées, jamais exposées en API response
 - **WalletService** : seul service autorisé à déchiffrer les clés, uniquement au moment de signer un ordre
 - **Internal Rust API** accessible uniquement sur le réseau Docker interne (non exposé publiquement)
@@ -827,12 +827,12 @@ pub async fn run() {
 ```env
 # Laravel
 APP_KEY=
-APP_URL=https://oddex.io
+APP_URL=https://craftstrat.com
 DB_CONNECTION=pgsql
 DB_HOST=postgres
 DB_PORT=5432
-DB_DATABASE=oddex
-DB_USERNAME=oddex
+DB_DATABASE=craftstrat
+DB_USERNAME=craftstrat
 DB_PASSWORD=
 REDIS_HOST=redis
 STRIPE_KEY=
@@ -882,9 +882,9 @@ services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: oddex
-      POSTGRES_USER: oddex
-      POSTGRES_PASSWORD: oddex_secret
+      POSTGRES_DB: craftstrat
+      POSTGRES_USER: craftstrat
+      POSTGRES_PASSWORD: craftstrat_secret
     volumes: [postgres_data:/var/lib/postgresql/data]
     ports: ["5432:5432"]
 
@@ -1011,6 +1011,6 @@ Follow this sequence to build incrementally:
 - **feeRateBps** : fetcher dynamiquement par market avant chaque ordre — jamais hardcodé
 - **Multi-tenancy** : toutes les queries PostgreSQL scopées par `user_id`, toutes les tasks Rust keyed par `(wallet_id, strategy_id)`
 - **team_id** : présent dans la table `users` mais nullable et non utilisé en V1 — préparé pour une future feature teams sans migration breaking
-- **Copy trading** : surveillance de n'importe quelle adresse Polygon publique — pas uniquement les users Oddex. Le watcher poll `GET /data-api/v2/trades?maker_address={address}` chaque seconde pour chaque adresse suivie. Latence réaliste leader→follower : 1-3 secondes, à afficher clairement avant toute souscription.
+- **Copy trading** : surveillance de n'importe quelle adresse Polygon publique — pas uniquement les users CraftStrat. Le watcher poll `GET /data-api/v2/trades?maker_address={address}` chaque seconde pour chaque adresse suivie. Latence réaliste leader→follower : 1-3 secondes, à afficher clairement avant toute souscription.
 - **Copy trading transparence** : `copy_trades` stocke systématiquement le prix leader (détecté) ET le prix follower (exécuté) + slippage calculé. Les stats `watched_wallets` incluent le slippage moyen historique visible avant de follow.
 - **watched_wallets en cache Redis** : la liste des adresses à surveiller est chargée en mémoire Redis au démarrage du watcher, mise à jour à chaque nouvelle `copy_relationship`. Le watcher ne lit jamais PostgreSQL en boucle.
