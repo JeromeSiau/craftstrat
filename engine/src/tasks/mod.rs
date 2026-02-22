@@ -2,6 +2,7 @@ mod data_feed;
 mod engine_tasks;
 mod execution_tasks;
 mod persistence;
+mod slot_resolver;
 mod writers;
 
 use std::collections::HashMap;
@@ -46,6 +47,16 @@ pub async fn spawn_all(
     // Writer tasks
     writers::spawn_clickhouse_writer(state, tasks);
     writers::spawn_kafka_publisher(state, tasks)?;
+
+    // Slot resolution (backfill winner from Gamma API)
+    {
+        let ch = crate::storage::clickhouse::create_client(&state.config.clickhouse_url);
+        let http = state.http.clone();
+        let gamma_url = state.config.gamma_api_url.clone();
+        tasks.spawn(async move {
+            slot_resolver::run_slot_resolver(ch, http, gamma_url).await
+        });
+    }
 
     // Strategy engine
     let engine_registry = crate::strategy::registry::AssignmentRegistry::new();
