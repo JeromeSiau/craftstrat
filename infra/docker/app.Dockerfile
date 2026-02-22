@@ -24,7 +24,7 @@ RUN npm ci
 
 COPY web/ .
 COPY --from=composer-deps /app/vendor ./vendor
-RUN npm run build
+RUN SKIP_WAYFINDER=1 npm run build
 
 # =============================================================================
 # Stage 3: Production image
