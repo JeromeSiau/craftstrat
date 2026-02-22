@@ -57,8 +57,8 @@ pub async fn fetch_summary(client: &Client, params: &StatsParams) -> Result<Summ
     let sql = format!(
         "SELECT
             count() AS total_slots,
-            countIf(winner IS NOT NULL) AS resolved_slots,
-            countIf(winner IS NULL) AS unresolved_slots,
+            countIf(slot_winner IS NOT NULL) AS resolved_slots,
+            countIf(slot_winner IS NULL) AS unresolved_slots,
             (SELECT count() FROM slot_snapshots
              WHERE slot_duration = ?
                  {cutoff}
@@ -68,7 +68,7 @@ pub async fn fetch_summary(client: &Client, params: &StatsParams) -> Result<Summ
                  {cutoff}
                  {sym}) AS last_snapshot_at
         FROM (
-            SELECT symbol, slot_ts, slot_duration, any(winner) AS winner
+            SELECT symbol, slot_ts, slot_duration, any(winner) AS slot_winner
             FROM slot_snapshots
             WHERE captured_at >= now64(3) - INTERVAL {seconds} SECOND
                 AND slot_duration = ?
@@ -138,9 +138,9 @@ pub async fn fetch_heatmap(client: &Client, params: &StatsParams) -> Result<Vec<
         "WITH slots AS (
             SELECT
                 symbol, slot_ts, slot_duration,
-                any(winner) AS winner,
-                any(minutes_into_slot) AS minutes_into_slot,
-                any(dir_move_pct) AS dir_move_pct
+                any(winner) AS slot_winner,
+                any(minutes_into_slot) AS mins,
+                any(dir_move_pct) AS move_pct
             FROM slot_snapshots
             WHERE slot_duration = ?
                 {cutoff}
@@ -149,22 +149,22 @@ pub async fn fetch_heatmap(client: &Client, params: &StatsParams) -> Result<Vec<
         )
         SELECT
             concat(
-                toString(floor(minutes_into_slot / {time_bin_minutes}) * {time_bin_minutes}),
+                toString(floor(mins / {time_bin_minutes}) * {time_bin_minutes}),
                 '-',
-                toString(floor(minutes_into_slot / {time_bin_minutes}) * {time_bin_minutes} + {time_bin_minutes})
+                toString(floor(mins / {time_bin_minutes}) * {time_bin_minutes} + {time_bin_minutes})
             ) AS time_bin,
             multiIf(
-                dir_move_pct < -0.2, '< -0.2',
-                dir_move_pct < -0.1, '-0.2 / -0.1',
-                dir_move_pct < 0.0,  '-0.1 / 0',
-                dir_move_pct < 0.1,  '0 / 0.1',
-                dir_move_pct < 0.2,  '0.1 / 0.2',
+                move_pct < -0.2, '< -0.2',
+                move_pct < -0.1, '-0.2 / -0.1',
+                move_pct < 0.0,  '-0.1 / 0',
+                move_pct < 0.1,  '0 / 0.1',
+                move_pct < 0.2,  '0.1 / 0.2',
                 '>= 0.2'
             ) AS move_bin,
             count() AS total,
-            countIf(winner = 'UP') AS wins
+            countIf(slot_winner = 'UP') AS wins
         FROM slots
-        WHERE winner IS NOT NULL
+        WHERE slot_winner IS NOT NULL
         GROUP BY time_bin, move_bin
         ORDER BY time_bin, move_bin"
     );
@@ -273,7 +273,7 @@ pub async fn fetch_by_symbol(client: &Client, params: &StatsParams) -> Result<Ve
 
     let sql = format!(
         "WITH slots AS (
-            SELECT symbol, slot_ts, slot_duration, any(winner) AS winner
+            SELECT symbol, slot_ts, slot_duration, any(winner) AS slot_winner
             FROM slot_snapshots
             WHERE slot_duration = ?
                 AND winner IS NOT NULL
@@ -284,7 +284,7 @@ pub async fn fetch_by_symbol(client: &Client, params: &StatsParams) -> Result<Ve
         SELECT
             symbol,
             count() AS total,
-            countIf(winner = 'UP') AS wins
+            countIf(slot_winner = 'UP') AS wins
         FROM slots
         GROUP BY symbol
         ORDER BY total DESC"
@@ -358,7 +358,7 @@ pub async fn fetch_stoploss_sweep(
             SELECT
                 ss.symbol,
                 ss.slot_ts,
-                any(ss.winner) AS winner,
+                any(ss.winner) AS slot_winner,
                 min(CASE WHEN ss.minutes_into_slot >= pm.first_peak_min THEN ss.bid_up ELSE NULL END) AS min_bid_after_peak
             FROM slot_snapshots ss
             INNER JOIN peak_minute pm
@@ -377,8 +377,8 @@ pub async fn fetch_stoploss_sweep(
         SELECT
             t.t AS threshold,
             countIf(peaked.min_bid_after_peak <= t.t) AS triggered,
-            countIf(peaked.min_bid_after_peak <= t.t AND peaked.winner = 'DOWN') AS true_saves,
-            countIf(peaked.min_bid_after_peak <= t.t AND peaked.winner = 'UP') AS false_exits
+            countIf(peaked.min_bid_after_peak <= t.t AND peaked.slot_winner = 'DOWN') AS true_saves,
+            countIf(peaked.min_bid_after_peak <= t.t AND peaked.slot_winner = 'UP') AS false_exits
         FROM peaked
         CROSS JOIN thresholds t
         GROUP BY t.t
@@ -428,7 +428,7 @@ pub async fn fetch_by_hour(client: &Client, params: &StatsParams) -> Result<Vec<
         "WITH slots AS (
             SELECT
                 symbol, slot_ts, slot_duration,
-                any(winner) AS winner,
+                any(winner) AS slot_winner,
                 toHour(toDateTime(slot_ts)) AS hour_utc
             FROM slot_snapshots
             WHERE slot_duration = ?
@@ -440,7 +440,7 @@ pub async fn fetch_by_hour(client: &Client, params: &StatsParams) -> Result<Vec<
         SELECT
             hour_utc AS period,
             count() AS total,
-            countIf(winner = 'UP') AS wins
+            countIf(slot_winner = 'UP') AS wins
         FROM slots
         GROUP BY period
         ORDER BY period"
@@ -488,7 +488,7 @@ pub async fn fetch_by_day(client: &Client, params: &StatsParams) -> Result<Vec<T
         "WITH slots AS (
             SELECT
                 symbol, slot_ts, slot_duration,
-                any(winner) AS winner,
+                any(winner) AS slot_winner,
                 toUInt8(toDayOfWeek(toDateTime(slot_ts)) - 1) AS dow
             FROM slot_snapshots
             WHERE slot_duration = ?
@@ -500,7 +500,7 @@ pub async fn fetch_by_day(client: &Client, params: &StatsParams) -> Result<Vec<T
         SELECT
             dow AS period,
             count() AS total,
-            countIf(winner = 'UP') AS wins
+            countIf(slot_winner = 'UP') AS wins
         FROM slots
         GROUP BY period
         ORDER BY period"
