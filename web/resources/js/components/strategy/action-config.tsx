@@ -60,6 +60,24 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                     </div>
 
                     <div className="space-y-2">
+                        <Label htmlFor="size_mode">Size Mode</Label>
+                        <Select
+                            value={action.size_mode}
+                            onValueChange={(value) =>
+                                onChange({ ...action, size_mode: value as 'fixed' | 'proportional' })
+                            }
+                        >
+                            <SelectTrigger id="size_mode">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="fixed">Fixed</SelectItem>
+                                <SelectItem value="proportional">Proportional</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
                         <Label htmlFor="size_usdc">Size (USDC)</Label>
                         <Input
                             id="size_usdc"
