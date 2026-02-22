@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\BacktestController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
@@ -40,6 +41,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('billing', [BillingController::class, 'index'])->name('billing.index');
     Route::post('billing/subscribe', [BillingController::class, 'subscribe'])->name('billing.subscribe');
     Route::post('billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
+
+    // Analytics
+    Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
 });
 
 // Stripe Webhook (no auth)

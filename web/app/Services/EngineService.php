@@ -66,6 +66,18 @@ class EngineService
             ->json();
     }
 
+    public function slotStats(int $slotDuration, array $symbols = [], float $hours = 168.0): array
+    {
+        return $this->client()
+            ->get('/internal/stats/slots', array_filter([
+                'slot_duration' => $slotDuration,
+                'symbols' => ! empty($symbols) ? implode(',', $symbols) : null,
+                'hours' => $hours,
+            ]))
+            ->throw()
+            ->json();
+    }
+
     public function watchLeader(string $leaderAddress): void
     {
         $this->client()->post('/internal/copy/watch', [
