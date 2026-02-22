@@ -1,0 +1,37 @@
+# Dev overrides — merged automatically by `docker compose up`
+# In production, skip this file: docker compose -f docker-compose.yml up -d
+
+services:
+  app:
+    ports:
+      - "8000:80"
+      - "5173:5173"
+    volumes:
+      - ./web:/var/www/html
+      - ./.env:/var/www/html/.env
+      - vendor_data:/var/www/html/vendor
+      - node_modules_data:/var/www/html/node_modules
+    restart: "no"
+
+  engine:
+    restart: "no"
+
+  postgres:
+    ports:
+      - "5433:5432"
+
+  clickhouse:
+    ports:
+      - "8123:8123"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  kafka:
+    ports:
+      - "9092:9092"
+
+volumes:
+  vendor_data:
+  node_modules_data:

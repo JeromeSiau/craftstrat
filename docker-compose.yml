@@ -4,38 +4,51 @@ services:
       context: .
       dockerfile: infra/docker/app.Dockerfile
     ports:
-      - "8000:80"
-      - "5173:5173"
-    volumes:
-      - ./web:/var/www/html
-      - ./.env:/var/www/html/.env
-      - vendor_data:/var/www/html/vendor
-      - node_modules_data:/var/www/html/node_modules
+      - "127.0.0.1:8000:80"
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - oddex
+
+  engine:
+    build:
+      context: .
+      dockerfile: infra/docker/engine.Dockerfile
     env_file:
       - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_started
+      kafka:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - oddex
 
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: oddex
-      POSTGRES_USER: oddex
-      POSTGRES_PASSWORD: oddex_secret
+      POSTGRES_DB: ${DB_DATABASE:-oddex}
+      POSTGRES_USER: ${DB_USERNAME:-oddex}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-oddex_secret}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oddex"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-oddex}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
     networks:
       - oddex
 
@@ -43,27 +56,26 @@ services:
     image: clickhouse/clickhouse-server:26.1
     environment:
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./infra/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "8123:8123"
+    restart: unless-stopped
     networks:
       - oddex
 
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
     networks:
       - oddex
 
@@ -82,65 +94,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
-    ports:
-      - "9092:9092"
-    networks:
-      - oddex
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
     volumes:
-      - grafana_data:/var/lib/grafana
-      - ./infra/grafana/provisioning:/etc/grafana/provisioning
-      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards
-    depends_on:
-      - prometheus
-    networks:
-      - oddex
-
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
-    depends_on:
-      - app
-    networks:
-      - oddex
-
-  postgres_exporter:
-    image: quay.io/prometheuscommunity/postgres-exporter:latest
-    environment:
-      DATA_SOURCE_NAME: "postgresql://oddex:oddex_secret@postgres:5432/oddex?sslmode=disable"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - oddex
-
-  redis_exporter:
-    image: oliver006/redis_exporter:latest
-    environment:
-      REDIS_ADDR: "redis://redis:6379"
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - oddex
-
-  kafka_exporter:
-    image: danielqsj/kafka-exporter:latest
-    command: ["--kafka.server=kafka:9092"]
-    depends_on:
-      - kafka
+      - kafka_data:/var/lib/kafka/data
+    restart: unless-stopped
     networks:
       - oddex
 
@@ -152,7 +108,4 @@ volumes:
   postgres_data:
   clickhouse_data:
   redis_data:
-  grafana_data:
-  prometheus_data:
-  vendor_data:
-  node_modules_data:
+  kafka_data:
