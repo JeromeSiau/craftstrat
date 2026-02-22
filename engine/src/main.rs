@@ -8,6 +8,7 @@ mod strategy;
 mod tasks;
 mod watcher;
 mod backtest;
+mod stats;
 mod api;
 mod metrics;
 

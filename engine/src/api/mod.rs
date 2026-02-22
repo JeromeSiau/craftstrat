@@ -28,6 +28,7 @@ pub fn router(state: Arc<ApiState>) -> Router {
         .route("/internal/copy/watch", post(handlers::copy::watch))
         .route("/internal/copy/unwatch", post(handlers::copy::unwatch))
         .route("/metrics", get(handlers::metrics::render))
+        .route("/internal/stats/slots", get(handlers::stats::slots))
         .with_state(state)
 }
 
