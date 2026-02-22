@@ -39,3 +39,11 @@ export interface BacktestResult {
     created_at: string;
     strategy: { id: number; name: string; graph?: Record<string, unknown> };
 }
+
+export interface DashboardStats {
+    active_strategies: number;
+    total_strategies: number;
+    total_wallets: number;
+    total_pnl_usdc: string;
+    running_assignments: number;
+}
