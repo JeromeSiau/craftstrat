@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import ConditionGroup from '@/components/strategy/condition-group';
 import ActionConfig from '@/components/strategy/action-config';
 import RiskConfig from '@/components/strategy/risk-config';
+import { uid } from '@/lib/formatters';
 import type {
     FormModeGraph,
     ConditionGroup as ConditionGroupType,
@@ -14,11 +15,6 @@ interface FormBuilderProps {
     graph: FormModeGraph;
     onChange: (graph: FormModeGraph) => void;
 }
-
-const defaultConditionGroup: ConditionGroupType = {
-    type: 'AND',
-    rules: [{ indicator: 'abs_move_pct', operator: '>', value: 0 }],
-};
 
 export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
     function handleConditionChange(index: number, group: ConditionGroupType): void {
@@ -38,7 +34,14 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
     function handleAddConditionGroup(): void {
         onChange({
             ...graph,
-            conditions: [...graph.conditions, { ...defaultConditionGroup, rules: [...defaultConditionGroup.rules] }],
+            conditions: [
+                ...graph.conditions,
+                {
+                    id: uid(),
+                    type: 'AND',
+                    rules: [{ id: uid(), indicator: 'abs_move_pct', operator: '>', value: 0 }],
+                },
+            ],
         });
     }
 
@@ -54,7 +57,7 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
         <div className="space-y-6">
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Conditions (SI)</h3>
+                    <h3 className="text-sm font-semibold">Conditions (IF)</h3>
                     <Button
                         type="button"
                         variant="outline"
@@ -67,7 +70,7 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
                 </div>
                 {graph.conditions.map((group, index) => (
                     <ConditionGroup
-                        key={index}
+                        key={group.id}
                         group={group}
                         index={index}
                         onChange={(updatedGroup) => handleConditionChange(index, updatedGroup)}

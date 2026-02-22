@@ -8,6 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { safeParseFloat } from '@/lib/formatters';
 import type { StrategyAction } from '@/types/models';
 
 interface ActionConfigProps {
@@ -19,7 +20,7 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-sm">Action (ALORS)</CardTitle>
+                <CardTitle className="text-sm">Action (THEN)</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -86,10 +87,7 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                             step="any"
                             value={action.size_usdc}
                             onChange={(e) =>
-                                onChange({
-                                    ...action,
-                                    size_usdc: e.target.value === '' ? 0 : parseFloat(e.target.value),
-                                })
+                                onChange({ ...action, size_usdc: safeParseFloat(e.target.value) })
                             }
                         />
                     </div>

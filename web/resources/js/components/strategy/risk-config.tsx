@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { safeParseFloat } from '@/lib/formatters';
 import type { StrategyRisk } from '@/types/models';
 
 interface RiskConfigProps {
@@ -10,8 +11,7 @@ interface RiskConfigProps {
 
 export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
     function handleChange(field: keyof StrategyRisk, value: string): void {
-        const numValue = value === '' ? 0 : parseFloat(value);
-        onChange({ ...risk, [field]: isNaN(numValue) ? 0 : numValue });
+        onChange({ ...risk, [field]: safeParseFloat(value) });
     }
 
     return (

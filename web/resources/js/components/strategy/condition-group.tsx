@@ -9,6 +9,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import RuleRow from '@/components/strategy/rule-row';
+import { uid } from '@/lib/formatters';
 import type { ConditionGroup as ConditionGroupType, StrategyRule } from '@/types/models';
 
 interface ConditionGroupProps {
@@ -17,12 +18,6 @@ interface ConditionGroupProps {
     onChange: (group: ConditionGroupType) => void;
     onRemove: () => void;
 }
-
-const defaultRule: StrategyRule = {
-    indicator: 'abs_move_pct',
-    operator: '>',
-    value: 0,
-};
 
 export default function ConditionGroup({ group, index, onChange, onRemove }: ConditionGroupProps) {
     function handleTypeChange(value: string): void {
@@ -44,7 +39,10 @@ export default function ConditionGroup({ group, index, onChange, onRemove }: Con
     }
 
     function handleAddRule(): void {
-        onChange({ ...group, rules: [...group.rules, { ...defaultRule }] });
+        onChange({
+            ...group,
+            rules: [...group.rules, { id: uid(), indicator: 'abs_move_pct', operator: '>', value: 0 }],
+        });
     }
 
     return (
@@ -75,7 +73,7 @@ export default function ConditionGroup({ group, index, onChange, onRemove }: Con
             <CardContent className="space-y-3">
                 {group.rules.map((rule, ruleIndex) => (
                     <RuleRow
-                        key={ruleIndex}
+                        key={rule.id}
                         rule={rule}
                         onChange={(updatedRule) => handleRuleChange(ruleIndex, updatedRule)}
                         onRemove={() => handleRuleRemove(ruleIndex)}

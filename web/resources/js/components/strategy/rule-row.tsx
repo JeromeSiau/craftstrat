@@ -11,6 +11,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { indicators, operators } from '@/components/strategy/indicator-options';
+import { safeParseFloat } from '@/lib/formatters';
 import type { StrategyRule } from '@/types/models';
 
 interface RuleRowProps {
@@ -39,31 +40,26 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
 
     function handleOperatorChange(value: string): void {
         if (value === 'between') {
-            const currentValue =
-                typeof rule.value === 'number' ? rule.value : rule.value[0];
+            const currentValue = typeof rule.value === 'number' ? rule.value : rule.value[0];
             onChange({ ...rule, operator: value, value: [currentValue, currentValue + 1] });
         } else {
-            const currentValue =
-                typeof rule.value === 'number' ? rule.value : rule.value[0];
+            const currentValue = typeof rule.value === 'number' ? rule.value : rule.value[0];
             onChange({ ...rule, operator: value, value: currentValue });
         }
     }
 
     function handleValueChange(value: string): void {
-        const numValue = value === '' ? 0 : parseFloat(value);
-        onChange({ ...rule, value: isNaN(numValue) ? 0 : numValue });
+        onChange({ ...rule, value: safeParseFloat(value) });
     }
 
     function handleBetweenMinChange(value: string): void {
-        const numValue = value === '' ? 0 : parseFloat(value);
         const currentMax = Array.isArray(rule.value) ? rule.value[1] : 0;
-        onChange({ ...rule, value: [isNaN(numValue) ? 0 : numValue, currentMax] });
+        onChange({ ...rule, value: [safeParseFloat(value), currentMax] });
     }
 
     function handleBetweenMaxChange(value: string): void {
-        const numValue = value === '' ? 0 : parseFloat(value);
         const currentMin = Array.isArray(rule.value) ? rule.value[0] : 0;
-        onChange({ ...rule, value: [currentMin, isNaN(numValue) ? 0 : numValue] });
+        onChange({ ...rule, value: [currentMin, safeParseFloat(value)] });
     }
 
     return (

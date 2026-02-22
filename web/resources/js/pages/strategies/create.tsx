@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import InputError from '@/components/input-error';
 import FormBuilder from '@/components/strategy/form-builder';
 import NodeEditor from '@/components/strategy/node-editor';
+import { uid } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { FormModeGraph, NodeModeGraph } from '@/types/models';
 import { index, create, store } from '@/actions/App/Http/Controllers/StrategyController';
@@ -20,8 +22,9 @@ const defaultFormGraph: FormModeGraph = {
     mode: 'form',
     conditions: [
         {
+            id: uid(),
             type: 'AND',
-            rules: [{ indicator: 'abs_move_pct', operator: '>', value: 3.0 }],
+            rules: [{ id: uid(), indicator: 'abs_move_pct', operator: '>', value: 3.0 }],
         },
     ],
     action: {
@@ -87,9 +90,7 @@ export default function StrategiesCreate() {
                                 value={data.name}
                                 onChange={(e) => setData('name', e.target.value)}
                             />
-                            {errors.name && (
-                                <p className="text-sm text-red-500">{errors.name}</p>
-                            )}
+                            <InputError message={errors.name} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="description">Description</Label>
@@ -121,9 +122,7 @@ export default function StrategiesCreate() {
                         </TabsContent>
                     </Tabs>
 
-                    {errors.graph && (
-                        <p className="text-sm text-red-500">{errors.graph}</p>
-                    )}
+                    <InputError message={errors.graph} />
 
                     <Button type="submit" disabled={processing}>
                         Create Strategy
