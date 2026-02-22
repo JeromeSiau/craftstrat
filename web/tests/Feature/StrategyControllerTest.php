@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Strategy;
+use App\Models\Trade;
 use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -118,6 +120,50 @@ it('deactivates a strategy and calls engine', function () {
         ->assertRedirect();
 
     expect($strategy->fresh()->is_active)->toBeFalse();
+});
+
+it('loads deferred live stats and recent trades', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $wallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+
+    Trade::factory()->count(5)->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'status' => 'filled',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('strategies.show', $strategy))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('strategies/show', false)
+            ->has('strategy')
+            ->missing('liveStats')
+            ->missing('recentTrades')
+            ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
+                ->has('liveStats', fn (Assert $stats) => $stats
+                    ->where('total_trades', 5)
+                    ->has('win_rate')
+                    ->has('total_pnl_usdc')
+                )
+                ->has('recentTrades', 5)
+            )
+        );
+});
+
+it('returns empty trades when strategy has no trades', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->get(route('strategies.show', $strategy))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
+                ->where('liveStats.total_trades', 0)
+                ->where('liveStats.win_rate', null)
+                ->has('recentTrades', 0)
+            )
+        );
 });
 
 it('requires authentication', function () {

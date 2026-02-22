@@ -1,21 +1,62 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { FlaskConical, LineChart, Settings2, Wallet } from 'lucide-react';
+import { Deferred, Head, router, useForm } from '@inertiajs/react';
+import { Activity, ArrowLeftRight, FlaskConical, LineChart, Settings2, TrendingUp, Wallet } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import InputError from '@/components/input-error';
 import ConfirmDialog from '@/components/confirm-dialog';
+import MetricCard from '@/components/metric-card';
 import StatusBadge from '@/components/status-badge';
 import BacktestResultsTable from '@/components/backtest-results-table';
 import StrategyRulesDisplay, { isFormModeGraph } from '@/components/strategy/strategy-rules-display';
+import { formatPnl, formatWinRate } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
-import type { Strategy } from '@/types/models';
+import type { LiveStats, Strategy, Trade } from '@/types/models';
 import { index, show, activate, deactivate, destroy } from '@/actions/App/Http/Controllers/StrategyController';
 import { run as runBacktest } from '@/actions/App/Http/Controllers/BacktestController';
 
-export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
+function LiveDataSkeleton() {
+    return (
+        <>
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <Card key={i} className="relative overflow-hidden">
+                        <CardContent className="pt-5 pb-5">
+                            <div className="space-y-2">
+                                <Skeleton className="h-3 w-24" />
+                                <Skeleton className="h-8 w-20" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+            <Card className="mt-6">
+                <CardHeader>
+                    <Skeleton className="h-5 w-32" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <Skeleton key={i} className="h-4 w-full" />
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </>
+    );
+}
+
+interface Props {
+    strategy: Strategy;
+    liveStats?: LiveStats;
+    recentTrades?: Trade[];
+}
+
+export default function StrategiesShow({ strategy, liveStats, recentTrades }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Strategies', href: index.url() },
         { title: strategy.name, href: show.url(strategy.id) },
@@ -31,6 +72,9 @@ export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
         e.preventDefault();
         backtestForm.post(runBacktest.url(strategy.id));
     }
+
+    const pnlValue = liveStats?.total_pnl_usdc ? parseFloat(liveStats.total_pnl_usdc) : 0;
+    const pnlTrend = pnlValue > 0 ? 'up' : pnlValue < 0 ? 'down' : 'neutral' as const;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -140,6 +184,98 @@ export default function StrategiesShow({ strategy }: { strategy: Strategy }) {
                         </CardContent>
                     </Card>
                 </div>
+
+                <Deferred data={['liveStats', 'recentTrades']} fallback={<LiveDataSkeleton />}>
+                    <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                        <MetricCard
+                            label="Total Trades"
+                            value={liveStats?.total_trades ?? 0}
+                            icon={Activity}
+                        />
+                        <MetricCard
+                            label="Win Rate"
+                            value={formatWinRate(liveStats?.win_rate ?? null)}
+                            icon={TrendingUp}
+                        />
+                        <MetricCard
+                            label="PnL"
+                            value={formatPnl(liveStats?.total_pnl_usdc ?? null)}
+                            icon={ArrowLeftRight}
+                            trend={liveStats?.total_pnl_usdc ? pnlTrend : undefined}
+                        />
+                    </div>
+
+                    <Card className="mt-6 border-l-4 border-l-emerald-500/50">
+                        <CardHeader>
+                            <div className="flex items-center gap-3">
+                                <div className="rounded-lg bg-emerald-500/10 p-2 dark:bg-emerald-500/15">
+                                    <ArrowLeftRight className="size-4 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <CardTitle>Recent Trades</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {!recentTrades?.length ? (
+                                <p className="text-sm text-muted-foreground">No trades yet.</p>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead>Market</TableHead>
+                                            <TableHead>Side</TableHead>
+                                            <TableHead>Outcome</TableHead>
+                                            <TableHead>Price</TableHead>
+                                            <TableHead>Size</TableHead>
+                                            <TableHead>Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {recentTrades.map((trade) => (
+                                            <TableRow key={trade.id}>
+                                                <TableCell className="text-muted-foreground">
+                                                    {trade.executed_at
+                                                        ? new Date(trade.executed_at).toLocaleDateString()
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell className="max-w-[200px] truncate font-mono text-xs">
+                                                    {trade.market_id ?? '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className={
+                                                        trade.side === 'buy'
+                                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                                            : 'text-red-500 dark:text-red-400'
+                                                    }>
+                                                        {trade.side?.toUpperCase() ?? '-'}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>{trade.outcome ?? '-'}</TableCell>
+                                                <TableCell className="tabular-nums">
+                                                    {trade.price ? `$${parseFloat(trade.price).toFixed(4)}` : '-'}
+                                                </TableCell>
+                                                <TableCell className="tabular-nums">
+                                                    {formatPnl(trade.size_usdc)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                        trade.status === 'filled'
+                                                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                            : trade.status === 'pending'
+                                                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                                                              : 'bg-muted text-muted-foreground'
+                                                    }`}>
+                                                        {trade.status}
+                                                    </span>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Deferred>
 
                 <Card className="mt-6 border-l-4 border-l-amber-500/50">
                     <CardHeader>

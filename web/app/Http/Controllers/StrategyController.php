@@ -44,6 +44,27 @@ class StrategyController extends Controller
 
         return Inertia::render('strategies/show', [
             'strategy' => $strategy,
+            'liveStats' => Inertia::defer(function () use ($strategy) {
+                $filled = $strategy->trades()->where('status', 'filled');
+                $totalTrades = $filled->count();
+                $totalPnl = (float) $filled->sum('size_usdc');
+                $winCount = $strategy->trades()
+                    ->where('status', 'filled')
+                    ->where('price', '>', 0.5)
+                    ->count();
+
+                return [
+                    'total_trades' => $totalTrades,
+                    'win_rate' => $totalTrades > 0
+                        ? number_format($winCount / $totalTrades, 4)
+                        : null,
+                    'total_pnl_usdc' => number_format($totalPnl, 2, '.', ''),
+                ];
+            }, 'liveData'),
+            'recentTrades' => Inertia::defer(fn () => $strategy->trades()
+                ->latest('executed_at')
+                ->limit(20)
+                ->get(['id', 'market_id', 'side', 'outcome', 'price', 'size_usdc', 'status', 'executed_at']), 'liveData'),
         ]);
     }
 

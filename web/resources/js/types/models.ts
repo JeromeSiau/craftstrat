@@ -125,3 +125,82 @@ export interface BacktestTrade {
     pnl: number;
     cumulative_pnl: number;
 }
+
+export interface Trade {
+    id: number;
+    market_id: string | null;
+    side: string | null;
+    outcome: string | null;
+    price: string | null;
+    size_usdc: string | null;
+    status: string;
+    executed_at: string | null;
+}
+
+export interface LiveStats {
+    total_trades: number;
+    win_rate: string | null;
+    total_pnl_usdc: string | null;
+}
+
+// Slot Analytics types
+export interface SlotAnalyticsSummary {
+    total_slots: number;
+    resolved_slots: number;
+    unresolved_slots: number;
+    total_snapshots: number;
+    last_snapshot_at: string | null;
+}
+
+export interface HeatmapCell {
+    time_bin: string;
+    move_bin: string;
+    total: number;
+    wins: number;
+    win_rate: number;
+}
+
+export interface CalibrationPoint {
+    bid_bucket: number;
+    avg_bid: number;
+    win_rate: number;
+    sample_count: number;
+}
+
+export interface SymbolStats {
+    symbol: string;
+    total: number;
+    wins: number;
+    win_rate: number;
+}
+
+export interface StoplossThreshold {
+    threshold: number;
+    triggered: number;
+    true_saves: number;
+    false_exits: number;
+    precision: number;
+}
+
+export interface TimeStats {
+    period: number;
+    total: number;
+    wins: number;
+    win_rate: number;
+}
+
+export interface SlotAnalyticsData {
+    summary: SlotAnalyticsSummary;
+    heatmap: HeatmapCell[];
+    calibration: CalibrationPoint[];
+    by_symbol: SymbolStats[];
+    stoploss_sweep: StoplossThreshold[];
+    by_hour: TimeStats[];
+    by_day: TimeStats[];
+}
+
+export interface AnalyticsFilters {
+    slot_duration: number;
+    symbols: string[];
+    hours: number;
+}
