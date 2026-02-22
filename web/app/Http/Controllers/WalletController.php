@@ -18,10 +18,13 @@ class WalletController extends Controller
 {
     public function index(): Response
     {
+        $user = auth()->user();
+
         return Inertia::render('wallets/index', [
-            'wallets' => auth()->user()->wallets()
+            'wallets' => $user->wallets()
                 ->withCount('strategies')
                 ->paginate(20),
+            'strategies' => $user->strategies()->select('id', 'name')->get(),
         ]);
     }
 

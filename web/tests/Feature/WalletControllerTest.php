@@ -86,6 +86,17 @@ it('removes a strategy from a wallet', function () {
     expect($wallet->strategies()->count())->toBe(0);
 });
 
+it('wallet index includes available strategies', function () {
+    Strategy::factory()->for($this->user)->create(['name' => 'Test Strategy']);
+
+    $this->actingAs($this->user)
+        ->get(route('wallets.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('wallets/index', false)
+            ->has('strategies', 1)
+        );
+});
+
 it('requires authentication for wallets', function () {
     $this->get(route('wallets.index'))->assertRedirect('/login');
 });
