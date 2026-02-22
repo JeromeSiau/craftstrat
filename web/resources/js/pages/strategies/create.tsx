@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FormBuilder from '@/components/strategy/form-builder';
+import NodeEditor from '@/components/strategy/node-editor';
 import type { BreadcrumbItem } from '@/types';
-import type { FormModeGraph } from '@/types/models';
+import type { FormModeGraph, NodeModeGraph } from '@/types/models';
 import { index, create, store } from '@/actions/App/Http/Controllers/StrategyController';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -15,7 +16,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Create', href: create.url() },
 ];
 
-const defaultGraph: FormModeGraph = {
+const defaultFormGraph: FormModeGraph = {
     mode: 'form',
     conditions: [
         {
@@ -38,13 +39,34 @@ const defaultGraph: FormModeGraph = {
     },
 };
 
+const defaultNodeGraph: NodeModeGraph = {
+    mode: 'node',
+    nodes: [
+        { id: 'n1', type: 'input', data: { field: 'abs_move_pct' }, position: { x: 50, y: 100 } },
+        { id: 'n2', type: 'comparator', data: { operator: '>', value: 3.0 }, position: { x: 300, y: 100 } },
+        { id: 'n3', type: 'action', data: { signal: 'buy', outcome: 'UP', size_usdc: 50 }, position: { x: 550, y: 100 } },
+    ],
+    edges: [
+        { source: 'n1', target: 'n2' },
+        { source: 'n2', target: 'n3' },
+    ],
+};
+
 export default function StrategiesCreate() {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         description: '',
-        mode: 'form',
-        graph: defaultGraph as FormModeGraph,
+        mode: 'form' as 'form' | 'node',
+        graph: defaultFormGraph as FormModeGraph | NodeModeGraph,
     });
+
+    function handleTabChange(tab: string): void {
+        if (tab === 'form') {
+            setData({ ...data, mode: 'form', graph: defaultFormGraph });
+        } else {
+            setData({ ...data, mode: 'node', graph: defaultNodeGraph });
+        }
+    }
 
     function handleSubmit(e: React.FormEvent): void {
         e.preventDefault();
@@ -80,23 +102,22 @@ export default function StrategiesCreate() {
                         </div>
                     </div>
 
-                    <Tabs defaultValue="form">
+                    <Tabs defaultValue="form" onValueChange={handleTabChange}>
                         <TabsList>
                             <TabsTrigger value="form">Form Builder</TabsTrigger>
-                            <TabsTrigger value="node" disabled>
-                                Node Editor (coming soon)
-                            </TabsTrigger>
+                            <TabsTrigger value="node">Node Editor</TabsTrigger>
                         </TabsList>
                         <TabsContent value="form" className="mt-4">
                             <FormBuilder
-                                graph={data.graph}
+                                graph={data.graph as FormModeGraph}
                                 onChange={(graph) => setData('graph', graph)}
                             />
                         </TabsContent>
-                        <TabsContent value="node">
-                            <p className="py-8 text-center text-sm text-muted-foreground">
-                                Node editor is not yet available.
-                            </p>
+                        <TabsContent value="node" className="mt-4">
+                            <NodeEditor
+                                graph={data.graph as NodeModeGraph}
+                                onChange={(graph) => setData('graph', graph)}
+                            />
                         </TabsContent>
                     </Tabs>
 

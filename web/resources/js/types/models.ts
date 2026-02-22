@@ -81,3 +81,22 @@ export interface FormModeGraph {
     action: StrategyAction;
     risk: StrategyRisk;
 }
+
+// Strategy graph types for node mode
+export interface GraphNode {
+    id: string;
+    type: 'input' | 'indicator' | 'comparator' | 'logic' | 'action';
+    data: Record<string, unknown>;
+    position?: { x: number; y: number };
+}
+
+export interface GraphEdge {
+    source: string;
+    target: string;
+}
+
+export interface NodeModeGraph {
+    mode: 'node';
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+}
