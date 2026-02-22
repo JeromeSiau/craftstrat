@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use metrics::counter;
 use sqlx::PgPool;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -80,6 +81,7 @@ pub async fn run(
                         Some(order) => {
                             let mut q = queue.lock().await;
                             q.push(order);
+                            counter!("oddex_copy_trades_total", "status" => "queued").increment(1);
                         }
                         None => {
                             let outcome_str = trade.outcome.as_deref().unwrap_or("UP");
@@ -98,6 +100,7 @@ pub async fn run(
                                 Some("exceeds_max_position_or_filtered"),
                             )
                             .await;
+                            counter!("oddex_copy_trades_total", "status" => "skipped").increment(1);
                         }
                     }
                 }

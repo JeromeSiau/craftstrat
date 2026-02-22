@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
+use metrics::{counter, gauge, histogram};
 use sqlx::PgPool;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
@@ -47,6 +48,7 @@ pub async fn run(
         };
 
         // 2. Submit order
+        let exec_start = std::time::Instant::now();
         let result = match submitter.submit(&order).await {
             Ok(r) => r,
             Err(e) => {
@@ -63,6 +65,15 @@ pub async fn run(
                 }
             }
         };
+
+        histogram!("oddex_order_execution_duration_seconds").record(exec_start.elapsed().as_secs_f64());
+        let status_label = match result.status {
+            OrderStatus::Filled => "filled",
+            OrderStatus::Cancelled => "cancelled",
+            OrderStatus::Failed => "failed",
+            OrderStatus::Timeout => "timeout",
+        };
+        counter!("oddex_orders_total", "status" => status_label.to_string()).increment(1);
 
         // 4. If filled, update position state
         if result.status == OrderStatus::Filled {
@@ -173,6 +184,7 @@ async fn update_position(
             if let Some(ref pos) = state.position {
                 let pnl = (filled_price - pos.entry_price) * pos.size_usdc;
                 state.pnl += pnl;
+                gauge!("oddex_pnl_usdc").increment(pnl);
             }
             state.position = None;
         }

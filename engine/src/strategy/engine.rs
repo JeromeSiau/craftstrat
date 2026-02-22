@@ -1,4 +1,5 @@
 use anyhow::Result;
+use metrics::{counter, gauge, histogram};
 use rdkafka::Message;
 use rayon::prelude::*;
 use tokio::sync::mpsc;
@@ -16,6 +17,8 @@ pub async fn run(
 ) -> Result<()> {
     let consumer = kafka::consumer::create_consumer(brokers, "strategy-engine", &["ticks"])?;
     tracing::info!("strategy_engine_started");
+
+    let engine_start = std::time::Instant::now();
 
     loop {
         let message = match consumer.recv().await {
@@ -40,6 +43,9 @@ pub async fn run(
             }
         };
 
+        counter!("oddex_ticks_total").increment(1);
+        gauge!("oddex_uptime_seconds").set(engine_start.elapsed().as_secs_f64());
+
         // Read lock -> clone assignments for this symbol -> release lock
         let assignments = {
             let reg = registry.read().await;
@@ -51,6 +57,7 @@ pub async fn run(
         }
 
         // Rayon parallel dispatch
+        let eval_start = std::time::Instant::now();
         let signals: Vec<EngineOutput> = assignments
             .par_iter()
             .filter_map(|a| {
@@ -77,8 +84,16 @@ pub async fn run(
                 }
             })
             .collect();
+        histogram!("oddex_strategy_eval_duration_seconds").record(eval_start.elapsed().as_secs_f64());
 
         for output in signals {
+            let signal_type = match &output.signal {
+                Signal::Buy { .. } => "buy",
+                Signal::Sell { .. } => "sell",
+                Signal::Hold => "hold",
+            };
+            counter!("oddex_signals_total", "signal" => signal_type.to_string()).increment(1);
+
             tracing::info!(
                 wallet_id = output.wallet_id,
                 strategy_id = output.strategy_id,

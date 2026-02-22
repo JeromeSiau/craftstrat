@@ -8,6 +8,8 @@ use tower::ServiceExt;
 use super::state::ApiState;
 
 fn test_state() -> Arc<ApiState> {
+    let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+    let handle = recorder.handle();
     Arc::new(ApiState {
         registry: crate::strategy::registry::AssignmentRegistry::new(),
         exec_queue: Arc::new(tokio::sync::Mutex::new(
@@ -20,6 +22,7 @@ fn test_state() -> Arc<ApiState> {
         redis: None,
         start_time: std::time::Instant::now(),
         tick_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        prometheus: handle,
     })
 }
 

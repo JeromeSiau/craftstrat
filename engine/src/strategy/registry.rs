@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use metrics::gauge;
 use tokio::sync::RwLock;
 
 use super::state::StrategyState;
@@ -51,23 +52,48 @@ pub async fn activate(
         max_position_usdc,
         state: Arc::new(Mutex::new(state)),
     };
-    let mut reg = registry.write().await;
-    for market in &markets {
-        reg.entry(market.clone())
-            .or_default()
-            .push(assignment.clone());
+    {
+        let mut reg = registry.write().await;
+        for market in &markets {
+            reg.entry(market.clone())
+                .or_default()
+                .push(assignment.clone());
+        }
     }
     tracing::info!(wallet_id, strategy_id, ?markets, "assignment_activated");
+
+    let (wallets, assignments) = count_registry(registry).await;
+    gauge!("oddex_active_wallets").set(wallets as f64);
+    gauge!("oddex_active_assignments").set(assignments as f64);
 }
 
 #[allow(dead_code)]
 pub async fn deactivate(registry: &AssignmentRegistry, wallet_id: u64, strategy_id: u64) {
-    let mut reg = registry.write().await;
-    for assignments in reg.values_mut() {
-        assignments.retain(|a| !(a.wallet_id == wallet_id && a.strategy_id == strategy_id));
+    {
+        let mut reg = registry.write().await;
+        for assignments in reg.values_mut() {
+            assignments.retain(|a| !(a.wallet_id == wallet_id && a.strategy_id == strategy_id));
+        }
+        reg.retain(|_, v| !v.is_empty());
     }
-    reg.retain(|_, v| !v.is_empty());
     tracing::info!(wallet_id, strategy_id, "assignment_deactivated");
+
+    let (wallets, assignments) = count_registry(registry).await;
+    gauge!("oddex_active_wallets").set(wallets as f64);
+    gauge!("oddex_active_assignments").set(assignments as f64);
+}
+
+async fn count_registry(registry: &AssignmentRegistry) -> (usize, usize) {
+    let reg = registry.read().await;
+    let mut wallet_ids = std::collections::HashSet::new();
+    let mut assignment_count = 0usize;
+    for assignments in reg.values() {
+        for a in assignments {
+            wallet_ids.insert(a.wallet_id);
+            assignment_count += 1;
+        }
+    }
+    (wallet_ids.len(), assignment_count)
 }
 
 #[cfg(test)]
