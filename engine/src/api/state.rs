@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use clickhouse::Client as ChClient;
+use metrics_exporter_prometheus::PrometheusHandle;
 use sqlx::PgPool;
 use tokio::sync::Mutex;
 
@@ -16,4 +17,5 @@ pub struct ApiState {
     pub redis: Option<redis::aio::MultiplexedConnection>,
     pub start_time: std::time::Instant,
     pub tick_count: Arc<AtomicU64>,
+    pub prometheus: PrometheusHandle,
 }

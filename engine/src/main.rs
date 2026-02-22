@@ -8,6 +8,7 @@ mod tasks;
 mod watcher;
 mod backtest;
 mod api;
+mod metrics;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -24,6 +25,7 @@ use tasks::SharedState;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
+    let prometheus_handle = metrics::init();
     let cfg = Config::from_env()?;
     tracing::info!(sources = cfg.sources.len(), "oddex_engine_starting");
 
@@ -57,6 +59,7 @@ async fn main() -> anyhow::Result<()> {
         redis: Some(redis_conn),
         start_time: std::time::Instant::now(),
         tick_count: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        prometheus: prometheus_handle,
     });
     let api_port = state.config.api_port;
     tasks.spawn(async move {
