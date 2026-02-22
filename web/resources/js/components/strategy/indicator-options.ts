@@ -1,0 +1,30 @@
+export const indicators = [
+    { value: 'abs_move_pct', label: 'Abs Move %', category: 'Price' },
+    { value: 'dir_move_pct', label: 'Dir Move %', category: 'Price' },
+    { value: 'spread_up', label: 'Spread UP', category: 'Spread' },
+    { value: 'spread_down', label: 'Spread DOWN', category: 'Spread' },
+    { value: 'size_ratio_up', label: 'Size Ratio UP', category: 'Order Book' },
+    { value: 'size_ratio_down', label: 'Size Ratio DOWN', category: 'Order Book' },
+    { value: 'pct_into_slot', label: '% Into Slot', category: 'Time' },
+    { value: 'minutes_into_slot', label: 'Minutes Into Slot', category: 'Time' },
+    { value: 'mid_up', label: 'Mid UP', category: 'Price' },
+    { value: 'mid_down', label: 'Mid DOWN', category: 'Price' },
+    { value: 'bid_up', label: 'Bid UP', category: 'Order Book' },
+    { value: 'ask_up', label: 'Ask UP', category: 'Order Book' },
+    { value: 'bid_down', label: 'Bid DOWN', category: 'Order Book' },
+    { value: 'ask_down', label: 'Ask DOWN', category: 'Order Book' },
+    { value: 'ref_price', label: 'Reference Price', category: 'Price' },
+    { value: 'hour_utc', label: 'Hour (UTC)', category: 'Time' },
+    { value: 'day_of_week', label: 'Day of Week', category: 'Time' },
+    { value: 'market_volume_usd', label: 'Volume (USD)', category: 'Volume' },
+] as const;
+
+export const operators = [
+    { value: '>', label: '>' },
+    { value: '<', label: '<' },
+    { value: '>=', label: '>=' },
+    { value: '<=', label: '<=' },
+    { value: '==', label: '=' },
+    { value: '!=', label: '!=' },
+    { value: 'between', label: 'Between' },
+] as const;

@@ -47,3 +47,37 @@ export interface DashboardStats {
     total_pnl_usdc: string;
     running_assignments: number;
 }
+
+// Strategy graph types for form mode
+export interface StrategyRule {
+    indicator: string;
+    operator: string;
+    value: number | [number, number];
+}
+
+export interface ConditionGroup {
+    type: 'AND' | 'OR';
+    rules: StrategyRule[];
+}
+
+export interface StrategyAction {
+    signal: 'buy' | 'sell';
+    outcome: 'UP' | 'DOWN';
+    size_mode: 'fixed' | 'proportional';
+    size_usdc: number;
+    order_type: 'market' | 'limit';
+}
+
+export interface StrategyRisk {
+    stoploss_pct: number;
+    take_profit_pct: number;
+    max_position_usdc: number;
+    max_trades_per_slot: number;
+}
+
+export interface FormModeGraph {
+    mode: 'form';
+    conditions: ConditionGroup[];
+    action: StrategyAction;
+    risk: StrategyRisk;
+}
