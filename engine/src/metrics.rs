@@ -14,6 +14,8 @@ pub const PNL_USDC: &str = "craftstrat_pnl_usdc";
 pub const COPY_TRADES_TOTAL: &str = "craftstrat_copy_trades_total";
 pub const ACTIVE_WALLETS: &str = "craftstrat_active_wallets";
 pub const ACTIVE_ASSIGNMENTS: &str = "craftstrat_active_assignments";
+pub const WS_RECONNECTIONS_TOTAL: &str = "craftstrat_ws_reconnections_total";
+pub const WS_ERRORS_TOTAL: &str = "craftstrat_ws_errors_total";
 
 // ---------------------------------------------------------------------------
 // Init
@@ -52,4 +54,6 @@ fn describe_metrics() {
     metrics::describe_counter!(COPY_TRADES_TOTAL, "Total copy trading orders");
     metrics::describe_gauge!(ACTIVE_WALLETS, "Number of wallets with active strategy assignments");
     metrics::describe_gauge!(ACTIVE_ASSIGNMENTS, "Number of active wallet-strategy assignments");
+    metrics::describe_counter!(WS_RECONNECTIONS_TOTAL, "Total WebSocket reconnection attempts");
+    metrics::describe_counter!(WS_ERRORS_TOTAL, "Total WebSocket errors by type");
 }

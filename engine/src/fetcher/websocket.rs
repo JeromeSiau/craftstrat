@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
+use metrics::counter;
+
 use super::models::{Level, OrderBook, Side};
 
 #[derive(Clone)]
@@ -37,21 +39,56 @@ pub async fn run_ws_feed(
     let mut backoff = Duration::from_secs(1);
     let max_backoff = Duration::from_secs(30);
     let mut subscribed: HashSet<String> = HashSet::new();
+    let mut consecutive_reconnects: u32 = 0;
 
     loop {
         tracing::info!("clob_ws_connecting");
         let connected_at = Instant::now();
+
         match connect_and_stream(&ws_url, &books, &mut cmd_rx, &mut subscribed).await {
-            Ok(_) => tracing::warn!("clob_ws_disconnected"),
-            Err(e) => tracing::warn!(error = %e, "clob_ws_error"),
+            Ok(_) => {
+                tracing::warn!("clob_ws_disconnected");
+                counter!(crate::metrics::WS_RECONNECTIONS_TOTAL, "reason" => "disconnected")
+                    .increment(1);
+            }
+            Err(e) => {
+                let error_type = classify_ws_error(&e);
+                tracing::warn!(error = %e, error_type, "clob_ws_error");
+                counter!(crate::metrics::WS_ERRORS_TOTAL, "error_type" => error_type)
+                    .increment(1);
+                counter!(crate::metrics::WS_RECONNECTIONS_TOTAL, "reason" => "error")
+                    .increment(1);
+            }
         }
+
         books.write().await.clear();
-        // Reset backoff if session was stable (>60s)
+
         if connected_at.elapsed() > Duration::from_secs(60) {
             backoff = Duration::from_secs(1);
+            consecutive_reconnects = 0;
+        } else {
+            consecutive_reconnects += 1;
         }
+
+        tracing::warn!(
+            consecutive = consecutive_reconnects,
+            backoff_ms = backoff.as_millis() as u64,
+            "clob_ws_reconnecting"
+        );
+
         tokio::time::sleep(backoff).await;
         backoff = (backoff * 2).min(max_backoff);
+    }
+}
+
+fn classify_ws_error(error: &anyhow::Error) -> &'static str {
+    let msg = error.to_string();
+    if msg.contains("Connection reset") {
+        "connection_reset"
+    } else if msg.contains("imeout") {
+        "timeout"
+    } else {
+        "other"
     }
 }
 
