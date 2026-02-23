@@ -1,3 +1,118 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+CraftStrat (repo name: oddex) is a SaaS platform for automated trading on Polymarket prediction markets. Users build strategies via a no-code form builder or visual node editor, backtest against historical order book data, and run them live across multiple Ethereum/Polygon wallets.
+
+## Monorepo Structure
+
+```
+oddex/
+├── web/           # Laravel 12 + Inertia.js/React SPA
+├── engine/        # Rust trading engine (Tokio/Axum)
+├── infra/         # Dockerfiles, Nginx config, ClickHouse init SQL
+├── docs/          # SPEC.md + implementation plans
+├── docker-compose.yml          # Production services
+└── docker-compose.override.yml # Dev overrides (bind mounts, extra ports)
+```
+
+All commands below run from `web/` unless stated otherwise.
+
+## Common Commands
+
+### Development
+
+```bash
+cd web && composer run dev     # Starts server, queue, logs, Vite concurrently
+docker compose up -d           # Dev (auto-merges override file)
+```
+
+### Testing
+
+```bash
+cd web && php artisan test --compact                          # Run all tests
+cd web && php artisan test --compact tests/Feature/SomeTest.php  # Single file
+cd web && php artisan test --compact --filter=testName        # Single test
+```
+
+Tests use SQLite in-memory (`phpunit.xml`) with `RefreshDatabase` on all Feature tests.
+
+### Linting & Formatting
+
+```bash
+cd web && vendor/bin/pint --dirty --format agent   # PHP (Pint) — run after modifying PHP files
+cd web && npm run lint                              # ESLint (auto-fix)
+cd web && npm run format                            # Prettier
+cd web && npm run types                             # TypeScript type check
+```
+
+### Building
+
+```bash
+cd web && npm run build        # Vite production build
+cd web && npm run build:ssr    # Vite + SSR build
+```
+
+### Wayfinder (route generation)
+
+Wayfinder auto-generates TypeScript route functions on Vite dev/build. Generated files live in `web/resources/js/actions/` and `web/resources/js/routes/`.
+
+## Production / Deployment
+
+- **Server**: `ploi@94.130.218.197`
+- **Docker in prod**: use `docker compose -f docker-compose.yml up -d` (skip the dev override file)
+
+## Architecture
+
+### Web ↔ Engine Communication
+
+Laravel talks to the Rust engine via HTTP (`EngineService` → `ENGINE_INTERNAL_URL`). Key internal endpoints:
+- `POST /internal/strategy/activate|deactivate`
+- `POST /internal/backtest/run`
+- `GET /internal/wallet/{id}/state`
+- `GET /internal/engine/status`
+- `POST /internal/copy/watch|unwatch`
+- `GET /internal/stats/slots`
+
+### Data Stores
+
+| Store | Purpose |
+|-------|---------|
+| PostgreSQL 17 | Business data (users, strategies, wallets, trades) |
+| ClickHouse 26.1 | Time-series slot snapshots (market microstructure) |
+| Redis 7 | Cache, queues, state |
+| Kafka | Tick distribution from engine to ClickHouse |
+
+### Backend Key Patterns
+
+- **Services**: `EngineService`, `WalletService`, `StrategyActivationService`, `BillingService` — registered as singletons in `AppServiceProvider`
+- **Wallet encryption**: AES-256-GCM via `ENCRYPTION_KEY` env var (secp256k1 keypair generation in `WalletService`)
+- **Authorization**: Gate policies (`StrategyPolicy`, `WalletPolicy`, `BacktestResultPolicy`)
+- **Plan limits**: `CheckPlanLimits` middleware enforces per-tier resource caps (defined in `config/plans.php`)
+- **Deferred props**: `Inertia::defer()` used for live stats on strategy show page
+- **Engine HTTP mocking**: Tests use `Http::fake()` to mock engine responses
+
+### Frontend Key Patterns
+
+- **Routing**: Wayfinder imports everywhere (`import { index } from '@/actions/App/Http/Controllers/StrategyController'`)
+- **UI kit**: shadcn/ui + Radix primitives in `resources/js/components/ui/`
+- **Strategy editor**: React Flow (`@xyflow/react`) for node-based editor, custom form builder for form mode
+- **Charts**: Recharts for PnL, win rate, calibration, heatmap visualizations
+- **Types**: All TypeScript interfaces in `resources/js/types/models.ts`
+- **Formatters**: Shared display utilities in `resources/js/lib/formatters.ts`
+
+### Rust Engine (`engine/`)
+
+Async Tokio runtime with Axum HTTP server. Key modules:
+- `strategy/` — evaluation engine, condition interpreter (form + node modes), indicator calculations
+- `execution/` — order signing (Polymarket CLOB), async execution queue
+- `fetcher/` — Polymarket WebSocket + Gamma API for market data
+- `backtest/` — historical replay against ClickHouse data
+- `watcher/` — copy trading (leader wallet monitoring)
+- `stats/` — ClickHouse analytical queries for slot analytics
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
