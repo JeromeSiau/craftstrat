@@ -1,8 +1,8 @@
 import { Filter, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import ConditionGroup from '@/components/strategy/condition-group';
 import ActionConfig from '@/components/strategy/action-config';
+import ConditionGroup from '@/components/strategy/condition-group';
 import RiskConfig from '@/components/strategy/risk-config';
+import { Button } from '@/components/ui/button';
 import { uid } from '@/lib/formatters';
 import type {
     FormModeGraph,

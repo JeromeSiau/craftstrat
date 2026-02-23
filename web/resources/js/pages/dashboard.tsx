@@ -1,13 +1,13 @@
 import { Head, Link } from '@inertiajs/react';
 import { Activity, ChevronRight, LineChart, Target, Wallet } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { show as strategyShow } from '@/actions/App/Http/Controllers/StrategyController';
 import MetricCard from '@/components/metric-card';
 import StatusBadge from '@/components/status-badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
+import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 import type { DashboardStats, Strategy } from '@/types/models';
-import { dashboard } from '@/routes';
-import { show as strategyShow } from '@/actions/App/Http/Controllers/StrategyController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: dashboard().url },

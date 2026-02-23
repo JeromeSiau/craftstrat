@@ -1,5 +1,11 @@
 import { Head, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
+import { Check } from 'lucide-react';
+import {
+    index,
+    subscribe,
+    portal,
+} from '@/actions/App/Http/Controllers/BillingController';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -7,14 +13,8 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Check } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import {
-    index,
-    subscribe,
-    portal,
-} from '@/actions/App/Http/Controllers/BillingController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: index.url() },

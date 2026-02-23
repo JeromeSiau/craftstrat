@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
+import RuleRow from '@/components/strategy/rule-row';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -8,7 +9,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import RuleRow from '@/components/strategy/rule-row';
 import { uid } from '@/lib/formatters';
 import type { ConditionGroup as ConditionGroupType, StrategyRule } from '@/types/models';
 

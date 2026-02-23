@@ -1,5 +1,10 @@
 import { Link } from '@inertiajs/react';
 import { BarChart3, BookOpen, CreditCard, LayoutGrid, LineChart, Target, Wallet } from 'lucide-react';
+import { index as analyticsIndex } from '@/actions/App/Http/Controllers/AnalyticsController';
+import { index as backtestsIndex } from '@/actions/App/Http/Controllers/BacktestController';
+import { index as billingIndex } from '@/actions/App/Http/Controllers/BillingController';
+import { index as strategiesIndex } from '@/actions/App/Http/Controllers/StrategyController';
+import { index as walletsIndex } from '@/actions/App/Http/Controllers/WalletController';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -12,14 +17,9 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 import AppLogo from './app-logo';
-import { dashboard } from '@/routes';
-import { index as strategiesIndex } from '@/actions/App/Http/Controllers/StrategyController';
-import { index as walletsIndex } from '@/actions/App/Http/Controllers/WalletController';
-import { index as backtestsIndex } from '@/actions/App/Http/Controllers/BacktestController';
-import { index as analyticsIndex } from '@/actions/App/Http/Controllers/AnalyticsController';
-import { index as billingIndex } from '@/actions/App/Http/Controllers/BillingController';
 
 const mainNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },

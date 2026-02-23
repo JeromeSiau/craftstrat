@@ -1,14 +1,14 @@
 import { Head, router } from '@inertiajs/react';
 import { Clock, Database, Layers, TrendingUp } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import MetricCard from '@/components/metric-card';
-import { WinRateBarChart } from '@/components/charts/win-rate-bar-chart';
-import { WinRateHeatmap } from '@/components/charts/win-rate-heatmap';
+import { index as analyticsIndex } from '@/actions/App/Http/Controllers/AnalyticsController';
 import { CalibrationChart } from '@/components/charts/calibration-chart';
 import { StoplossSweepChart } from '@/components/charts/stoploss-sweep-chart';
-import { index as analyticsIndex } from '@/actions/App/Http/Controllers/AnalyticsController';
+import { WinRateBarChart } from '@/components/charts/win-rate-bar-chart';
+import { WinRateHeatmap } from '@/components/charts/win-rate-heatmap';
+import MetricCard from '@/components/metric-card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AnalyticsFilters, SlotAnalyticsData } from '@/types/models';
 

@@ -1,12 +1,12 @@
 import { Head } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
 import { PnlChart } from '@/components/charts/pnl-chart';
 import MetricCard from '@/components/metric-card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
 import { formatWinRate, formatPnl, formatPercentage } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { BacktestResult } from '@/types/models';
-import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
 
 export default function BacktestsShow({ result }: { result: BacktestResult }) {
     const breadcrumbs: BreadcrumbItem[] = [

@@ -1,11 +1,11 @@
 import { Head } from '@inertiajs/react';
 import { LineChart } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
 import BacktestResultsTable from '@/components/backtest-results-table';
+import { Card, CardContent } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { BacktestResult, Paginated } from '@/types/models';
-import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Backtests', href: index.url() },

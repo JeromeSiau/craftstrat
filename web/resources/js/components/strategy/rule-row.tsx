@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { indicators, operators } from '@/components/strategy/indicator-options';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,7 +11,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { indicators, operators } from '@/components/strategy/indicator-options';
 import { safeParseFloat } from '@/lib/formatters';
 import type { StrategyRule } from '@/types/models';
 

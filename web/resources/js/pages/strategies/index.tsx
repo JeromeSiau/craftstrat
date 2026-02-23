@@ -1,12 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
 import { ChevronRight, Plus, Target } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
+import { index, show, create } from '@/actions/App/Http/Controllers/StrategyController';
+import StatusBadge from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import StatusBadge from '@/components/status-badge';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Strategy, Paginated } from '@/types/models';
-import { index, show, create } from '@/actions/App/Http/Controllers/StrategyController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Strategies', href: index.url() },

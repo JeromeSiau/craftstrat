@@ -1,16 +1,16 @@
-import { useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import { KeyRound, Plus, Wallet as WalletIcon } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
+import { useState } from 'react';
+import { index, store, destroy } from '@/actions/App/Http/Controllers/WalletController';
+import ConfirmDialog from '@/components/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ConfirmDialog from '@/components/confirm-dialog';
 import AssignStrategyDialog from '@/components/wallet/assign-strategy-dialog';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Wallet, Paginated } from '@/types/models';
-import { index, store, destroy } from '@/actions/App/Http/Controllers/WalletController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Wallets', href: index.url() },
