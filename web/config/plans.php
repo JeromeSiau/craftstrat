@@ -7,6 +7,7 @@ return [
         'max_strategies' => 2,
         'max_leaders' => 1,
         'backtest_days' => 30,
+        'ai_generations_per_day' => 5,
     ],
 
     'starter' => [
@@ -14,6 +15,7 @@ return [
         'max_strategies' => 10,
         'max_leaders' => 5,
         'backtest_days' => null,
+        'ai_generations_per_day' => 25,
     ],
 
     'pro' => [
@@ -21,6 +23,7 @@ return [
         'max_strategies' => null,
         'max_leaders' => null,
         'backtest_days' => null,
+        'ai_generations_per_day' => null,
     ],
 
     'enterprise' => [
@@ -28,6 +31,7 @@ return [
         'max_strategies' => null,
         'max_leaders' => null,
         'backtest_days' => null,
+        'ai_generations_per_day' => null,
     ],
 
 ];
