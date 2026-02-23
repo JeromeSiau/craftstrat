@@ -100,6 +100,7 @@ async fn test_wallet_state_with_assignment() {
         serde_json::json!({"mode": "form"}),
         vec!["btc-15m".into()],
         500.0,
+        false,
         None,
     )
     .await;
@@ -133,6 +134,7 @@ async fn test_engine_status() {
         serde_json::json!({}),
         vec!["btc-15m".into()],
         100.0,
+        false,
         None,
     )
     .await;
@@ -143,6 +145,7 @@ async fn test_engine_status() {
         serde_json::json!({}),
         vec!["btc-15m".into()],
         100.0,
+        false,
         None,
     )
     .await;

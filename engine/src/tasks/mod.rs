@@ -1,3 +1,4 @@
+pub mod api_fetch_task;
 mod data_feed;
 mod engine_tasks;
 mod execution_tasks;
@@ -62,7 +63,18 @@ pub async fn spawn_all(
     let engine_registry = crate::strategy::registry::AssignmentRegistry::new();
     let (signal_tx, signal_rx) = mpsc::channel::<crate::strategy::EngineOutput>(256);
 
-    engine_tasks::spawn_strategy_engine(state, engine_registry.clone(), signal_tx, tasks);
+    // API fetch cache (shared between background poller and strategy evaluation)
+    let api_cache = api_fetch_task::ApiFetchCache::new();
+
+    // Background API fetcher
+    {
+        let registry = engine_registry.clone();
+        let cache = api_cache.clone();
+        let http = state.http.clone();
+        tasks.spawn(async move { api_fetch_task::run(registry, cache, http).await });
+    }
+
+    engine_tasks::spawn_strategy_engine(state, engine_registry.clone(), api_cache, signal_tx, tasks);
 
     // PostgreSQL connection pool
     let db = crate::storage::postgres::create_pool(&state.config.database_url).await?;

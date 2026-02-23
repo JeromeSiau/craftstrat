@@ -113,7 +113,7 @@ async fn connect_and_stream(
     }
 
     let mut last_update = Instant::now();
-    let stale_threshold = Duration::from_secs(60);
+    let stale_threshold = Duration::from_secs(30);
     let mut ping_interval = tokio::time::interval(Duration::from_secs(10));
 
     loop {
@@ -122,8 +122,9 @@ async fn connect_and_stream(
                 match msg {
                     Some(Ok(Message::Text(text))) => {
                         if text.trim() == "PONG" { continue; }
-                        process_message(&text, books).await;
-                        last_update = Instant::now();
+                        if process_message(&text, books).await {
+                            last_update = Instant::now();
+                        }
                     }
                     Some(Ok(Message::Close(_))) | None => return Ok(()),
                     Some(Err(e)) => return Err(e.into()),
@@ -176,9 +177,10 @@ async fn connect_and_stream(
     }
 }
 
-async fn process_message(text: &str, books: &OrderBookCache) {
+/// Process a WS message and return `true` if any book data was updated.
+async fn process_message(text: &str, books: &OrderBookCache) -> bool {
     let Ok(data) = serde_json::from_str::<serde_json::Value>(text) else {
-        return;
+        return false;
     };
 
     let events: Vec<&serde_json::Value> = if let Some(arr) = data.as_array() {
@@ -187,14 +189,22 @@ async fn process_message(text: &str, books: &OrderBookCache) {
         vec![&data]
     };
 
+    let mut updated = false;
     let mut cache = books.write().await;
     for event in events {
         match event.get("event_type").and_then(|v| v.as_str()) {
-            Some("book") => handle_book_snapshot(event, &mut cache),
-            Some("price_change") => handle_price_change(event, &mut cache),
+            Some("book") => {
+                handle_book_snapshot(event, &mut cache);
+                updated = true;
+            }
+            Some("price_change") => {
+                handle_price_change(event, &mut cache);
+                updated = true;
+            }
             _ => {}
         }
     }
+    updated
 }
 
 fn handle_book_snapshot(event: &serde_json::Value, cache: &mut HashMap<String, OrderBook>) {

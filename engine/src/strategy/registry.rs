@@ -8,13 +8,14 @@ use super::state::StrategyState;
 use crate::metrics as m;
 
 #[derive(Clone)]
-#[allow(dead_code)]
 pub struct Assignment {
     pub wallet_id: u64,
     pub strategy_id: u64,
     pub graph: serde_json::Value,
     pub markets: Vec<String>,
     pub max_position_usdc: f64,
+    pub is_paper: bool,
+    pub is_killed: bool,
     pub state: Arc<Mutex<StrategyState>>,
 }
 
@@ -34,7 +35,6 @@ impl std::ops::Deref for AssignmentRegistry {
     }
 }
 
-#[allow(dead_code)]
 pub async fn activate(
     registry: &AssignmentRegistry,
     wallet_id: u64,
@@ -42,6 +42,7 @@ pub async fn activate(
     graph: serde_json::Value,
     markets: Vec<String>,
     max_position_usdc: f64,
+    is_paper: bool,
     initial_state: Option<StrategyState>,
 ) {
     let state = initial_state.unwrap_or_else(|| StrategyState::new(200));
@@ -51,6 +52,8 @@ pub async fn activate(
         graph,
         markets: markets.clone(),
         max_position_usdc,
+        is_paper,
+        is_killed: false,
         state: Arc::new(Mutex::new(state)),
     };
     let (wallets, assignments) = {
@@ -67,7 +70,6 @@ pub async fn activate(
     gauge!(m::ACTIVE_ASSIGNMENTS).set(assignments as f64);
 }
 
-#[allow(dead_code)]
 pub async fn deactivate(registry: &AssignmentRegistry, wallet_id: u64, strategy_id: u64) {
     let (wallets, assignments) = {
         let mut reg = registry.write().await;
@@ -80,6 +82,36 @@ pub async fn deactivate(registry: &AssignmentRegistry, wallet_id: u64, strategy_
     tracing::info!(wallet_id, strategy_id, "assignment_deactivated");
     gauge!(m::ACTIVE_WALLETS).set(wallets as f64);
     gauge!(m::ACTIVE_ASSIGNMENTS).set(assignments as f64);
+}
+
+pub async fn kill(registry: &AssignmentRegistry, wallet_id: u64, strategy_id: u64) -> bool {
+    set_killed(registry, wallet_id, strategy_id, true).await
+}
+
+pub async fn unkill(registry: &AssignmentRegistry, wallet_id: u64, strategy_id: u64) -> bool {
+    set_killed(registry, wallet_id, strategy_id, false).await
+}
+
+async fn set_killed(
+    registry: &AssignmentRegistry,
+    wallet_id: u64,
+    strategy_id: u64,
+    killed: bool,
+) -> bool {
+    let mut reg = registry.write().await;
+    let mut found = false;
+    for assignments in reg.values_mut() {
+        for a in assignments.iter_mut() {
+            if a.wallet_id == wallet_id && a.strategy_id == strategy_id {
+                a.is_killed = killed;
+                found = true;
+            }
+        }
+    }
+    if found {
+        tracing::info!(wallet_id, strategy_id, killed, "assignment_kill_switch_toggled");
+    }
+    found
 }
 
 fn count_from_reg(reg: &HashMap<String, Vec<Assignment>>) -> (usize, usize) {
@@ -108,6 +140,7 @@ mod tests {
             serde_json::json!({"mode": "form"}),
             vec!["btc-updown-15m".into()],
             200.0,
+            false,
             None,
         )
         .await;
@@ -129,6 +162,7 @@ mod tests {
             serde_json::json!({}),
             vec!["btc-15m".into(), "eth-15m".into()],
             100.0,
+            false,
             None,
         )
         .await;
@@ -148,6 +182,7 @@ mod tests {
             serde_json::json!({}),
             vec!["btc".into()],
             100.0,
+            false,
             None,
         )
         .await;
@@ -158,6 +193,7 @@ mod tests {
             serde_json::json!({}),
             vec!["btc".into()],
             100.0,
+            false,
             None,
         )
         .await;
@@ -180,6 +216,7 @@ mod tests {
             serde_json::json!({}),
             vec!["btc".into()],
             100.0,
+            false,
             None,
         )
         .await;
@@ -187,5 +224,59 @@ mod tests {
 
         let r = reg.read().await;
         assert!(!r.contains_key("btc"));
+    }
+
+    #[tokio::test]
+    async fn test_kill_sets_flag() {
+        let reg = AssignmentRegistry::new();
+        activate(
+            &reg,
+            1,
+            100,
+            serde_json::json!({}),
+            vec!["btc".into()],
+            100.0,
+            false,
+            None,
+        )
+        .await;
+
+        let found = kill(&reg, 1, 100).await;
+        assert!(found, "kill should find the assignment");
+
+        let r = reg.read().await;
+        let a = &r.get("btc").unwrap()[0];
+        assert!(a.is_killed, "assignment should be killed");
+    }
+
+    #[tokio::test]
+    async fn test_unkill_clears_flag() {
+        let reg = AssignmentRegistry::new();
+        activate(
+            &reg,
+            1,
+            100,
+            serde_json::json!({}),
+            vec!["btc".into()],
+            100.0,
+            false,
+            None,
+        )
+        .await;
+
+        kill(&reg, 1, 100).await;
+        let found = unkill(&reg, 1, 100).await;
+        assert!(found, "unkill should find the assignment");
+
+        let r = reg.read().await;
+        let a = &r.get("btc").unwrap()[0];
+        assert!(!a.is_killed, "assignment should not be killed");
+    }
+
+    #[tokio::test]
+    async fn test_kill_returns_false_for_unknown() {
+        let reg = AssignmentRegistry::new();
+        let found = kill(&reg, 999, 999).await;
+        assert!(!found, "kill should return false for unknown assignment");
     }
 }

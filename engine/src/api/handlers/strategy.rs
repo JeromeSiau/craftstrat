@@ -16,6 +16,8 @@ pub struct ActivateRequest {
     pub markets: Vec<String>,
     #[serde(default = "default_max_position")]
     pub max_position_usdc: f64,
+    #[serde(default)]
+    pub is_paper: bool,
 }
 
 fn default_max_position() -> f64 {
@@ -48,6 +50,7 @@ pub async fn activate(
         req.graph,
         req.markets,
         req.max_position_usdc,
+        req.is_paper,
         None,
     )
     .await;
@@ -60,4 +63,36 @@ pub async fn deactivate(
 ) -> StatusCode {
     crate::strategy::registry::deactivate(&state.registry, req.wallet_id, req.strategy_id).await;
     StatusCode::OK
+}
+
+#[derive(Deserialize)]
+pub struct KillRequest {
+    pub wallet_id: u64,
+    pub strategy_id: u64,
+}
+
+pub async fn kill(
+    State(state): State<Arc<ApiState>>,
+    Json(req): Json<KillRequest>,
+) -> Result<StatusCode, ApiError> {
+    let found =
+        crate::strategy::registry::kill(&state.registry, req.wallet_id, req.strategy_id).await;
+    if found {
+        Ok(StatusCode::OK)
+    } else {
+        Err(ApiError::NotFound("assignment not found".into()))
+    }
+}
+
+pub async fn unkill(
+    State(state): State<Arc<ApiState>>,
+    Json(req): Json<KillRequest>,
+) -> Result<StatusCode, ApiError> {
+    let found =
+        crate::strategy::registry::unkill(&state.registry, req.wallet_id, req.strategy_id).await;
+    if found {
+        Ok(StatusCode::OK)
+    } else {
+        Err(ApiError::NotFound("assignment not found".into()))
+    }
 }

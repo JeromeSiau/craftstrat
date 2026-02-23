@@ -76,6 +76,9 @@ pub struct ExecutionOrder {
     /// Copy trading context — leader transaction hash (empty for strategy orders).
     #[serde(default)]
     pub leader_tx_hash: String,
+    /// Paper trading flag — simulated fills instead of real CLOB submission.
+    #[serde(default)]
+    pub is_paper: bool,
 }
 
 // ---------------------------------------------------------------------------

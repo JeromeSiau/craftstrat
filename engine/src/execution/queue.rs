@@ -175,6 +175,7 @@ mod tests {
             created_at,
             leader_address: String::new(),
             leader_tx_hash: String::new(),
+            is_paper: false,
         }
     }
 

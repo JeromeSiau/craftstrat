@@ -10,10 +10,12 @@ use super::{EngineOutput, Signal};
 use crate::fetcher::models::Tick;
 use crate::kafka;
 use crate::metrics as m;
+use crate::tasks::api_fetch_task::ApiFetchCache;
 
 pub async fn run(
     brokers: &str,
     registry: AssignmentRegistry,
+    api_cache: ApiFetchCache,
     signal_tx: mpsc::Sender<EngineOutput>,
 ) -> Result<()> {
     let consumer = kafka::consumer::create_consumer(brokers, "strategy-engine", &["ticks"])?;
@@ -66,6 +68,9 @@ pub async fn run(
         let signals: Vec<EngineOutput> = assignments
             .par_iter()
             .filter_map(|a| {
+                if a.is_killed {
+                    return None;
+                }
                 let mut state = match a.state.lock() {
                     Ok(guard) => guard,
                     Err(poisoned) => {
@@ -77,7 +82,8 @@ pub async fn run(
                         poisoned.into_inner()
                     }
                 };
-                let signal = interpreter::evaluate(&a.graph, &tick, &mut state);
+                let signal =
+                    interpreter::evaluate_with_cache(&a.graph, &tick, &mut state, Some(&api_cache));
                 match signal {
                     Signal::Hold => None,
                     s => Some(EngineOutput {
@@ -85,6 +91,7 @@ pub async fn run(
                         strategy_id: a.strategy_id,
                         symbol: tick.symbol.clone(),
                         signal: s,
+                        is_paper: a.is_paper,
                     }),
                 }
             })
@@ -95,6 +102,8 @@ pub async fn run(
             let signal_type = match &output.signal {
                 Signal::Buy { .. } => "buy",
                 Signal::Sell { .. } => "sell",
+                Signal::Cancel { .. } => "cancel",
+                Signal::Notify { .. } => "notify",
                 Signal::Hold => "hold",
             };
             counter!(m::SIGNALS_TOTAL, "signal" => signal_type).increment(1);

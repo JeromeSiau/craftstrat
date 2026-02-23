@@ -54,10 +54,10 @@ pub async fn write_trade(
             wallet_id, strategy_id, copy_relationship_id,
             symbol, token_id, side, outcome,
             order_type, price, size_usdc,
-            polymarket_order_id, status, filled_price, fee_bps,
+            polymarket_order_id, status, is_paper, filled_price, fee_bps,
             created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, to_timestamp($15))
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, to_timestamp($16))
         RETURNING id
         "#,
     )
@@ -73,6 +73,7 @@ pub async fn write_trade(
     .bind(order.size_usdc)
     .bind(&result.polymarket_order_id)
     .bind(status_str)
+    .bind(order.is_paper)
     .bind(result.filled_price)
     .bind(result.fee_bps.map(|b| b as i16))
     .bind(order.created_at)

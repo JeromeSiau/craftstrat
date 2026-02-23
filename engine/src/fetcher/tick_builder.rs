@@ -130,6 +130,10 @@ pub async fn run_tick_builder(
     interval: Duration,
 ) {
     let mut ticker = tokio::time::interval(interval);
+    let mut last_tick_at = std::time::Instant::now();
+    let stale_warn_interval = Duration::from_secs(15);
+    let mut stale_warned = false;
+
     loop {
         ticker.tick().await;
         let now = std::time::SystemTime::now()
@@ -142,6 +146,10 @@ pub async fn run_tick_builder(
         let book_snapshot = books.read().await.clone();
         let price_snapshot = prices.read().await.clone();
 
+        let mut ticks_emitted: u32 = 0;
+        let mut skipped_no_books: u32 = 0;
+        let mut skipped_no_price: u32 = 0;
+
         for market in &active {
             let ref_price = market
                 .binance_symbol
@@ -150,17 +158,39 @@ pub async fn run_tick_builder(
                 .copied()
                 .unwrap_or(0.0) as f32;
             // Skip only if a price feed is expected but not yet available
-            if market.binance_symbol.is_some() && ref_price <= 0.0 { continue; }
+            if market.binance_symbol.is_some() && ref_price <= 0.0 {
+                skipped_no_price += 1;
+                continue;
+            }
 
             let book_up = book_snapshot.get(&market.token_up);
             let book_down = book_snapshot.get(&market.token_down);
-            if book_up.is_none() && book_down.is_none() { continue; }
+            if book_up.is_none() && book_down.is_none() {
+                skipped_no_books += 1;
+                continue;
+            }
 
             if let Some(tick) = build_tick(market, book_up, book_down, ref_price, "binance", now) {
                 if tick_tx.send(tick).is_err() {
                     return;
                 }
+                ticks_emitted += 1;
             }
+        }
+
+        if ticks_emitted > 0 {
+            last_tick_at = std::time::Instant::now();
+            stale_warned = false;
+        } else if !active.is_empty() && last_tick_at.elapsed() > stale_warn_interval && !stale_warned {
+            tracing::warn!(
+                active_markets = active.len(),
+                books_in_cache = book_snapshot.len(),
+                skipped_no_books,
+                skipped_no_price,
+                stale_secs = last_tick_at.elapsed().as_secs(),
+                "tick_builder_stale"
+            );
+            stale_warned = true;
         }
     }
 }

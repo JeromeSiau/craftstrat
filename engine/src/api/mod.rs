@@ -22,6 +22,14 @@ pub fn router(state: Arc<ApiState>) -> Router {
             "/internal/strategy/deactivate",
             post(handlers::strategy::deactivate),
         )
+        .route(
+            "/internal/strategy/kill",
+            post(handlers::strategy::kill),
+        )
+        .route(
+            "/internal/strategy/unkill",
+            post(handlers::strategy::unkill),
+        )
         .route("/internal/wallet/{id}/state", get(handlers::wallet::state))
         .route("/internal/backtest/run", post(handlers::backtest::run))
         .route("/internal/engine/status", get(handlers::status::status))

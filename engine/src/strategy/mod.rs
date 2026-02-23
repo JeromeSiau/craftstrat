@@ -22,6 +22,13 @@ pub enum Signal {
         size_usdc: f64,
         order_type: OrderType,
     },
+    Cancel {
+        outcome: Outcome,
+    },
+    Notify {
+        channel: String,
+        message: String,
+    },
     Hold,
 }
 
@@ -44,6 +51,7 @@ pub struct EngineOutput {
     pub strategy_id: u64,
     pub symbol: String,
     pub signal: Signal,
+    pub is_paper: bool,
 }
 
 #[cfg(test)]

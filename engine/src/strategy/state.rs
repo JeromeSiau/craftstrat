@@ -22,10 +22,15 @@ pub struct StrategyState {
     pub trades_this_slot: u32,
     pub current_slot_ts: u32,
     pub indicator_cache: HashMap<String, f64>,
+    #[serde(default)]
+    pub daily_pnl: f64,
+    #[serde(default)]
+    pub daily_pnl_date: u32,
+    #[serde(default)]
+    pub last_trade_at: Option<i64>,
 }
 
 impl StrategyState {
-    #[allow(dead_code)]
     pub fn new(window_size: usize) -> Self {
         Self {
             window: VecDeque::with_capacity(window_size),
@@ -35,6 +40,9 @@ impl StrategyState {
             trades_this_slot: 0,
             current_slot_ts: 0,
             indicator_cache: HashMap::new(),
+            daily_pnl: 0.0,
+            daily_pnl_date: 0,
+            last_trade_at: None,
         }
     }
 

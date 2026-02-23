@@ -118,6 +118,7 @@ async fn signal_to_queue(
                 *outcome,
                 *size_usdc,
                 order_type,
+                output.is_paper,
             ),
             Signal::Sell {
                 outcome,
@@ -131,7 +132,28 @@ async fn signal_to_queue(
                 *outcome,
                 *size_usdc,
                 order_type,
+                output.is_paper,
             ),
+            Signal::Cancel { outcome } => {
+                tracing::info!(
+                    wallet_id = output.wallet_id,
+                    strategy_id = output.strategy_id,
+                    symbol = %output.symbol,
+                    outcome = ?outcome,
+                    "cancel_signal_received"
+                );
+                continue;
+            }
+            Signal::Notify { channel, message } => {
+                tracing::info!(
+                    wallet_id = output.wallet_id,
+                    strategy_id = output.strategy_id,
+                    channel = %channel,
+                    message = %message,
+                    "notify_signal_received"
+                );
+                continue;
+            }
             Signal::Hold => continue,
         };
 
@@ -159,6 +181,7 @@ fn build_order_from_signal(
     outcome: Outcome,
     size_usdc: f64,
     order_type: &OrderType,
+    is_paper: bool,
 ) -> ExecutionOrder {
     let (priority, price) = match order_type {
         OrderType::Market => (OrderPriority::StrategyMarket, None),
@@ -185,5 +208,6 @@ fn build_order_from_signal(
         created_at: chrono::Utc::now().timestamp(),
         leader_address: String::new(),
         leader_tx_hash: String::new(),
+        is_paper,
     }
 }

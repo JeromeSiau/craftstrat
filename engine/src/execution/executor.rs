@@ -48,21 +48,25 @@ pub async fn run(
             Some(Some(o)) => o,
         };
 
-        // 2. Submit order
+        // 2. Submit order (or simulate for paper trading)
         let exec_start = std::time::Instant::now();
-        let result = match submitter.submit(&order).await {
-            Ok(r) => r,
-            Err(e) => {
-                error!(
-                    order_id = %order.id,
-                    error = %e,
-                    "order_submission_failed"
-                );
-                OrderResult {
-                    polymarket_order_id: String::new(),
-                    status: OrderStatus::Failed,
-                    filled_price: None,
-                    fee_bps: None,
+        let result = if order.is_paper {
+            simulate_paper_fill(&order)
+        } else {
+            match submitter.submit(&order).await {
+                Ok(r) => r,
+                Err(e) => {
+                    error!(
+                        order_id = %order.id,
+                        error = %e,
+                        "order_submission_failed"
+                    );
+                    OrderResult {
+                        polymarket_order_id: String::new(),
+                        status: OrderStatus::Failed,
+                        filled_price: None,
+                        fee_bps: None,
+                    }
                 }
             }
         };
@@ -132,6 +136,19 @@ pub async fn run(
 }
 
 // ---------------------------------------------------------------------------
+// simulate_paper_fill — instant simulated fill for paper trading
+// ---------------------------------------------------------------------------
+
+fn simulate_paper_fill(order: &ExecutionOrder) -> OrderResult {
+    OrderResult {
+        polymarket_order_id: format!("paper-{}", order.id),
+        status: OrderStatus::Filled,
+        filled_price: order.price,
+        fee_bps: Some(0),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // update_position — adjust strategy state after a fill
 // ---------------------------------------------------------------------------
 
@@ -172,19 +189,23 @@ async fn update_position(
         Err(poisoned) => poisoned.into_inner(),
     };
 
+    let now = chrono::Utc::now().timestamp();
+    state.last_trade_at = Some(now);
+
     match order.side {
         Side::Buy => {
             state.position = Some(Position {
                 outcome: order.outcome,
                 entry_price: filled_price,
                 size_usdc: order.size_usdc,
-                entry_at: chrono::Utc::now().timestamp(),
+                entry_at: now,
             });
         }
         Side::Sell => {
             if let Some(ref pos) = state.position {
                 let pnl = (filled_price - pos.entry_price) * pos.size_usdc;
                 state.pnl += pnl;
+                state.daily_pnl += pnl;
                 gauge!(m::PNL_USDC).increment(pnl);
             }
             state.position = None;
@@ -223,6 +244,7 @@ mod tests {
             created_at: 0,
             leader_address: String::new(),
             leader_tx_hash: String::new(),
+            is_paper: false,
         }
     }
 
@@ -245,6 +267,7 @@ mod tests {
             serde_json::json!({}),
             vec!["btc".into()],
             200.0,
+            false,
             None,
         )
         .await;
@@ -291,6 +314,7 @@ mod tests {
             serde_json::json!({}),
             vec!["btc".into()],
             200.0,
+            false,
             Some(initial_state),
         )
         .await;
@@ -315,5 +339,54 @@ mod tests {
             "pnl should be {expected_pnl}, got {}",
             state.pnl
         );
+    }
+
+    #[test]
+    fn test_simulate_paper_fill_returns_filled_at_order_price() {
+        let mut order = make_order(1, 100, Side::Buy, 50.0);
+        order.price = Some(0.65);
+        order.is_paper = true;
+
+        let result = simulate_paper_fill(&order);
+
+        assert_eq!(result.status, OrderStatus::Filled);
+        assert_eq!(result.filled_price, Some(0.65));
+        assert_eq!(result.fee_bps, Some(0));
+        assert!(result.polymarket_order_id.starts_with("paper-"));
+    }
+
+    #[test]
+    fn test_simulate_paper_fill_market_order_no_price() {
+        let mut order = make_order(1, 100, Side::Buy, 50.0);
+        order.is_paper = true;
+        // price is None for market orders
+
+        let result = simulate_paper_fill(&order);
+
+        assert_eq!(result.status, OrderStatus::Filled);
+        assert_eq!(result.filled_price, None);
+    }
+
+    #[test]
+    fn test_paper_flag_propagates_through_assignment() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let registry = AssignmentRegistry::new();
+            activate(
+                &registry,
+                1,
+                100,
+                serde_json::json!({}),
+                vec!["btc".into()],
+                200.0,
+                true,
+                None,
+            )
+            .await;
+
+            let reg = registry.read().await;
+            let assignment = reg.get("btc").unwrap().first().unwrap();
+            assert!(assignment.is_paper, "assignment should be paper");
+        });
     }
 }

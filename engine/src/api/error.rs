@@ -10,6 +10,7 @@ struct ErrorBody {
 
 pub enum ApiError {
     Validation(String),
+    NotFound(String),
     Internal(String),
     ServiceUnavailable,
 }
@@ -18,6 +19,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             Self::Validation(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg),
+            Self::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             Self::ServiceUnavailable => (
                 StatusCode::SERVICE_UNAVAILABLE,

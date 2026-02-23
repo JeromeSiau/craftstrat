@@ -85,7 +85,7 @@ impl BacktestEngine {
                     self.trades.push(trade);
                 }
             }
-            Signal::Hold => {}
+            Signal::Cancel { .. } | Signal::Notify { .. } | Signal::Hold => {}
         }
     }
 

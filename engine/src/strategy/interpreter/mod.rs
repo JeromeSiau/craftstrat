@@ -9,15 +9,31 @@ use super::indicators;
 use super::state::StrategyState;
 use super::{OrderType, Outcome, Signal};
 use crate::fetcher::models::Tick;
+use crate::tasks::api_fetch_task::ApiFetchCache;
 
 use form_mode::evaluate_form_conditions;
 use node_mode::evaluate_node;
-use risk::check_risk;
+use risk::{check_cooldown, check_daily_loss, check_duplicate, check_risk};
 
 /// Main entry point — dispatches to form or node mode.
 /// Risk management and trade counting apply uniformly to both modes.
 pub fn evaluate(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal {
+    evaluate_with_cache(graph, tick, state, None)
+}
+
+/// Evaluate with an optional API fetch cache (used by the live engine).
+pub fn evaluate_with_cache(
+    graph: &Value,
+    tick: &Tick,
+    state: &mut StrategyState,
+    api_cache: Option<&ApiFetchCache>,
+) -> Signal {
     state.push_tick(tick.clone());
+
+    // Daily loss limit — blocks ALL trading (entries and exits) when breached
+    if check_daily_loss(graph, state, tick) {
+        return Signal::Hold;
+    }
 
     // Reset trades counter on new slot
     if tick.slot_ts != state.current_slot_ts {
@@ -34,6 +50,11 @@ pub fn evaluate(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal
         return Signal::Hold; // in position, no risk trigger → hold
     }
 
+    // Cooldown — block entries if too soon after last trade
+    if check_cooldown(graph, state, tick) {
+        return Signal::Hold;
+    }
+
     // Universal max trades per slot guard
     let max_trades = graph["risk"]["max_trades_per_slot"].as_u64().unwrap_or(u64::MAX) as u32;
     if state.trades_this_slot >= max_trades {
@@ -43,9 +64,14 @@ pub fn evaluate(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal
     let mode = graph["mode"].as_str().unwrap_or("form");
     let signal = match mode {
         "form" => evaluate_form_conditions(graph, tick, state),
-        "node" => evaluate_node(graph, tick, state),
+        "node" => evaluate_node(graph, tick, state, api_cache),
         _ => Signal::Hold,
     };
+
+    // Duplicate prevention — block if same position already open
+    if check_duplicate(graph, state, &signal) {
+        return Signal::Hold;
+    }
 
     if matches!(signal, Signal::Buy { .. } | Signal::Sell { .. }) {
         state.trades_this_slot += 1;
@@ -175,5 +201,65 @@ pub(super) fn build_action_signal(action: &Value) -> Signal {
             size_usdc,
             order_type,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::strategy::test_utils::test_tick;
+
+    #[test]
+    fn test_daily_loss_limit_blocks_evaluation() {
+        let graph = serde_json::json!({
+            "mode": "form",
+            "conditions": [{
+                "type": "AND",
+                "rules": [{ "indicator": "abs_move_pct", "operator": ">", "value": 0.5 }]
+            }],
+            "action": { "signal": "buy", "outcome": "UP", "size_usdc": 50, "order_type": "market" },
+            "risk": {
+                "daily_loss_limit_usdc": 100.0,
+                "max_trades_per_slot": 10
+            }
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        state.daily_pnl = -100.0;
+        state.daily_pnl_date = 20231114; // same date as test_tick
+
+        let signal = evaluate(&graph, &tick, &mut state);
+        assert!(
+            matches!(signal, Signal::Hold),
+            "expected Hold when daily loss limit reached, got {:?}",
+            signal
+        );
+    }
+
+    #[test]
+    fn test_daily_loss_limit_allows_when_ok() {
+        let graph = serde_json::json!({
+            "mode": "form",
+            "conditions": [{
+                "type": "AND",
+                "rules": [{ "indicator": "abs_move_pct", "operator": ">", "value": 0.5 }]
+            }],
+            "action": { "signal": "buy", "outcome": "UP", "size_usdc": 50, "order_type": "market" },
+            "risk": {
+                "daily_loss_limit_usdc": 100.0,
+                "max_trades_per_slot": 10
+            }
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        state.daily_pnl = -50.0;
+        state.daily_pnl_date = 20231114;
+
+        let signal = evaluate(&graph, &tick, &mut state);
+        assert!(
+            matches!(signal, Signal::Buy { .. }),
+            "expected Buy when under daily loss limit, got {:?}",
+            signal
+        );
     }
 }

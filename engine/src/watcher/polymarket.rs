@@ -233,6 +233,7 @@ fn build_copy_order(
         created_at: chrono::Utc::now().timestamp(),
         leader_address: leader_address.to_string(),
         leader_tx_hash: trade.transaction_hash.clone(),
+        is_paper: false,
     })
 }
 
