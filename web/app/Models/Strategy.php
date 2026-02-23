@@ -39,7 +39,7 @@ class Strategy extends Model
     {
         return $this->belongsToMany(Wallet::class, 'wallet_strategies')
             ->using(WalletStrategy::class)
-            ->withPivot('markets', 'max_position_usdc', 'is_running', 'started_at');
+            ->withPivot('markets', 'max_position_usdc', 'is_running', 'is_paper', 'started_at');
     }
 
     public function walletStrategies(): HasMany
@@ -50,6 +50,16 @@ class Strategy extends Model
     public function trades(): HasMany
     {
         return $this->hasMany(Trade::class);
+    }
+
+    public function paperTrades(): HasMany
+    {
+        return $this->hasMany(Trade::class)->where('is_paper', true);
+    }
+
+    public function liveTrades(): HasMany
+    {
+        return $this->hasMany(Trade::class)->where('is_paper', false);
     }
 
     public function backtestResults(): HasMany

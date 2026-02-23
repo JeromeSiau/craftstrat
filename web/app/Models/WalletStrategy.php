@@ -19,6 +19,7 @@ class WalletStrategy extends Pivot
         'markets',
         'max_position_usdc',
         'is_running',
+        'is_paper',
         'started_at',
     ];
 
@@ -28,6 +29,7 @@ class WalletStrategy extends Pivot
             'markets' => 'array',
             'max_position_usdc' => 'decimal:6',
             'is_running' => 'boolean',
+            'is_paper' => 'boolean',
             'started_at' => 'datetime',
         ];
     }

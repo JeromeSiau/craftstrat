@@ -70,7 +70,7 @@ class User extends Authenticatable
     }
 
     /**
-     * @return array{max_wallets: int|null, max_strategies: int|null, max_leaders: int|null, backtest_days: int|null}
+     * @return array{max_wallets: int|null, max_strategies: int|null, max_leaders: int|null, backtest_days: int|null, ai_generations_per_day: int|null}
      */
     public function planLimits(): array
     {

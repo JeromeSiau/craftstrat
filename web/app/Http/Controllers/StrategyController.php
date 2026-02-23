@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\StrategyGenerationException;
+use App\Http\Requests\GenerateStrategyRequest;
 use App\Http\Requests\StoreStrategyRequest;
 use App\Http\Requests\UpdateStrategyRequest;
 use App\Models\Strategy;
+use App\Services\EngineService;
 use App\Services\StrategyActivationService;
+use App\Services\StrategyGeneratorService;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -29,6 +34,17 @@ class StrategyController extends Controller
         return Inertia::render('strategies/create');
     }
 
+    public function generate(GenerateStrategyRequest $request, StrategyGeneratorService $generator): JsonResponse
+    {
+        try {
+            $result = $generator->generate($request->validated('description'));
+
+            return response()->json(['graph' => $result['graph']]);
+        } catch (StrategyGenerationException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
     public function store(StoreStrategyRequest $request): RedirectResponse
     {
         $request->user()->strategies()->create($request->validated());
@@ -45,26 +61,30 @@ class StrategyController extends Controller
         return Inertia::render('strategies/show', [
             'strategy' => $strategy,
             'liveStats' => Inertia::defer(function () use ($strategy) {
-                $filled = $strategy->trades()->where('status', 'filled');
-                $totalTrades = $filled->count();
-                $totalPnl = (float) $filled->sum('size_usdc');
-                $winCount = $strategy->trades()
-                    ->where('status', 'filled')
-                    ->where('price', '>', 0.5)
-                    ->count();
+                $buildStats = function ($query) {
+                    $filled = (clone $query)->where('status', 'filled');
+                    $totalTrades = $filled->count();
+                    $totalPnl = (float) (clone $filled)->sum('size_usdc');
+                    $winCount = (clone $filled)->where('price', '>', 0.5)->count();
+
+                    return [
+                        'total_trades' => $totalTrades,
+                        'win_rate' => $totalTrades > 0
+                            ? number_format($winCount / $totalTrades, 4)
+                            : null,
+                        'total_pnl_usdc' => number_format($totalPnl, 2, '.', ''),
+                    ];
+                };
 
                 return [
-                    'total_trades' => $totalTrades,
-                    'win_rate' => $totalTrades > 0
-                        ? number_format($winCount / $totalTrades, 4)
-                        : null,
-                    'total_pnl_usdc' => number_format($totalPnl, 2, '.', ''),
+                    'live' => $buildStats($strategy->liveTrades()),
+                    'paper' => $buildStats($strategy->paperTrades()),
                 ];
             }, 'liveData'),
             'recentTrades' => Inertia::defer(fn () => $strategy->trades()
                 ->latest('executed_at')
                 ->limit(20)
-                ->get(['id', 'market_id', 'side', 'outcome', 'price', 'size_usdc', 'status', 'executed_at']), 'liveData'),
+                ->get(['id', 'market_id', 'side', 'outcome', 'price', 'size_usdc', 'status', 'is_paper', 'executed_at']), 'liveData'),
         ]);
     }
 
@@ -114,5 +134,37 @@ class StrategyController extends Controller
         }
 
         return back()->with('success', 'Strategy deactivated.');
+    }
+
+    public function kill(Strategy $strategy, EngineService $engine): RedirectResponse
+    {
+        Gate::authorize('update', $strategy);
+
+        try {
+            $strategy->load('walletStrategies');
+            foreach ($strategy->walletStrategies as $ws) {
+                $engine->killStrategy($ws->wallet_id, $strategy->id);
+            }
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to kill strategy. Engine may be unavailable.');
+        }
+
+        return back()->with('success', 'Kill switch activated — all evaluation stopped.');
+    }
+
+    public function unkill(Strategy $strategy, EngineService $engine): RedirectResponse
+    {
+        Gate::authorize('update', $strategy);
+
+        try {
+            $strategy->load('walletStrategies');
+            foreach ($strategy->walletStrategies as $ws) {
+                $engine->unkillStrategy($ws->wallet_id, $strategy->id);
+            }
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to resume strategy. Engine may be unavailable.');
+        }
+
+        return back()->with('success', 'Kill switch deactivated — evaluation resumed.');
     }
 }

@@ -47,7 +47,7 @@ class Wallet extends Model
     {
         return $this->belongsToMany(Strategy::class, 'wallet_strategies')
             ->using(WalletStrategy::class)
-            ->withPivot('markets', 'max_position_usdc', 'is_running', 'started_at');
+            ->withPivot('markets', 'max_position_usdc', 'is_running', 'is_paper', 'started_at');
     }
 
     public function walletStrategies(): HasMany

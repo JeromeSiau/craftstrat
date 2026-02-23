@@ -1,16 +1,17 @@
 import { Head, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
+import { index, create, store } from '@/actions/App/Http/Controllers/StrategyController';
+import InputError from '@/components/input-error';
+import AiBuilder from '@/components/strategy/ai-builder';
+import FormBuilder from '@/components/strategy/form-builder';
+import NodeEditor from '@/components/strategy/node-editor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import InputError from '@/components/input-error';
-import FormBuilder from '@/components/strategy/form-builder';
-import NodeEditor from '@/components/strategy/node-editor';
+import AppLayout from '@/layouts/app-layout';
 import { uid } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { FormModeGraph, NodeModeGraph } from '@/types/models';
-import { index, create, store } from '@/actions/App/Http/Controllers/StrategyController';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Strategies', href: index.url() },
@@ -38,6 +39,9 @@ const defaultFormGraph: FormModeGraph = {
         take_profit_pct: null,
         max_position_usdc: 200,
         max_trades_per_slot: 1,
+        daily_loss_limit_usdc: null,
+        cooldown_seconds: null,
+        prevent_duplicates: false,
     },
 };
 
@@ -107,6 +111,10 @@ export default function StrategiesCreate() {
                             />
                         </div>
                     </div>
+
+                    <AiBuilder
+                        onGenerated={(graph) => setData({ ...data, mode: 'form', graph })}
+                    />
 
                     <Tabs defaultValue="form" onValueChange={handleTabChange}>
                         <TabsList>

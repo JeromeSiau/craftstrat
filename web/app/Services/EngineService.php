@@ -18,6 +18,7 @@ class EngineService
         array $graph,
         array $markets,
         float $maxPositionUsdc = 1000.0,
+        bool $isPaper = false,
     ): void {
         $this->client()->post('/internal/strategy/activate', [
             'wallet_id' => $walletId,
@@ -25,12 +26,29 @@ class EngineService
             'graph' => $graph,
             'markets' => $markets,
             'max_position_usdc' => $maxPositionUsdc,
+            'is_paper' => $isPaper,
         ])->throw();
     }
 
     public function deactivateStrategy(int $walletId, int $strategyId): void
     {
         $this->client()->post('/internal/strategy/deactivate', [
+            'wallet_id' => $walletId,
+            'strategy_id' => $strategyId,
+        ])->throw();
+    }
+
+    public function killStrategy(int $walletId, int $strategyId): void
+    {
+        $this->client()->post('/internal/strategy/kill', [
+            'wallet_id' => $walletId,
+            'strategy_id' => $strategyId,
+        ])->throw();
+    }
+
+    public function unkillStrategy(int $walletId, int $strategyId): void
+    {
+        $this->client()->post('/internal/strategy/unkill', [
             'wallet_id' => $walletId,
             'strategy_id' => $strategyId,
         ])->throw();

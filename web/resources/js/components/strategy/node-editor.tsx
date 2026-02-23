@@ -1,4 +1,3 @@
-import { useCallback, useMemo, useRef } from 'react';
 import {
     ReactFlow,
     Background,
@@ -10,13 +9,22 @@ import {
     type Edge,
     type OnConnect,
 } from '@xyflow/react';
+import { useCallback, useMemo, useRef } from 'react';
 import '@xyflow/react/dist/style.css';
-import { Button } from '@/components/ui/button';
-import InputNode from '@/components/strategy/nodes/input-node';
-import IndicatorNode from '@/components/strategy/nodes/indicator-node';
-import ComparatorNode from '@/components/strategy/nodes/comparator-node';
-import LogicNode from '@/components/strategy/nodes/logic-node';
 import ActionNode from '@/components/strategy/nodes/action-node';
+import ApiFetchNode from '@/components/strategy/nodes/api-fetch-node';
+import CancelNode from '@/components/strategy/nodes/cancel-node';
+import ComparatorNode from '@/components/strategy/nodes/comparator-node';
+import EvCalculatorNode from '@/components/strategy/nodes/ev-calculator-node';
+import IfElseNode from '@/components/strategy/nodes/if-else-node';
+import IndicatorNode from '@/components/strategy/nodes/indicator-node';
+import InputNode from '@/components/strategy/nodes/input-node';
+import KellyNode from '@/components/strategy/nodes/kelly-node';
+import LogicNode from '@/components/strategy/nodes/logic-node';
+import MathNode from '@/components/strategy/nodes/math-node';
+import NotNode from '@/components/strategy/nodes/not-node';
+import NotifyNode from '@/components/strategy/nodes/notify-node';
+import { Button } from '@/components/ui/button';
 import type { NodeModeGraph } from '@/types/models';
 
 interface NodeEditorProps {
@@ -30,6 +38,14 @@ const nodeDefaults: Record<string, Record<string, unknown>> = {
     comparator: { operator: '>', value: 0 },
     logic: { operator: 'AND' },
     action: { signal: 'buy', outcome: 'UP', size_usdc: 50 },
+    not: {},
+    if_else: {},
+    math: { operation: '+' },
+    ev_calculator: { mode: 'simple' },
+    kelly: { fraction: 0.5 },
+    cancel: { outcome: 'UP' },
+    notify: { channel: 'database', message: 'Strategy alert' },
+    api_fetch: { url: '', json_path: '', interval_secs: 60, label: 'API Value' },
 };
 
 function toFlowNodes(
@@ -46,9 +62,11 @@ function toFlowNodes(
 
 function toFlowEdges(graphEdges: NodeModeGraph['edges']): Edge[] {
     return graphEdges.map((edge) => ({
-        id: `${edge.source}-${edge.target}`,
+        id: `${edge.source}-${edge.target}-${edge.sourceHandle ?? ''}-${edge.targetHandle ?? ''}`,
         source: edge.source,
         target: edge.target,
+        sourceHandle: edge.sourceHandle ?? undefined,
+        targetHandle: edge.targetHandle ?? undefined,
     }));
 }
 
@@ -81,6 +99,14 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
             comparator: ComparatorNode,
             logic: LogicNode,
             action: ActionNode,
+            not: NotNode,
+            if_else: IfElseNode,
+            math: MathNode,
+            ev_calculator: EvCalculatorNode,
+            kelly: KellyNode,
+            cancel: CancelNode,
+            notify: NotifyNode,
+            api_fetch: ApiFetchNode,
         }),
         [],
     );
@@ -117,6 +143,8 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
         const graphEdges = edges.map((edge) => ({
             source: edge.source,
             target: edge.target,
+            sourceHandle: edge.sourceHandle ?? null,
+            targetHandle: edge.targetHandle ?? null,
         }));
         onChange({ mode: 'node', nodes: graphNodes, edges: graphEdges });
     }
@@ -139,6 +167,32 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('action')}>
                     + Action
+                </Button>
+                <span className="text-muted-foreground">|</span>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('not')}>
+                    + NOT
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('if_else')}>
+                    + IF/ELSE
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('math')}>
+                    + Math
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('ev_calculator')}>
+                    + EV Calc
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('kelly')}>
+                    + Kelly
+                </Button>
+                <span className="text-muted-foreground">|</span>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('cancel')}>
+                    + Cancel
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('notify')}>
+                    + Notify
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('api_fetch')}>
+                    + API Fetch
                 </Button>
                 <div className="flex-1" />
                 <Button type="button" size="sm" className="h-7 text-xs" onClick={handleSave}>

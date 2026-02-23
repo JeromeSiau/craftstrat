@@ -308,7 +308,7 @@ assignStrategy.form = assignStrategyForm
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:77
+* @see app/Http/Controllers/WalletController.php:78
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 export const removeStrategy = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -323,7 +323,7 @@ removeStrategy.definition = {
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:77
+* @see app/Http/Controllers/WalletController.php:78
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 removeStrategy.url = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions) => {
@@ -353,7 +353,7 @@ removeStrategy.url = (args: { wallet: number | { id: number }, strategy: number 
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:77
+* @see app/Http/Controllers/WalletController.php:78
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 removeStrategy.delete = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -363,7 +363,7 @@ removeStrategy.delete = (args: { wallet: number | { id: number }, strategy: numb
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:77
+* @see app/Http/Controllers/WalletController.php:78
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 const removeStrategyForm = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -378,7 +378,7 @@ const removeStrategyForm = (args: { wallet: number | { id: number }, strategy: n
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:77
+* @see app/Http/Controllers/WalletController.php:78
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 removeStrategyForm.delete = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

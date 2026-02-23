@@ -1,8 +1,7 @@
 import { useForm } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { assignStrategy } from '@/actions/App/Http/Controllers/WalletController';
 import InputError from '@/components/input-error';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -10,6 +9,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -17,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { assignStrategy } from '@/actions/App/Http/Controllers/WalletController';
+import { Switch } from '@/components/ui/switch';
 
 interface AssignStrategyDialogProps {
     walletId: number;
@@ -37,6 +38,7 @@ export default function AssignStrategyDialog({
     const form = useForm({
         strategy_id: '',
         max_position_usdc: '100',
+        is_paper: false,
     });
 
     function handleAssign(): void {
@@ -92,6 +94,14 @@ export default function AssignStrategyDialog({
                             onChange={(e) => form.setData('max_position_usdc', e.target.value)}
                         />
                         <InputError message={form.errors.max_position_usdc} className="mt-1" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="is_paper">Paper Trading</Label>
+                        <Switch
+                            id="is_paper"
+                            checked={form.data.is_paper}
+                            onCheckedChange={(checked) => form.setData('is_paper', checked)}
+                        />
                     </div>
                     <Button
                         onClick={handleAssign}

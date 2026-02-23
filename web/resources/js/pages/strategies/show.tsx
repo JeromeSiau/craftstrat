@@ -1,23 +1,25 @@
 import { Deferred, Head, router, useForm } from '@inertiajs/react';
-import { Activity, ArrowLeftRight, FlaskConical, LineChart, Settings2, TrendingUp, Wallet } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
+import { Activity, ArrowLeftRight, FlaskConical, LineChart, OctagonX, Settings2, TrendingUp, Wallet } from 'lucide-react';
+import { run as runBacktest } from '@/actions/App/Http/Controllers/BacktestController';
+import { index, show, activate, deactivate, destroy, kill, unkill } from '@/actions/App/Http/Controllers/StrategyController';
+import BacktestResultsTable from '@/components/backtest-results-table';
+import ConfirmDialog from '@/components/confirm-dialog';
+import InputError from '@/components/input-error';
+import MetricCard from '@/components/metric-card';
+import StatusBadge from '@/components/status-badge';
+import StrategyRulesDisplay, { isFormModeGraph } from '@/components/strategy/strategy-rules-display';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import InputError from '@/components/input-error';
-import ConfirmDialog from '@/components/confirm-dialog';
-import MetricCard from '@/components/metric-card';
-import StatusBadge from '@/components/status-badge';
-import BacktestResultsTable from '@/components/backtest-results-table';
-import StrategyRulesDisplay, { isFormModeGraph } from '@/components/strategy/strategy-rules-display';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AppLayout from '@/layouts/app-layout';
 import { formatPnl, formatWinRate } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { LiveStats, Strategy, Trade } from '@/types/models';
-import { index, show, activate, deactivate, destroy } from '@/actions/App/Http/Controllers/StrategyController';
-import { run as runBacktest } from '@/actions/App/Http/Controllers/BacktestController';
 
 function LiveDataSkeleton() {
     return (
@@ -73,8 +75,12 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
         backtestForm.post(runBacktest.url(strategy.id));
     }
 
-    const pnlValue = liveStats?.total_pnl_usdc ? parseFloat(liveStats.total_pnl_usdc) : 0;
+    const currentStats = liveStats?.live;
+    const paperStats = liveStats?.paper;
+    const pnlValue = currentStats?.total_pnl_usdc ? parseFloat(currentStats.total_pnl_usdc) : 0;
     const pnlTrend = pnlValue > 0 ? 'up' : pnlValue < 0 ? 'down' : 'neutral' as const;
+    const paperPnlValue = paperStats?.total_pnl_usdc ? parseFloat(paperStats.total_pnl_usdc) : 0;
+    const paperPnlTrend = paperPnlValue > 0 ? 'up' : paperPnlValue < 0 ? 'down' : 'neutral' as const;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -93,6 +99,28 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                         )}
                     </div>
                     <div className="flex gap-2">
+                        {strategy.is_active && (
+                            <>
+                                <ConfirmDialog
+                                    trigger={
+                                        <Button variant="outline" className="border-red-500/50 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950">
+                                            <OctagonX className="mr-1.5 size-4" />
+                                            Kill
+                                        </Button>
+                                    }
+                                    title="Activate Kill Switch"
+                                    description="This will immediately stop all evaluation for this strategy across all wallets. No new trades will be placed. Use Resume to restart."
+                                    confirmLabel="Kill"
+                                    onConfirm={() => router.post(kill.url(strategy.id))}
+                                />
+                                <Button
+                                    variant="outline"
+                                    onClick={() => router.post(unkill.url(strategy.id))}
+                                >
+                                    Resume
+                                </Button>
+                            </>
+                        )}
                         {strategy.is_active ? (
                             <Button
                                 variant="outline"
@@ -165,9 +193,16 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                 <div className="divide-y">
                                     {strategy.wallet_strategies.map((ws) => (
                                         <div key={ws.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                                            <span className="truncate font-mono text-sm">
-                                                {ws.wallet.label || `${ws.wallet.address.slice(0, 10)}...`}
-                                            </span>
+                                            <div className="flex items-center gap-2 truncate">
+                                                <span className="truncate font-mono text-sm">
+                                                    {ws.wallet.label || `${ws.wallet.address.slice(0, 10)}...`}
+                                                </span>
+                                                {ws.is_paper && (
+                                                    <Badge variant="outline" className="shrink-0 border-amber-500/50 text-amber-600 dark:text-amber-400">
+                                                        Paper
+                                                    </Badge>
+                                                )}
+                                            </div>
                                             <span
                                                 className={`shrink-0 text-xs font-semibold ${
                                                     ws.is_running
@@ -186,24 +221,52 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                 </div>
 
                 <Deferred data={['liveStats', 'recentTrades']} fallback={<LiveDataSkeleton />}>
-                    <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                        <MetricCard
-                            label="Total Trades"
-                            value={liveStats?.total_trades ?? 0}
-                            icon={Activity}
-                        />
-                        <MetricCard
-                            label="Win Rate"
-                            value={formatWinRate(liveStats?.win_rate ?? null)}
-                            icon={TrendingUp}
-                        />
-                        <MetricCard
-                            label="PnL"
-                            value={formatPnl(liveStats?.total_pnl_usdc ?? null)}
-                            icon={ArrowLeftRight}
-                            trend={liveStats?.total_pnl_usdc ? pnlTrend : undefined}
-                        />
-                    </div>
+                    <Tabs defaultValue="live" className="mt-6">
+                        <TabsList>
+                            <TabsTrigger value="live">Live</TabsTrigger>
+                            <TabsTrigger value="paper">Paper</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="live">
+                            <div className="grid gap-4 sm:grid-cols-3">
+                                <MetricCard
+                                    label="Total Trades"
+                                    value={currentStats?.total_trades ?? 0}
+                                    icon={Activity}
+                                />
+                                <MetricCard
+                                    label="Win Rate"
+                                    value={formatWinRate(currentStats?.win_rate ?? null)}
+                                    icon={TrendingUp}
+                                />
+                                <MetricCard
+                                    label="PnL"
+                                    value={formatPnl(currentStats?.total_pnl_usdc ?? null)}
+                                    icon={ArrowLeftRight}
+                                    trend={currentStats?.total_pnl_usdc ? pnlTrend : undefined}
+                                />
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="paper">
+                            <div className="grid gap-4 sm:grid-cols-3">
+                                <MetricCard
+                                    label="Total Trades"
+                                    value={paperStats?.total_trades ?? 0}
+                                    icon={Activity}
+                                />
+                                <MetricCard
+                                    label="Win Rate"
+                                    value={formatWinRate(paperStats?.win_rate ?? null)}
+                                    icon={TrendingUp}
+                                />
+                                <MetricCard
+                                    label="PnL"
+                                    value={formatPnl(paperStats?.total_pnl_usdc ?? null)}
+                                    icon={ArrowLeftRight}
+                                    trend={paperStats?.total_pnl_usdc ? paperPnlTrend : undefined}
+                                />
+                            </div>
+                        </TabsContent>
+                    </Tabs>
 
                     <Card className="mt-6 border-l-4 border-l-emerald-500/50">
                         <CardHeader>
@@ -227,6 +290,7 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                             <TableHead>Outcome</TableHead>
                                             <TableHead>Price</TableHead>
                                             <TableHead>Size</TableHead>
+                                            <TableHead>Type</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -256,6 +320,15 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                                 </TableCell>
                                                 <TableCell className="tabular-nums">
                                                     {formatPnl(trade.size_usdc)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                        trade.is_paper
+                                                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                                                            : 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
+                                                    }`}>
+                                                        {trade.is_paper ? 'Paper' : 'Live'}
+                                                    </span>
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${

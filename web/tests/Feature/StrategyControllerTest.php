@@ -141,11 +141,12 @@ it('loads deferred live stats and recent trades', function () {
             ->missing('liveStats')
             ->missing('recentTrades')
             ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
-                ->has('liveStats', fn (Assert $stats) => $stats
+                ->has('liveStats.live', fn (Assert $stats) => $stats
                     ->where('total_trades', 5)
                     ->has('win_rate')
                     ->has('total_pnl_usdc')
                 )
+                ->has('liveStats.paper')
                 ->has('recentTrades', 5)
             )
         );
@@ -159,8 +160,9 @@ it('returns empty trades when strategy has no trades', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
-                ->where('liveStats.total_trades', 0)
-                ->where('liveStats.win_rate', null)
+                ->where('liveStats.live.total_trades', 0)
+                ->where('liveStats.live.win_rate', null)
+                ->where('liveStats.paper.total_trades', 0)
                 ->has('recentTrades', 0)
             )
         );

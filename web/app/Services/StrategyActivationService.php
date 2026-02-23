@@ -29,6 +29,7 @@ class StrategyActivationService
                     $strategy->graph,
                     $assignment->markets ?? [],
                     (float) $assignment->max_position_usdc,
+                    (bool) $assignment->is_paper,
                 );
 
                 $assignment->update(['is_running' => true, 'started_at' => now()]);

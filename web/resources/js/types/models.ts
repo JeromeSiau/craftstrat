@@ -33,6 +33,7 @@ export interface Wallet {
 export interface WalletStrategy {
     id: number;
     is_running: boolean;
+    is_paper: boolean;
     max_position_usdc: string;
     wallet: { id: number; label: string | null; address: string };
 }
@@ -88,6 +89,9 @@ export interface StrategyRisk {
     take_profit_pct: number | null;
     max_position_usdc: number;
     max_trades_per_slot: number;
+    daily_loss_limit_usdc: number | null;
+    cooldown_seconds: number | null;
+    prevent_duplicates: boolean;
 }
 
 export interface FormModeGraph {
@@ -100,7 +104,7 @@ export interface FormModeGraph {
 // Strategy graph types for node mode
 export interface GraphNode {
     id: string;
-    type: 'input' | 'indicator' | 'comparator' | 'logic' | 'action';
+    type: 'input' | 'indicator' | 'comparator' | 'logic' | 'action' | 'not' | 'if_else' | 'math' | 'ev_calculator' | 'kelly' | 'cancel' | 'notify' | 'api_fetch';
     data: Record<string, unknown>;
     position?: { x: number; y: number };
 }
@@ -108,6 +112,8 @@ export interface GraphNode {
 export interface GraphEdge {
     source: string;
     target: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
 }
 
 export interface NodeModeGraph {
@@ -134,13 +140,19 @@ export interface Trade {
     price: string | null;
     size_usdc: string | null;
     status: string;
+    is_paper: boolean;
     executed_at: string | null;
 }
 
-export interface LiveStats {
+export interface LiveStatsEntry {
     total_trades: number;
     win_rate: string | null;
     total_pnl_usdc: string | null;
+}
+
+export interface LiveStats {
+    live: LiveStatsEntry;
+    paper: LiveStatsEntry;
 }
 
 // Slot Analytics types

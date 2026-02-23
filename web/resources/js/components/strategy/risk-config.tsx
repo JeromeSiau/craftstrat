@@ -24,6 +24,18 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
         onChange({ ...risk, take_profit_pct: checked ? 80 : null });
     }
 
+    function handleToggleDailyLoss(checked: boolean): void {
+        onChange({ ...risk, daily_loss_limit_usdc: checked ? 100 : null });
+    }
+
+    function handleToggleCooldown(checked: boolean): void {
+        onChange({ ...risk, cooldown_seconds: checked ? 60 : null });
+    }
+
+    function handleToggleDuplicates(checked: boolean): void {
+        onChange({ ...risk, prevent_duplicates: checked });
+    }
+
     return (
         <Card className="border-l-4 border-l-amber-500/50">
             <CardHeader>
@@ -111,6 +123,63 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 }
                             />
                         )}
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="daily_loss_enabled"
+                                checked={risk.daily_loss_limit_usdc !== null}
+                                onCheckedChange={handleToggleDailyLoss}
+                            />
+                            <Label htmlFor="daily_loss_enabled">Daily Loss Limit (USDC)</Label>
+                        </div>
+                        {risk.daily_loss_limit_usdc !== null && (
+                            <Input
+                                id="daily_loss_limit_usdc"
+                                type="number"
+                                min={1}
+                                step="any"
+                                value={risk.daily_loss_limit_usdc}
+                                onChange={(e) =>
+                                    onChange({ ...risk, daily_loss_limit_usdc: safeParseFloat(e.target.value) })
+                                }
+                            />
+                        )}
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="cooldown_enabled"
+                                checked={risk.cooldown_seconds !== null}
+                                onCheckedChange={handleToggleCooldown}
+                            />
+                            <Label htmlFor="cooldown_enabled">Cooldown (seconds)</Label>
+                        </div>
+                        {risk.cooldown_seconds !== null && (
+                            <Input
+                                id="cooldown_seconds"
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={risk.cooldown_seconds}
+                                onChange={(e) =>
+                                    onChange({ ...risk, cooldown_seconds: safeParseFloat(e.target.value) })
+                                }
+                            />
+                        )}
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="prevent_duplicates"
+                                checked={risk.prevent_duplicates}
+                                onCheckedChange={handleToggleDuplicates}
+                            />
+                            <Label htmlFor="prevent_duplicates">Prevent Duplicates</Label>
+                        </div>
                     </div>
                 </div>
             </CardContent>

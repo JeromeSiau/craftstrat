@@ -65,6 +65,12 @@ export default function StrategyRulesDisplay({ graph }: { graph: FormModeGraph }
                     <dd>{graph.risk.max_position_usdc} USDC</dd>
                     <dt className="text-muted-foreground">Max Trades / Slot</dt>
                     <dd>{graph.risk.max_trades_per_slot}</dd>
+                    <dt className="text-muted-foreground">Daily Loss Limit</dt>
+                    <dd>{graph.risk.daily_loss_limit_usdc !== null ? `${graph.risk.daily_loss_limit_usdc} USDC` : 'Off'}</dd>
+                    <dt className="text-muted-foreground">Cooldown</dt>
+                    <dd>{graph.risk.cooldown_seconds !== null ? `${graph.risk.cooldown_seconds}s` : 'Off'}</dd>
+                    <dt className="text-muted-foreground">Duplicate Prevention</dt>
+                    <dd>{graph.risk.prevent_duplicates ? 'On' : 'Off'}</dd>
                 </dl>
             </div>
         </div>

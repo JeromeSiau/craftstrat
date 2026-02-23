@@ -26,6 +26,7 @@ class AssignStrategyRequest extends FormRequest
             'markets' => ['nullable', 'array'],
             'markets.*' => ['string'],
             'max_position_usdc' => ['nullable', 'numeric', 'min:1', 'max:1000000'],
+            'is_paper' => ['nullable', 'boolean'],
         ];
     }
 }

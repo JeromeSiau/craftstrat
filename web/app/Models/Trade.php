@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,7 @@ class Trade extends Model
         'size_usdc',
         'order_type',
         'status',
+        'is_paper',
         'polymarket_order_id',
         'fee_bps',
         'executed_at',
@@ -34,6 +36,7 @@ class Trade extends Model
         return [
             'price' => 'decimal:6',
             'size_usdc' => 'decimal:6',
+            'is_paper' => 'boolean',
             'fee_bps' => 'integer',
             'executed_at' => 'datetime',
         ];
@@ -52,5 +55,15 @@ class Trade extends Model
     public function copyRelationship(): BelongsTo
     {
         return $this->belongsTo(CopyRelationship::class);
+    }
+
+    public function scopePaper(Builder $query): Builder
+    {
+        return $query->where('is_paper', true);
+    }
+
+    public function scopeLive(Builder $query): Builder
+    {
+        return $query->where('is_paper', false);
     }
 }

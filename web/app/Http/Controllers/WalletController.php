@@ -68,6 +68,7 @@ class WalletController extends Controller
             $strategy->id => [
                 'markets' => $request->validated('markets', []),
                 'max_position_usdc' => $request->validated('max_position_usdc', 100),
+                'is_paper' => $request->validated('is_paper', false),
             ],
         ]);
 
