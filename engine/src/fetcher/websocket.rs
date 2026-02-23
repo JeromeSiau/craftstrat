@@ -82,10 +82,10 @@ pub async fn run_ws_feed(
 }
 
 fn classify_ws_error(error: &anyhow::Error) -> &'static str {
-    let msg = error.to_string();
-    if msg.contains("Connection reset") {
+    let msg = error.to_string().to_lowercase();
+    if msg.contains("connection reset") {
         "connection_reset"
-    } else if msg.contains("imeout") {
+    } else if msg.contains("timeout") {
         "timeout"
     } else {
         "other"
