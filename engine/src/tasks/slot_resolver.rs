@@ -34,14 +34,21 @@ pub async fn run_slot_resolver(
     loop {
         interval.tick().await;
 
-        let unresolved: Vec<UnresolvedSlot> = ch
+        let unresolved: Vec<UnresolvedSlot> = match ch
             .query(
                 "SELECT DISTINCT symbol FROM slot_snapshots \
                  WHERE winner IS NULL AND pct_into_slot >= 1.0 \
                  ORDER BY symbol",
             )
             .fetch_all()
-            .await?;
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::warn!(error = %e, "slot_resolver_query_failed");
+                continue;
+            }
+        };
 
         if unresolved.is_empty() {
             continue;
@@ -75,13 +82,16 @@ pub async fn run_slot_resolver(
                 continue;
             };
 
-            ch.query(
-                "ALTER TABLE slot_snapshots UPDATE winner = ? WHERE symbol = ?",
-            )
-            .bind(winner)
-            .bind(slot.symbol.as_str())
-            .execute()
-            .await?;
+            if let Err(e) = ch
+                .query("ALTER TABLE slot_snapshots UPDATE winner = ? WHERE symbol = ?")
+                .bind(winner)
+                .bind(slot.symbol.as_str())
+                .execute()
+                .await
+            {
+                tracing::warn!(slug = %slot.symbol, error = %e, "slot_resolver_update_failed");
+                continue;
+            }
 
             tracing::info!(
                 slug = %slot.symbol,
