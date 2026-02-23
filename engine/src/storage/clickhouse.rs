@@ -25,6 +25,9 @@ pub fn create_client(url: &str) -> Client {
         client = client.with_url(url);
     }
     client
+        .with_option("connect_timeout", "5")
+        .with_option("receive_timeout", "15")
+        .with_option("send_timeout", "10")
 }
 
 pub async fn run_writer(client: Client, mut tick_rx: tokio::sync::broadcast::Receiver<Tick>) -> Result<()> {
