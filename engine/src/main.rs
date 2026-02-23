@@ -10,6 +10,8 @@ mod watcher;
 mod backtest;
 mod stats;
 mod api;
+mod healthcheck;
+mod supervisor;
 mod metrics;
 
 use std::collections::HashMap;
@@ -31,6 +33,13 @@ async fn main() -> anyhow::Result<()> {
     let prometheus_handle = metrics::init();
     let cfg = Config::from_env()?;
     tracing::info!(sources = cfg.sources.len(), "craftstrat_engine_starting");
+
+    healthcheck::wait_for_services(
+        &cfg.clickhouse_url,
+        &cfg.redis_url,
+        &cfg.database_url,
+    )
+    .await?;
 
     let (ws_cmd_tx, ws_cmd_rx) = mpsc::channel::<WsCommand>(64);
     let (tick_tx, _) = broadcast::channel::<fetcher::models::Tick>(1024);

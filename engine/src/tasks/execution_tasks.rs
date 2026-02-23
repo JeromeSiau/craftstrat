@@ -80,11 +80,18 @@ pub fn spawn_watcher(
     let http = state.http.clone();
     let redis_url = state.config.redis_url.clone();
 
-    tasks.spawn(async move {
-        let client = redis::Client::open(redis_url.as_str())?;
-        let conn = client.get_multiplexed_tokio_connection().await?;
-        crate::watcher::polymarket::run(&data_api_url, http, queue, db, conn).await
-    });
+    tasks.spawn(crate::supervisor::supervised("copy_watcher", move || {
+        let url = data_api_url.clone();
+        let h = http.clone();
+        let q = queue.clone();
+        let d = db.clone();
+        let r = redis_url.clone();
+        async move {
+            let client = redis::Client::open(r.as_str())?;
+            let conn = client.get_multiplexed_tokio_connection().await?;
+            crate::watcher::polymarket::run(&url, h, q, d, conn).await
+        }
+    }));
 }
 
 // ---------------------------------------------------------------------------
