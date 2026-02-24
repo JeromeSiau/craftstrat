@@ -55,7 +55,7 @@ export function CalibrationChart({ data }: CalibrationChartProps) {
                         { x: 10, y: 10 },
                         { x: 95, y: 95 },
                     ]}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                     strokeDasharray="4 4"
                     label={{ value: 'Perfect calibration', position: 'insideTopLeft', fontSize: 11 }}
                 />
@@ -66,7 +66,7 @@ export function CalibrationChart({ data }: CalibrationChartProps) {
                         if (name === 'Actual UP Rate') return [`${value.toFixed(1)}%`, name];
                         return [value, name];
                     }}
-                    contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                    contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '0.5rem' }}
                 />
                 <Scatter data={chartData}>
                     {chartData.map((entry, idx) => (

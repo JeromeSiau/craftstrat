@@ -16,13 +16,13 @@ export function UpRateBarChart({ data, height = 300 }: UpRateBarChartProps) {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
-                <ReferenceLine y={50} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
+                <ReferenceLine y={50} stroke="var(--muted-foreground)" strokeDasharray="4 4" />
                 <Tooltip
                     formatter={(value: number, _name: string, props: { payload: { total: number } }) => [
                         `${value.toFixed(1)}% (n=${props.payload.total})`,
                         'UP Rate',
                     ]}
-                    contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                    contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '0.5rem' }}
                 />
                 <Bar dataKey="upRate" radius={[4, 4, 0, 0]}>
                     {data.map((entry, idx) => (

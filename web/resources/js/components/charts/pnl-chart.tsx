@@ -19,13 +19,13 @@ export function PnlChart({ trades }: PnlChartProps) {
                 <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
                 <Tooltip
                     formatter={(value: number) => [`$${value.toFixed(2)}`, 'Cumulative PnL']}
-                    contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                    contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '0.5rem' }}
                 />
                 <Area
                     type="monotone"
                     dataKey="pnl"
-                    stroke="hsl(var(--chart-1))"
-                    fill="hsl(var(--chart-1))"
+                    stroke="var(--chart-1)"
+                    fill="var(--chart-1)"
                     fillOpacity={0.2}
                 />
             </AreaChart>

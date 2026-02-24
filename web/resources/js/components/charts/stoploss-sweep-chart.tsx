@@ -45,7 +45,7 @@ export function StoplossSweepChart({ data }: StoplossSweepChartProps) {
                     label={{ value: 'Precision %', angle: 90, position: 'insideRight', fontSize: 12 }}
                 />
                 <Tooltip
-                    contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                    contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '0.5rem' }}
                     formatter={(value: number, name: string) => {
                         if (name === 'precision') return [`${value.toFixed(1)}%`, 'Precision'];
                         if (name === 'trueSaves') return [value, 'True Saves'];
