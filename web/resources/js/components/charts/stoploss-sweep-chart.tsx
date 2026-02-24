@@ -58,21 +58,21 @@ export function StoplossSweepChart({ data }: StoplossSweepChartProps) {
                     yAxisId="left"
                     dataKey="trueSaves"
                     stackId="a"
-                    fill="hsl(var(--chart-2))"
+                    fill="#10b981"
                     radius={[0, 0, 0, 0]}
                 />
                 <Bar
                     yAxisId="left"
                     dataKey="falseExits"
                     stackId="a"
-                    fill="hsl(var(--chart-5))"
+                    fill="#ef4444"
                     radius={[4, 4, 0, 0]}
                 />
                 <Line
                     yAxisId="right"
                     type="monotone"
                     dataKey="precision"
-                    stroke="hsl(var(--chart-1))"
+                    stroke="#8b5cf6"
                     strokeWidth={2}
                     dot={false}
                 />

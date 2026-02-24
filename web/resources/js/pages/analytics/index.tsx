@@ -1,10 +1,10 @@
 import { Head, router } from '@inertiajs/react';
-import { Clock, Database, Layers, TrendingUp } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Clock, Database, Layers, TrendingUp } from 'lucide-react';
 import { index as analyticsIndex } from '@/actions/App/Http/Controllers/AnalyticsController';
 import { CalibrationChart } from '@/components/charts/calibration-chart';
 import { StoplossSweepChart } from '@/components/charts/stoploss-sweep-chart';
-import { WinRateBarChart } from '@/components/charts/win-rate-bar-chart';
-import { WinRateHeatmap } from '@/components/charts/win-rate-heatmap';
+import { UpRateBarChart } from '@/components/charts/up-rate-bar-chart';
+import { UpRateHeatmap } from '@/components/charts/up-rate-heatmap';
 import MetricCard from '@/components/metric-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,6 +26,13 @@ const DURATION_OPTIONS = [
 ];
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function formatCompact(n: number): string {
+    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 10_000) return `${(n / 1_000).toFixed(1)}k`;
+    return n.toLocaleString();
+}
 
 function formatDataAge(lastSnapshotAt: string | null): string {
     if (!lastSnapshotAt) return '-';
@@ -93,23 +100,23 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
 
     const symbolBarData = by_symbol.map((s) => ({
         label: s.symbol,
-        winRate: s.win_rate * 100,
+        upRate: s.win_rate * 100,
         total: s.total,
     }));
 
     const hourBarData = by_hour.map((h) => ({
         label: `${h.period}h`,
-        winRate: h.win_rate * 100,
+        upRate: h.win_rate * 100,
         total: h.total,
     }));
 
     const dayBarData = by_day.map((d) => ({
         label: DAY_LABELS[d.period] ?? `${d.period}`,
-        winRate: d.win_rate * 100,
+        upRate: d.win_rate * 100,
         total: d.total,
     }));
 
-    const overallWinRate =
+    const overallUpRate =
         summary.resolved_slots > 0
             ? by_symbol.reduce((acc, s) => acc + s.wins, 0) / by_symbol.reduce((acc, s) => acc + s.total, 0)
             : null;
@@ -162,24 +169,31 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
                 </div>
 
                 {/* KPI Row */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <MetricCard label="Total Slots" value={summary.total_slots.toLocaleString()} icon={Layers} />
-                    <MetricCard label="In Progress" value={summary.unresolved_slots.toLocaleString()} icon={Clock} />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <MetricCard label="Total Slots" value={summary.total_slots.toLocaleString()} icon={Layers} accent="blue" />
+                    <MetricCard label="Resolved" value={summary.resolved_slots.toLocaleString()} icon={TrendingUp} accent="emerald" />
+                    <MetricCard label="In Progress" value={summary.unresolved_slots.toLocaleString()} icon={Clock} accent="amber" />
                     <MetricCard
                         label="Snapshots"
-                        value={summary.total_snapshots.toLocaleString()}
+                        value={formatCompact(summary.total_snapshots)}
                         icon={Database}
+                        accent="violet"
                     />
-                    <MetricCard label="Data Age" value={formatDataAge(summary.last_snapshot_at)} icon={TrendingUp} />
+                    <MetricCard
+                        label="UP Rate"
+                        value={overallUpRate !== null ? `${(overallUpRate * 100).toFixed(1)}%` : '-'}
+                        icon={overallUpRate !== null && overallUpRate >= 0.5 ? ArrowUpRight : ArrowDownRight}
+                        accent={overallUpRate !== null && overallUpRate >= 0.5 ? 'emerald' : 'red'}
+                    />
                 </div>
 
                 {/* Heatmap */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Win Rate Heatmap (Time vs Move)</CardTitle>
+                        <CardTitle>UP Rate Heatmap (Time vs Move)</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <WinRateHeatmap data={heatmap} />
+                        <UpRateHeatmap data={heatmap} />
                     </CardContent>
                 </Card>
 
@@ -195,10 +209,10 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
                     </Card>
                     <Card>
                         <CardHeader>
-                            <CardTitle>Win Rate by Symbol</CardTitle>
+                            <CardTitle>UP Rate by Symbol</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <WinRateBarChart data={symbolBarData} />
+                            <UpRateBarChart data={symbolBarData} />
                         </CardContent>
                     </Card>
                 </div>
@@ -217,18 +231,18 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
                 <div className="grid gap-6 lg:grid-cols-2">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Win Rate by Hour (UTC)</CardTitle>
+                            <CardTitle>UP Rate by Hour (UTC)</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <WinRateBarChart data={hourBarData} />
+                            <UpRateBarChart data={hourBarData} />
                         </CardContent>
                     </Card>
                     <Card>
                         <CardHeader>
-                            <CardTitle>Win Rate by Day</CardTitle>
+                            <CardTitle>UP Rate by Day</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <WinRateBarChart data={dayBarData} />
+                            <UpRateBarChart data={dayBarData} />
                         </CardContent>
                     </Card>
                 </div>
@@ -236,7 +250,6 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
                 {/* Footer Summary */}
                 <p className="text-center text-sm text-muted-foreground">
                     {summary.resolved_slots.toLocaleString()} resolved slots
-                    {overallWinRate !== null && <> &middot; {(overallWinRate * 100).toFixed(1)}% overall WR</>}
                     {' '}&middot; last {filters.hours}h window
                 </p>
             </div>

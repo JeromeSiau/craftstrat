@@ -1,5 +1,6 @@
 import {
     CartesianGrid,
+    Cell,
     ReferenceLine,
     ResponsiveContainer,
     Scatter,
@@ -42,11 +43,11 @@ export function CalibrationChart({ data }: CalibrationChartProps) {
                 <YAxis
                     type="number"
                     dataKey="y"
-                    name="Actual WR"
+                    name="Actual UP Rate"
                     domain={[10, 95]}
                     tick={{ fontSize: 12 }}
                     tickFormatter={(v: number) => `${Math.round(v)}%`}
-                    label={{ value: 'Actual WR %', angle: -90, position: 'insideLeft', fontSize: 12 }}
+                    label={{ value: 'Actual UP %', angle: -90, position: 'insideLeft', fontSize: 12 }}
                 />
                 <ZAxis type="number" dataKey="sampleCount" range={[40, 400]} />
                 <ReferenceLine
@@ -62,12 +63,19 @@ export function CalibrationChart({ data }: CalibrationChartProps) {
                     cursor={{ strokeDasharray: '3 3' }}
                     formatter={(value: number, name: string) => {
                         if (name === 'Market P(Up)') return [`${value.toFixed(1)}%`, name];
-                        if (name === 'Actual WR') return [`${value.toFixed(1)}%`, name];
+                        if (name === 'Actual UP Rate') return [`${value.toFixed(1)}%`, name];
                         return [value, name];
                     }}
                     contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
                 />
-                <Scatter data={chartData} fill="hsl(var(--chart-1))" />
+                <Scatter data={chartData}>
+                    {chartData.map((entry, idx) => (
+                        <Cell
+                            key={idx}
+                            fill={entry.y >= entry.x ? '#10b981' : '#ef4444'}
+                        />
+                    ))}
+                </Scatter>
             </ScatterChart>
         </ResponsiveContainer>
     );

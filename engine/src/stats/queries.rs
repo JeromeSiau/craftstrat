@@ -137,36 +137,27 @@ pub async fn fetch_heatmap(client: &Client, params: &StatsParams) -> Result<Vec<
     };
 
     let sql = format!(
-        "WITH slots AS (
-            SELECT
-                symbol, slot_ts, slot_duration,
-                any(winner) AS slot_winner,
-                any(minutes_into_slot) AS mins,
-                any(dir_move_pct) AS move_pct
-            FROM slot_snapshots
-            WHERE slot_duration = ?
-                {cutoff}
-                {sym}
-            GROUP BY symbol, slot_ts, slot_duration
-        )
-        SELECT
+        "SELECT
             concat(
-                toString(floor(mins / {time_bin_minutes}) * {time_bin_minutes}),
+                toString(floor(minutes_into_slot / {time_bin_minutes}) * {time_bin_minutes}),
                 '-',
-                toString(floor(mins / {time_bin_minutes}) * {time_bin_minutes} + {time_bin_minutes})
+                toString(floor(minutes_into_slot / {time_bin_minutes}) * {time_bin_minutes} + {time_bin_minutes})
             ) AS time_bin,
             multiIf(
-                move_pct < -0.2, '< -0.2',
-                move_pct < -0.1, '-0.2 / -0.1',
-                move_pct < 0.0,  '-0.1 / 0',
-                move_pct < 0.1,  '0 / 0.1',
-                move_pct < 0.2,  '0.1 / 0.2',
+                dir_move_pct < -0.2, '< -0.2',
+                dir_move_pct < -0.1, '-0.2 / -0.1',
+                dir_move_pct < 0.0,  '-0.1 / 0',
+                dir_move_pct < 0.1,  '0 / 0.1',
+                dir_move_pct < 0.2,  '0.1 / 0.2',
                 '>= 0.2'
             ) AS move_bin,
             count() AS total,
-            countIf(slot_winner = 'UP') AS wins
-        FROM slots
-        WHERE slot_winner IS NOT NULL
+            countIf(winner = 'UP') AS wins
+        FROM slot_snapshots
+        WHERE slot_duration = ?
+            AND winner IS NOT NULL
+            {cutoff}
+            {sym}
         GROUP BY time_bin, move_bin
         ORDER BY time_bin, move_bin"
     );
