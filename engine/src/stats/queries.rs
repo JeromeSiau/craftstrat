@@ -20,6 +20,8 @@ impl StatsParams {
     }
 
     /// Build a SQL fragment for symbol filtering.
+    /// Matches on the short symbol prefix extracted from the full slug
+    /// (e.g. 'BTC' matches 'btc-updown-15m-1771910100').
     /// Returns empty string if no symbols are specified.
     fn symbol_clause(&self) -> String {
         if self.symbols.is_empty() {
@@ -31,7 +33,7 @@ impl StatsParams {
                 .map(|s| format!("'{}'", s.replace('\'', "")))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("AND symbol IN ({list})")
+            format!("AND upper(splitByChar('-', symbol)[1]) IN ({list})")
         }
     }
 }
@@ -263,7 +265,7 @@ pub async fn fetch_calibration(
 pub async fn fetch_by_symbol(client: &Client, params: &StatsParams) -> Result<Vec<SymbolStats>> {
     #[derive(clickhouse::Row, serde::Deserialize)]
     struct Row {
-        symbol: String,
+        short_symbol: String,
         total: u64,
         wins: u64,
     }
@@ -282,11 +284,11 @@ pub async fn fetch_by_symbol(client: &Client, params: &StatsParams) -> Result<Ve
             GROUP BY symbol, slot_ts, slot_duration
         )
         SELECT
-            symbol,
+            upper(splitByChar('-', symbol)[1]) AS short_symbol,
             count() AS total,
             countIf(slot_winner = 'UP') AS wins
         FROM slots
-        GROUP BY symbol
+        GROUP BY short_symbol
         ORDER BY total DESC"
     );
 
@@ -303,7 +305,7 @@ pub async fn fetch_by_symbol(client: &Client, params: &StatsParams) -> Result<Ve
             row.wins as f64 / row.total as f64
         };
         stats.push(SymbolStats {
-            symbol: row.symbol,
+            symbol: row.short_symbol,
             total: row.total,
             wins: row.wins,
             win_rate,

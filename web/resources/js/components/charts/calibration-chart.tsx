@@ -36,7 +36,7 @@ export function CalibrationChart({ data }: CalibrationChartProps) {
                     name="Market P(Up)"
                     domain={[10, 95]}
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(v) => `${v}%`}
+                    tickFormatter={(v: number) => `${Math.round(v)}%`}
                     label={{ value: 'Market P(Up) %', position: 'insideBottom', offset: -5, fontSize: 12 }}
                 />
                 <YAxis
@@ -45,7 +45,7 @@ export function CalibrationChart({ data }: CalibrationChartProps) {
                     name="Actual WR"
                     domain={[10, 95]}
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(v) => `${v}%`}
+                    tickFormatter={(v: number) => `${Math.round(v)}%`}
                     label={{ value: 'Actual WR %', angle: -90, position: 'insideLeft', fontSize: 12 }}
                 />
                 <ZAxis type="number" dataKey="sampleCount" range={[40, 400]} />
