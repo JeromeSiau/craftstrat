@@ -22,7 +22,7 @@ export default function MetricCard({ label, value, icon: Icon, trend, accent }: 
     const colors = accent ? accentStyles[accent] : null;
 
     return (
-        <Card className="relative overflow-hidden">
+        <Card className="relative overflow-hidden transition-colors hover:bg-accent/50">
             <CardContent className="pt-5 pb-5">
                 <div className="flex items-start justify-between">
                     <div className="space-y-1">
