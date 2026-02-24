@@ -17,6 +17,12 @@ function cellColor(upRate: number, total: number): string {
     return 'bg-red-700 text-white';
 }
 
+function formatN(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+    return String(n);
+}
+
 function sortTimeBins(bins: string[]): string[] {
     return [...bins].sort((a, b) => {
         const numA = parseFloat(a.split('-')[0]);
@@ -78,7 +84,7 @@ export function UpRateHeatmap({ data }: UpRateHeatmapProps) {
                                         ) : (
                                             <>
                                                 <div className="font-semibold">{upRate.toFixed(0)}%</div>
-                                                <div className="text-[10px] opacity-75">n={total}</div>
+                                                <div className="text-[10px] opacity-75">n={formatN(total)}</div>
                                             </>
                                         )}
                                     </td>
