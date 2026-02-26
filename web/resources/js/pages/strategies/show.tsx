@@ -21,6 +21,13 @@ import { formatPnl, formatWinRate } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { LiveStats, Strategy, Trade } from '@/types/models';
 
+const MARKET_OPTIONS = [
+    { label: 'BTC', value: 'btc' },
+    { label: 'ETH', value: 'eth' },
+    { label: 'SOL', value: 'sol' },
+    { label: 'XRP', value: 'xrp' },
+];
+
 function LiveDataSkeleton() {
     return (
         <>
@@ -399,6 +406,46 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                         onChange={(e) => backtestForm.setData('date_to', e.target.value)}
                                     />
                                     <InputError message={backtestForm.errors.date_to} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Markets</Label>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {MARKET_OPTIONS.map((m) => {
+                                            const isActive =
+                                                backtestForm.data.market_filter.length === 0 ||
+                                                backtestForm.data.market_filter.includes(m.value);
+                                            return (
+                                                <button
+                                                    key={m.value}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const current = backtestForm.data.market_filter;
+                                                        let next: string[];
+                                                        if (current.length === 0) {
+                                                            next = [m.value];
+                                                        } else if (current.includes(m.value)) {
+                                                            next = current.filter((v) => v !== m.value);
+                                                        } else {
+                                                            next = [...current, m.value];
+                                                        }
+                                                        backtestForm.setData('market_filter', next);
+                                                    }}
+                                                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                                        isActive
+                                                            ? 'border-primary bg-primary text-primary-foreground'
+                                                            : 'border-border bg-background text-muted-foreground hover:bg-accent'
+                                                    }`}
+                                                >
+                                                    {m.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {backtestForm.data.market_filter.length === 0
+                                            ? 'All markets'
+                                            : `${backtestForm.data.market_filter.length} selected`}
+                                    </p>
                                 </div>
                             </div>
                             <Button type="submit" size="lg" disabled={backtestForm.processing}>

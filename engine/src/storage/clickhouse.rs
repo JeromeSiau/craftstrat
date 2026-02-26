@@ -72,10 +72,10 @@ pub fn fetch_ticks(
     let sql = if symbols.is_empty() {
         "SELECT ?fields FROM slot_snapshots WHERE captured_at >= fromUnixTimestamp64Milli(?) AND captured_at <= fromUnixTimestamp64Milli(?) ORDER BY captured_at ASC".to_string()
     } else {
-        let placeholders: Vec<&str> = symbols.iter().map(|_| "?").collect();
+        let conditions: Vec<&str> = symbols.iter().map(|_| "startsWith(symbol, ?)").collect();
         format!(
-            "SELECT ?fields FROM slot_snapshots WHERE symbol IN ({}) AND captured_at >= fromUnixTimestamp64Milli(?) AND captured_at <= fromUnixTimestamp64Milli(?) ORDER BY captured_at ASC",
-            placeholders.join(", ")
+            "SELECT ?fields FROM slot_snapshots WHERE ({}) AND captured_at >= fromUnixTimestamp64Milli(?) AND captured_at <= fromUnixTimestamp64Milli(?) ORDER BY captured_at ASC",
+            conditions.join(" OR ")
         )
     };
     let mut query = client.query(&sql);
