@@ -25,9 +25,6 @@ fn default_window_size() -> usize {
 
 impl BacktestRequest {
     pub fn validate(&self) -> Result<(), &'static str> {
-        if self.market_filter.is_empty() {
-            return Err("market_filter must not be empty");
-        }
         if self.date_from >= self.date_to {
             return Err("date_from must be before date_to");
         }
@@ -122,7 +119,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_empty_market_filter() {
+    fn test_validate_empty_market_filter_is_ok() {
         let req = BacktestRequest {
             strategy_graph: serde_json::json!({}),
             market_filter: vec![],
@@ -130,7 +127,7 @@ mod tests {
             date_to: OffsetDateTime::from_unix_timestamp(1700001000).unwrap(),
             window_size: 200,
         };
-        assert_eq!(req.validate(), Err("market_filter must not be empty"));
+        assert!(req.validate().is_ok());
     }
 
     #[test]
