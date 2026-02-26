@@ -8,12 +8,17 @@ use alloy::signers::local::PrivateKeySigner;
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
+use sha2::{Sha256, Digest};
 use zeroize::Zeroize;
 
 /// Stores AES-256-GCM encrypted wallet private keys, decrypting only at signing time.
 /// Also stores the associated Gnosis Safe address for each wallet (used as `maker` in orders).
 ///
-/// Storage format: base64(nonce_12_bytes || ciphertext || auth_tag)
+/// PHP storage format (matched by this module):
+///   base64( iv_12_bytes || gcm_tag_16_bytes || ciphertext )
+///
+/// The AES key is derived as `SHA-256(encryption_key_string)[0..32]`, matching
+/// PHP's `substr(hash('sha256', $key, true), 0, 32)`.
 pub struct WalletKeyStore {
     keys: RwLock<HashMap<u64, Vec<u8>>>,
     safe_addresses: RwLock<HashMap<u64, Address>>,
@@ -21,16 +26,16 @@ pub struct WalletKeyStore {
 }
 
 impl WalletKeyStore {
-    /// Creates a new key store from a 64-character hex encryption key (32 bytes).
-    pub fn new(encryption_key_hex: &str) -> Result<Self> {
+    /// Creates a new key store. The encryption key is hashed with SHA-256 to derive
+    /// the AES-256 key, matching the PHP WalletService encryption.
+    pub fn new(encryption_key: &str) -> Result<Self> {
         anyhow::ensure!(
-            encryption_key_hex.len() == 64,
-            "encryption key must be exactly 64 hex characters (32 bytes), got {}",
-            encryption_key_hex.len()
+            encryption_key.len() >= 32,
+            "encryption key must be at least 32 characters, got {}",
+            encryption_key.len()
         );
 
-        let key_bytes = hex::decode(encryption_key_hex)
-            .context("encryption key is not valid hex")?;
+        let key_bytes = Sha256::digest(encryption_key.as_bytes());
 
         let cipher = Aes256Gcm::new_from_slice(&key_bytes)
             .context("failed to create AES-256-GCM cipher")?;
@@ -64,6 +69,9 @@ impl WalletKeyStore {
 
     /// Decrypts the stored key and returns a `PrivateKeySigner`.
     ///
+    /// Handles PHP format: `iv(12) || tag(16) || ciphertext`.
+    /// The `aes_gcm` crate expects `ciphertext || tag`, so we rearrange.
+    ///
     /// The decrypted bytes are zeroized immediately after signer creation.
     pub fn get_signer(&self, wallet_id: u64) -> Result<PrivateKeySigner> {
         let keys = self
@@ -75,18 +83,39 @@ impl WalletKeyStore {
             .get(&wallet_id)
             .with_context(|| format!("no key stored for wallet {wallet_id}"))?;
 
+        anyhow::ensure!(
+            encrypted.len() >= 28,
+            "encrypted payload too short (need iv + tag + ciphertext, got {} bytes)",
+            encrypted.len()
+        );
+
+        // PHP layout: iv(12) || tag(16) || ciphertext
         let nonce = Nonce::from_slice(&encrypted[..12]);
-        let ciphertext = &encrypted[12..];
+        let tag = &encrypted[12..28];
+        let ciphertext = &encrypted[28..];
+
+        // aes_gcm expects: ciphertext || tag
+        let mut ct_with_tag = Vec::with_capacity(ciphertext.len() + 16);
+        ct_with_tag.extend_from_slice(ciphertext);
+        ct_with_tag.extend_from_slice(tag);
 
         let mut decrypted = self
             .cipher
-            .decrypt(nonce, ciphertext)
+            .decrypt(nonce, ct_with_tag.as_slice())
             .map_err(|e| anyhow::anyhow!("decryption failed: {e}"))?;
 
-        let signer = PrivateKeySigner::from_slice(&decrypted)
+        // PHP encrypts the hex string of the private key, not raw bytes.
+        // Convert from hex string to 32-byte raw key for the signer.
+        let hex_str = std::str::from_utf8(&decrypted)
+            .context("decrypted key is not valid UTF-8 (expected hex string)")?;
+        let mut key_bytes = hex::decode(hex_str)
+            .context("decrypted key is not valid hex")?;
+
+        let signer = PrivateKeySigner::from_slice(&key_bytes)
             .context("failed to create signer from decrypted key")?;
 
         decrypted.zeroize();
+        key_bytes.zeroize();
 
         Ok(signer)
     }
@@ -98,19 +127,29 @@ impl WalletKeyStore {
         Ok(signer.address())
     }
 
-    /// Encrypts a raw private key with a random nonce. Returns base64-encoded payload.
+    /// Encrypts a raw private key hex string with a random nonce.
+    /// Returns base64-encoded payload in PHP format: `iv(12) || tag(16) || ciphertext`.
     ///
-    /// Useful for testing and initial key ingestion.
+    /// The private key bytes are first hex-encoded (matching PHP's plaintext format),
+    /// then encrypted.
     #[allow(dead_code)]
     pub fn encrypt_key(&self, private_key_bytes: &[u8]) -> Result<String> {
+        let hex_string = hex::encode(private_key_bytes);
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-        let ciphertext = self
+        // aes_gcm produces ciphertext || tag (last 16 bytes)
+        let ct_with_tag = self
             .cipher
-            .encrypt(&nonce, private_key_bytes)
+            .encrypt(&nonce, hex_string.as_bytes())
             .map_err(|e| anyhow::anyhow!("encryption failed: {e}"))?;
 
+        let tag_start = ct_with_tag.len() - 16;
+        let ciphertext = &ct_with_tag[..tag_start];
+        let tag = &ct_with_tag[tag_start..];
+
+        // PHP format: iv(12) || tag(16) || ciphertext
         let mut payload = nonce.to_vec();
-        payload.extend_from_slice(&ciphertext);
+        payload.extend_from_slice(tag);
+        payload.extend_from_slice(ciphertext);
 
         Ok(BASE64.encode(&payload))
     }
@@ -161,11 +200,11 @@ impl WalletKeyStore {
 mod tests {
     use super::*;
 
-    const TEST_KEY_HEX: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const TEST_KEY: &str = "test-encryption-key-at-least-32-chars-long";
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
-        let store = WalletKeyStore::new(TEST_KEY_HEX).unwrap();
+        let store = WalletKeyStore::new(TEST_KEY).unwrap();
 
         // A valid 32-byte private key
         let private_key = [0xABu8; 32];
@@ -178,14 +217,14 @@ mod tests {
 
     #[test]
     fn test_missing_wallet_key() {
-        let store = WalletKeyStore::new(TEST_KEY_HEX).unwrap();
+        let store = WalletKeyStore::new(TEST_KEY).unwrap();
         let result = store.get_signer(999);
         assert!(result.is_err(), "should error for nonexistent wallet");
     }
 
     #[test]
     fn test_has_key() {
-        let store = WalletKeyStore::new(TEST_KEY_HEX).unwrap();
+        let store = WalletKeyStore::new(TEST_KEY).unwrap();
         assert!(!store.has_key(1));
 
         let encrypted = store.encrypt_key(&[0xCDu8; 32]).unwrap();
@@ -195,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_remove_key() {
-        let store = WalletKeyStore::new(TEST_KEY_HEX).unwrap();
+        let store = WalletKeyStore::new(TEST_KEY).unwrap();
 
         let encrypted = store.encrypt_key(&[0xEFu8; 32]).unwrap();
         store.store_key(1, &encrypted).unwrap();
@@ -207,18 +246,13 @@ mod tests {
 
     #[test]
     fn test_invalid_encryption_key() {
-        let short = WalletKeyStore::new("too_short");
+        let short = WalletKeyStore::new("short");
         assert!(short.is_err(), "short key should fail");
-
-        let bad_hex = WalletKeyStore::new(
-            "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-        );
-        assert!(bad_hex.is_err(), "non-hex key should fail");
     }
 
     #[test]
     fn test_safe_address_store_and_get() {
-        let store = WalletKeyStore::new(TEST_KEY_HEX).unwrap();
+        let store = WalletKeyStore::new(TEST_KEY).unwrap();
         let addr: Address = "0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b"
             .parse()
             .unwrap();
@@ -230,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_address_derivation() {
-        let store = WalletKeyStore::new(TEST_KEY_HEX).unwrap();
+        let store = WalletKeyStore::new(TEST_KEY).unwrap();
 
         // Hardhat account #0
         let private_key_hex = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
