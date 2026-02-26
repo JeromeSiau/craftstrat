@@ -19,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { MARKET_OPTIONS } from '@/lib/constants';
 
 interface AssignStrategyDialogProps {
     walletId: number;
@@ -37,6 +38,7 @@ export default function AssignStrategyDialog({
 }: AssignStrategyDialogProps) {
     const form = useForm({
         strategy_id: '',
+        markets: [] as string[],
         max_position_usdc: '100',
         is_paper: false,
     });
@@ -82,6 +84,46 @@ export default function AssignStrategyDialog({
                             </SelectContent>
                         </Select>
                         <InputError message={form.errors.strategy_id} className="mt-1" />
+                    </div>
+                    <div>
+                        <Label>Markets</Label>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {MARKET_OPTIONS.map((m) => {
+                                const isActive =
+                                    form.data.markets.length === 0 ||
+                                    form.data.markets.includes(m.value);
+                                return (
+                                    <button
+                                        key={m.value}
+                                        type="button"
+                                        onClick={() => {
+                                            const current = form.data.markets;
+                                            let next: string[];
+                                            if (current.length === 0) {
+                                                next = [m.value];
+                                            } else if (current.includes(m.value)) {
+                                                next = current.filter((v) => v !== m.value);
+                                            } else {
+                                                next = [...current, m.value];
+                                            }
+                                            form.setData('markets', next);
+                                        }}
+                                        className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                            isActive
+                                                ? 'border-primary bg-primary text-primary-foreground'
+                                                : 'border-border bg-background text-muted-foreground hover:bg-accent'
+                                        }`}
+                                    >
+                                        {m.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {form.data.markets.length === 0
+                                ? 'All markets'
+                                : `${form.data.markets.length} selected`}
+                        </p>
                     </div>
                     <div>
                         <Label htmlFor="max_position_usdc">Max Position (USDC)</Label>
