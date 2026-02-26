@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use alloy::primitives::Address;
+use alloy::primitives::{Address, Bytes, FixedBytes, U256, keccak256};
+use alloy::signers::SignerSync;
+use alloy::sol;
+use alloy::sol_types::{SolStruct, eip712_domain};
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::{STANDARD as BASE64, URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD};
 use base64::Engine as _;
@@ -15,15 +18,38 @@ use super::wallet::WalletKeyStore;
 use crate::proxy::HttpPool;
 
 // ---------------------------------------------------------------------------
-// Polygon contract addresses
+// Polygon contract addresses & constants
 // ---------------------------------------------------------------------------
 
 const SAFE_FACTORY: &str = "0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b";
-const SAFE_MULTISEND: &str = "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761";
 /// USDC.e on Polygon
 const USDC_ADDRESS: &str = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
 const NEG_RISK_EXCHANGE: &str = "0xC5d563A36AE78145C45a50134d48A1215220f80a";
 const CTF_EXCHANGE: &str = "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E";
+/// Polygon chain ID
+const CHAIN_ID: u64 = 137;
+/// Init code hash for CREATE2 Safe derivation (from Polymarket SDK)
+const SAFE_INIT_CODE_HASH: [u8; 32] = {
+    // 0x2bce2127ff07fb632d16c8347c4ebf501f4841168bed00d9e6ef715ddb6fcecf
+    [
+        0x2b, 0xce, 0x21, 0x27, 0xff, 0x07, 0xfb, 0x63, 0x2d, 0x16, 0xc8, 0x34, 0x7c, 0x4e,
+        0xbf, 0x50, 0x1f, 0x48, 0x41, 0x16, 0x8b, 0xed, 0x00, 0xd9, 0xe6, 0xef, 0x71, 0x5d,
+        0xdb, 0x6f, 0xce, 0xcf,
+    ]
+};
+
+// ---------------------------------------------------------------------------
+// EIP-712 CreateProxy type (matches Polymarket Safe Factory)
+// ---------------------------------------------------------------------------
+
+sol! {
+    #[derive(Debug)]
+    struct CreateProxy {
+        address paymentToken;
+        uint256 payment;
+        address paymentReceiver;
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Relayer response types
@@ -36,6 +62,7 @@ struct NoncePayload {
 
 #[derive(Debug, Deserialize)]
 struct RelayPayload {
+    #[allow(dead_code)]
     address: String,
     nonce: String,
 }
@@ -49,6 +76,7 @@ struct SubmitResponse {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RelayerTransaction {
     #[serde(rename = "transactionID")]
+    #[allow(dead_code)]
     pub transaction_id: String,
     #[serde(rename = "transactionHash")]
     pub transaction_hash: Option<String>,
@@ -104,23 +132,44 @@ impl RelayerClient {
             anyhow::bail!("Safe already deployed for signer {signer_address:?}");
         }
 
-        // 2. Build and submit Safe creation transaction
-        debug!(%wallet_id, ?signer_address, "deploying_safe");
+        // 2. Derive the Safe address via CREATE2 (deterministic, before on-chain deployment)
+        let safe_factory: Address = SAFE_FACTORY.parse().unwrap();
+        let proxy_wallet = derive_safe_address(&signer_address, &safe_factory);
+        debug!(%wallet_id, ?signer_address, ?proxy_wallet, "deploying_safe");
 
-        let nonce = self.get_nonce(&signer_address).await?;
+        // 3. Sign EIP-712 CreateProxy typed data
+        let domain = eip712_domain! {
+            name: "Polymarket Contract Proxy Factory",
+            chain_id: CHAIN_ID,
+            verifying_contract: safe_factory,
+        };
 
+        let create_proxy = CreateProxy {
+            paymentToken: Address::ZERO,
+            payment: U256::ZERO,
+            paymentReceiver: Address::ZERO,
+        };
+
+        let signing_hash = create_proxy.eip712_signing_hash(&domain);
+        let signature = signer
+            .sign_hash_sync(&signing_hash)
+            .context("failed to sign CreateProxy EIP-712")?;
+
+        let sig_hex = format!("0x{}", hex::encode(signature.as_bytes()));
+
+        // 4. Build and submit Safe creation transaction
         let create_payload = serde_json::json!({
-            "type": "SAFE_CREATE",
+            "type": "SAFE-CREATE",
             "from": format!("{:?}", signer_address),
             "to": SAFE_FACTORY,
-            "data": "",
-            "signature": "",
+            "proxyWallet": format!("{:?}", proxy_wallet),
+            "data": "0x",
+            "signature": sig_hex,
             "signatureParams": {
                 "paymentToken": format!("{:?}", Address::ZERO),
                 "payment": "0",
                 "paymentReceiver": format!("{:?}", Address::ZERO)
-            },
-            "nonce": nonce,
+            }
         });
 
         let tx_id = self.submit_transaction(&create_payload).await?;
@@ -128,7 +177,7 @@ impl RelayerClient {
 
         let safe_address = tx
             .proxy_address
-            .with_context(|| "relayer did not return proxyAddress for Safe deploy")?;
+            .unwrap_or_else(|| format!("{:?}", proxy_wallet));
 
         let tx_hash = tx
             .transaction_hash
@@ -136,11 +185,11 @@ impl RelayerClient {
 
         debug!(%wallet_id, %safe_address, %tx_hash, "safe_deployed");
 
-        // 3. Store Safe address in wallet key store
+        // 5. Store Safe address in wallet key store
         let addr: Address = safe_address.parse().context("invalid safe address from relayer")?;
         self.wallet_keys.store_safe_address(wallet_id, addr)?;
 
-        // 4. Approve USDC on both CTF and NegRisk exchanges
+        // 6. Approve USDC on both CTF and NegRisk exchanges
         self.approve_usdc(wallet_id, &safe_address).await?;
 
         Ok(SafeDeployResult {
@@ -165,7 +214,7 @@ impl RelayerClient {
         let approve_ctf_data = format!("0x095ea7b3{ctf_padded}{max_uint}");
         let approve_neg_data = format!("0x095ea7b3{neg_risk_padded}{max_uint}");
 
-        // Submit as a Safe transaction batch
+        // Submit CTF approval
         let payload = serde_json::json!({
             "type": "SAFE",
             "from": safe_address,
@@ -180,7 +229,7 @@ impl RelayerClient {
         let tx_id = self.submit_transaction(&payload).await?;
         self.poll_transaction(&tx_id).await?;
 
-        // Second approval for NegRisk exchange
+        // Submit NegRisk approval
         let relay2 = self.get_relay_payload(&safe_addr).await?;
         let payload2 = serde_json::json!({
             "type": "SAFE",
@@ -217,6 +266,7 @@ impl RelayerClient {
         Ok(resp.deployed)
     }
 
+    #[allow(dead_code)]
     async fn get_nonce(&self, address: &Address) -> Result<String> {
         let url = format!(
             "{}/nonce?address={:?}&type=SAFE",
@@ -334,7 +384,7 @@ impl RelayerClient {
         anyhow::bail!("relayer transaction {tx_id} poll timed out after 120s");
     }
 
-    /// HMAC-SHA256 signature for builder auth (same pattern as CLOB API).
+    /// HMAC-SHA256 signature for builder auth.
     fn sign_request(
         &self,
         method: &str,
@@ -357,6 +407,25 @@ impl RelayerClient {
         let result = mac.finalize().into_bytes();
         Ok(BASE64.encode(result))
     }
+}
+
+/// Derive Safe address via CREATE2 (deterministic, before on-chain deployment).
+/// Matches the Polymarket SDK `deriveSafe(address, safeFactory)`.
+fn derive_safe_address(owner: &Address, factory: &Address) -> Address {
+    // salt = keccak256(abi.encode(owner))
+    let mut salt_input = [0u8; 32];
+    salt_input[12..].copy_from_slice(owner.as_slice());
+    let salt = keccak256(Bytes::from(salt_input.to_vec()));
+
+    // CREATE2: keccak256(0xff ++ factory ++ salt ++ init_code_hash)[12..]
+    let mut create2_input = Vec::with_capacity(1 + 20 + 32 + 32);
+    create2_input.push(0xff);
+    create2_input.extend_from_slice(factory.as_slice());
+    create2_input.extend_from_slice(salt.as_slice());
+    create2_input.extend_from_slice(&SAFE_INIT_CODE_HASH);
+
+    let hash = keccak256(Bytes::from(create2_input));
+    Address::from_slice(&hash[12..])
 }
 
 fn now_secs() -> u64 {
