@@ -243,7 +243,7 @@ impl OrderSubmitter {
         let body = serde_json::to_string(&payload).context("failed to serialize order payload")?;
 
         // 10. Sign builder request (HMAC-SHA256)
-        let timestamp = now_millis().to_string();
+        let timestamp = now_secs().to_string();
         let path = "/order";
         let hmac_sig =
             self.sign_builder_request("POST", path, &timestamp, &body)?;
@@ -318,7 +318,7 @@ impl OrderSubmitter {
         })
     }
 
-    /// Compute HMAC-SHA256 of `{method}{path}{timestamp}{body}`, base64-encoded.
+    /// Compute HMAC-SHA256 of `{timestamp}{method}{path}{body}`, base64-encoded.
     pub(crate) fn sign_builder_request(
         &self,
         method: &str,
@@ -333,7 +333,7 @@ impl OrderSubmitter {
         let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
             .context("HMAC key creation failed")?;
 
-        let message = format!("{method}{path}{timestamp}{body}");
+        let message = format!("{timestamp}{method}{path}{body}");
         mac.update(message.as_bytes());
 
         let result = mac.finalize().into_bytes();
@@ -393,12 +393,12 @@ impl OrderSubmitter {
     }
 }
 
-/// Returns current time in milliseconds since UNIX epoch.
-fn now_millis() -> u64 {
+/// Returns current time in seconds since UNIX epoch (matches Polymarket API convention).
+fn now_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system clock before UNIX epoch")
-        .as_millis() as u64
+        .as_secs()
 }
 
 // ---------------------------------------------------------------------------
@@ -473,14 +473,14 @@ mod tests {
     }
 
     #[test]
-    fn test_now_millis() {
-        let ts = now_millis();
+    fn test_now_secs() {
+        let ts = now_secs();
         assert!(
-            ts > 1_700_000_000_000,
+            ts > 1_700_000_000,
             "timestamp {ts} should be after Nov 2023"
         );
         assert!(
-            ts < 3_000_000_000_000,
+            ts < 3_000_000_000,
             "timestamp {ts} should be before year 2065"
         );
     }

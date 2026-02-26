@@ -128,7 +128,7 @@ impl Config {
             encryption_key: std::env::var("ENCRYPTION_KEY")
                 .unwrap_or_default(),
             relayer_url: std::env::var("POLYMARKET_RELAYER_URL")
-                .unwrap_or_else(|_| "https://relayer.polymarket.com".into()),
+                .unwrap_or_else(|_| "https://relayer-v2.polymarket.com".into()),
             max_orders_per_day: std::env::var("ENGINE_MAX_ORDERS_PER_DAY")
                 .ok()
                 .and_then(|v| v.parse().ok())

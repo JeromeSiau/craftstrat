@@ -252,24 +252,24 @@ impl RelayerClient {
     async fn submit_transaction(&self, payload: &serde_json::Value) -> Result<String> {
         let body = serde_json::to_string(payload)?;
 
-        let timestamp = now_millis().to_string();
+        let timestamp = now_secs().to_string();
         let hmac_sig = self.sign_request("POST", "/submit", &timestamp, &body)?;
 
         let mut headers = HeaderMap::new();
         headers.insert(
-            "POLY_API_KEY",
+            "POLY_BUILDER_API_KEY",
             HeaderValue::from_str(&self.credentials.api_key)?,
         );
         headers.insert(
-            "POLY_SIGNATURE",
+            "POLY_BUILDER_SIGNATURE",
             HeaderValue::from_str(&hmac_sig)?,
         );
         headers.insert(
-            "POLY_TIMESTAMP",
+            "POLY_BUILDER_TIMESTAMP",
             HeaderValue::from_str(&timestamp)?,
         );
         headers.insert(
-            "POLY_PASSPHRASE",
+            "POLY_BUILDER_PASSPHRASE",
             HeaderValue::from_str(&self.credentials.passphrase)?,
         );
 
@@ -349,7 +349,7 @@ impl RelayerClient {
         let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
             .context("HMAC key creation failed")?;
 
-        let message = format!("{method}{path}{timestamp}{body}");
+        let message = format!("{timestamp}{method}{path}{body}");
         mac.update(message.as_bytes());
 
         let result = mac.finalize().into_bytes();
@@ -357,9 +357,9 @@ impl RelayerClient {
     }
 }
 
-fn now_millis() -> u64 {
+fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("system clock before UNIX epoch")
-        .as_millis() as u64
+        .as_secs()
 }
