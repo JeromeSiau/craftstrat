@@ -82,6 +82,9 @@ pub struct BacktestTrade {
 }
 
 pub fn compute_pnl(entry_price: f64, exit_price: f64, size_usdc: f64) -> f64 {
+    if entry_price <= 0.0 {
+        return 0.0;
+    }
     (exit_price - entry_price) / entry_price * size_usdc
 }
 

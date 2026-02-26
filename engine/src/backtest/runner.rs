@@ -75,6 +75,10 @@ impl BacktestEngine {
                 ..
             } => {
                 let entry_price = ask_price(outcome, tick);
+                if entry_price <= 0.0 {
+                    // No liquidity — skip this entry
+                    return;
+                }
                 ctx.state.position = Some(Position {
                     outcome,
                     entry_price,
