@@ -13,7 +13,9 @@ const DEFAULT_WINDOW_SIZE: usize = 200;
 pub struct BacktestRequest {
     pub strategy_graph: Value,
     pub market_filter: Vec<String>,
+    #[serde(with = "time::serde::rfc3339")]
     pub date_from: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     pub date_to: OffsetDateTime,
     #[serde(default = "default_window_size")]
     pub window_size: usize,
