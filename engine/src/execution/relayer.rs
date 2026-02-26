@@ -395,8 +395,7 @@ impl RelayerClient {
         let secret_bytes = BASE64_URL
             .decode(&self.credentials.secret)
             .or_else(|_| BASE64_URL_NOPAD.decode(&self.credentials.secret))
-            .or_else(|_| BASE64.decode(&self.credentials.secret))
-            .context("builder_secret is not valid base64")?;
+            .context("builder_secret is not valid base64 (url-safe)")?;
 
         let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
             .context("HMAC key creation failed")?;
@@ -405,7 +404,7 @@ impl RelayerClient {
         mac.update(message.as_bytes());
 
         let result = mac.finalize().into_bytes();
-        Ok(BASE64.encode(result))
+        Ok(BASE64_URL.encode(result))
     }
 }
 
