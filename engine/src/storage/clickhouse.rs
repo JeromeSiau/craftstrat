@@ -65,12 +65,16 @@ pub fn fetch_ticks(
     date_from: time::OffsetDateTime,
     date_to: time::OffsetDateTime,
 ) -> Result<RowCursor<Tick>> {
+    // Convert to millisecond timestamps for DateTime64(3) compatibility
+    let from_ms = (date_from.unix_timestamp_nanos() / 1_000_000) as i64;
+    let to_ms = (date_to.unix_timestamp_nanos() / 1_000_000) as i64;
+
     let sql = if symbols.is_empty() {
-        "SELECT ?fields FROM slot_snapshots WHERE captured_at >= ? AND captured_at <= ? ORDER BY captured_at ASC".to_string()
+        "SELECT ?fields FROM slot_snapshots WHERE captured_at >= fromUnixTimestamp64Milli(?) AND captured_at <= fromUnixTimestamp64Milli(?) ORDER BY captured_at ASC".to_string()
     } else {
         let placeholders: Vec<&str> = symbols.iter().map(|_| "?").collect();
         format!(
-            "SELECT ?fields FROM slot_snapshots WHERE symbol IN ({}) AND captured_at >= ? AND captured_at <= ? ORDER BY captured_at ASC",
+            "SELECT ?fields FROM slot_snapshots WHERE symbol IN ({}) AND captured_at >= fromUnixTimestamp64Milli(?) AND captured_at <= fromUnixTimestamp64Milli(?) ORDER BY captured_at ASC",
             placeholders.join(", ")
         )
     };
@@ -78,6 +82,6 @@ pub fn fetch_ticks(
     for s in symbols {
         query = query.bind(s.as_str());
     }
-    query = query.bind(date_from).bind(date_to);
+    query = query.bind(from_ms).bind(to_ms);
     Ok(query.fetch::<Tick>()?)
 }
