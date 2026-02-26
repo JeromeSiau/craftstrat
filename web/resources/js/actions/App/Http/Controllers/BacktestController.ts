@@ -186,6 +186,176 @@ showForm.head = (args: { result: number | { id: number } } | [result: number | {
 show.form = showForm
 
 /**
+* @see \App\Http\Controllers\BacktestController::destroy
+* @see app/Http/Controllers/BacktestController.php:93
+* @route '/backtests/{result}'
+*/
+export const destroy = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+    url: destroy.url(args, options),
+    method: 'delete',
+})
+
+destroy.definition = {
+    methods: ["delete"],
+    url: '/backtests/{result}',
+} satisfies RouteDefinition<["delete"]>
+
+/**
+* @see \App\Http\Controllers\BacktestController::destroy
+* @see app/Http/Controllers/BacktestController.php:93
+* @route '/backtests/{result}'
+*/
+destroy.url = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { result: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { result: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            result: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        result: typeof args.result === 'object'
+        ? args.result.id
+        : args.result,
+    }
+
+    return destroy.definition.url
+            .replace('{result}', parsedArgs.result.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\BacktestController::destroy
+* @see app/Http/Controllers/BacktestController.php:93
+* @route '/backtests/{result}'
+*/
+destroy.delete = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+    url: destroy.url(args, options),
+    method: 'delete',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::destroy
+* @see app/Http/Controllers/BacktestController.php:93
+* @route '/backtests/{result}'
+*/
+const destroyForm = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: destroy.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'DELETE',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::destroy
+* @see app/Http/Controllers/BacktestController.php:93
+* @route '/backtests/{result}'
+*/
+destroyForm.delete = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: destroy.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'DELETE',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+destroy.form = destroyForm
+
+/**
+* @see \App\Http\Controllers\BacktestController::rerun
+* @see app/Http/Controllers/BacktestController.php:102
+* @route '/backtests/{result}/rerun'
+*/
+export const rerun = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: rerun.url(args, options),
+    method: 'post',
+})
+
+rerun.definition = {
+    methods: ["post"],
+    url: '/backtests/{result}/rerun',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\BacktestController::rerun
+* @see app/Http/Controllers/BacktestController.php:102
+* @route '/backtests/{result}/rerun'
+*/
+rerun.url = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { result: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { result: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            result: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        result: typeof args.result === 'object'
+        ? args.result.id
+        : args.result,
+    }
+
+    return rerun.definition.url
+            .replace('{result}', parsedArgs.result.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\BacktestController::rerun
+* @see app/Http/Controllers/BacktestController.php:102
+* @route '/backtests/{result}/rerun'
+*/
+rerun.post = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: rerun.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::rerun
+* @see app/Http/Controllers/BacktestController.php:102
+* @route '/backtests/{result}/rerun'
+*/
+const rerunForm = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: rerun.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::rerun
+* @see app/Http/Controllers/BacktestController.php:102
+* @route '/backtests/{result}/rerun'
+*/
+rerunForm.post = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: rerun.url(args, options),
+    method: 'post',
+})
+
+rerun.form = rerunForm
+
+/**
 * @see \App\Http\Controllers\BacktestController::run
 * @see app/Http/Controllers/BacktestController.php:38
 * @route '/strategies/{strategy}/backtest'
@@ -265,6 +435,6 @@ runForm.post = (args: { strategy: number | { id: number } } | [strategy: number 
 
 run.form = runForm
 
-const BacktestController = { index, show, run }
+const BacktestController = { index, show, destroy, rerun, run }
 
 export default BacktestController

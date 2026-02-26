@@ -1,7 +1,11 @@
-import { Head } from '@inertiajs/react';
-import { index, show } from '@/actions/App/Http/Controllers/BacktestController';
+import { Head, router } from '@inertiajs/react';
+import { RefreshCw, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { index, show, destroy, rerun } from '@/actions/App/Http/Controllers/BacktestController';
 import { PnlChart } from '@/components/charts/pnl-chart';
+import ConfirmDialog from '@/components/confirm-dialog';
 import MetricCard from '@/components/metric-card';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { formatWinRate, formatPnl, formatPercentage } from '@/lib/formatters';
@@ -9,6 +13,8 @@ import type { BreadcrumbItem } from '@/types';
 import type { BacktestResult } from '@/types/models';
 
 export default function BacktestsShow({ result }: { result: BacktestResult }) {
+    const [rerunning, setRerunning] = useState(false);
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Backtests', href: index.url() },
         { title: `#${result.id}`, href: show.url(result.id) },
@@ -29,20 +35,50 @@ export default function BacktestsShow({ result }: { result: BacktestResult }) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Backtest #${result.id}`} />
             <div className="p-4 md:p-8">
-                <div className="mb-8">
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        Backtest #{result.id}
-                    </h1>
-                    <p className="mt-1 text-muted-foreground">
-                        Strategy: {result.strategy.name}
-                        {result.date_from && result.date_to && (
-                            <>
-                                {' '}
-                                · {new Date(result.date_from).toLocaleDateString()}{' '}
-                                – {new Date(result.date_to).toLocaleDateString()}
-                            </>
-                        )}
-                    </p>
+                <div className="mb-8 flex items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            Backtest #{result.id}
+                        </h1>
+                        <p className="mt-1 text-muted-foreground">
+                            Strategy: {result.strategy.name}
+                            {result.date_from && result.date_to && (
+                                <>
+                                    {' '}
+                                    · {new Date(result.date_from).toLocaleDateString()}{' '}
+                                    – {new Date(result.date_to).toLocaleDateString()}
+                                </>
+                            )}
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={rerunning}
+                            onClick={() => {
+                                setRerunning(true);
+                                router.post(rerun.url(result.id), {}, {
+                                    onFinish: () => setRerunning(false),
+                                });
+                            }}
+                        >
+                            <RefreshCw className={`size-3.5 ${rerunning ? 'animate-spin' : ''}`} />
+                            {rerunning ? 'Running...' : 'Rerun'}
+                        </Button>
+                        <ConfirmDialog
+                            trigger={
+                                <Button variant="destructive" size="sm">
+                                    <Trash2 className="size-3.5" />
+                                    Delete
+                                </Button>
+                            }
+                            title="Delete Backtest"
+                            description="Are you sure you want to delete this backtest result? This action cannot be undone."
+                            confirmLabel="Delete"
+                            onConfirm={() => router.delete(destroy.url(result.id))}
+                        />
+                    </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

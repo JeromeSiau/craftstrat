@@ -11,4 +11,9 @@ class BacktestResultPolicy
     {
         return $user->id === $backtestResult->user_id;
     }
+
+    public function delete(User $user, BacktestResult $backtestResult): bool
+    {
+        return $user->id === $backtestResult->user_id;
+    }
 }

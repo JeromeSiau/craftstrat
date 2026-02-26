@@ -89,4 +89,68 @@ class BacktestController extends Controller
 
         return to_route('backtests.show', $result)->with('success', 'Backtest completed.');
     }
+
+    public function destroy(BacktestResult $result): RedirectResponse
+    {
+        Gate::authorize('delete', $result);
+
+        $result->delete();
+
+        return to_route('backtests.index')->with('success', 'Backtest deleted.');
+    }
+
+    public function rerun(BacktestResult $result, EngineService $engine): RedirectResponse
+    {
+        Gate::authorize('view', $result);
+
+        $result->load('strategy');
+
+        try {
+            $engineResult = $engine->runBacktest(
+                $result->strategy->graph,
+                $result->market_filter ?? [],
+                $result->date_from->toDateString(),
+                $result->date_to->toDateString(),
+            );
+        } catch (RequestException) {
+            return back()->with('error', 'Failed to run backtest. Engine may be unavailable.');
+        }
+
+        $trades = collect($engineResult['trades'] ?? []);
+        $cumulative = 0.0;
+        $transformedTrades = $trades->map(function (array $trade, int $i) use (&$cumulative) {
+            $pnl = $trade['pnl_usdc'] ?? 0;
+            $cumulative += $pnl;
+
+            return [
+                'tick_index' => $i,
+                'side' => $trade['side'] ?? 'buy',
+                'outcome' => strtoupper($trade['outcome'] ?? 'UP'),
+                'entry_price' => $trade['entry_price'] ?? 0,
+                'exit_price' => $trade['exit_price'] ?? null,
+                'pnl' => round($pnl, 6),
+                'cumulative_pnl' => round($cumulative, 6),
+                'market_id' => $trade['market_id'] ?? null,
+                'entry_at' => $trade['entry_at'] ?? null,
+                'exit_at' => $trade['exit_at'] ?? null,
+                'exit_reason' => $trade['exit_reason'] ?? null,
+            ];
+        })->all();
+
+        $newResult = BacktestResult::create([
+            'user_id' => $result->user_id,
+            'strategy_id' => $result->strategy_id,
+            'market_filter' => $result->market_filter,
+            'date_from' => $result->date_from,
+            'date_to' => $result->date_to,
+            'total_trades' => $engineResult['total_trades'] ?? null,
+            'win_rate' => $engineResult['win_rate'] ?? null,
+            'total_pnl_usdc' => $engineResult['total_pnl_usdc'] ?? null,
+            'max_drawdown' => $engineResult['max_drawdown'] ?? null,
+            'sharpe_ratio' => $engineResult['sharpe_ratio'] ?? null,
+            'result_detail' => ['trades' => $transformedTrades],
+        ]);
+
+        return to_route('backtests.show', $newResult)->with('success', 'Backtest re-run completed.');
+    }
 }

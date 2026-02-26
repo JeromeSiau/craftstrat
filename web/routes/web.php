@@ -39,6 +39,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Backtests
     Route::get('backtests', [BacktestController::class, 'index'])->name('backtests.index');
     Route::get('backtests/{result}', [BacktestController::class, 'show'])->name('backtests.show');
+    Route::delete('backtests/{result}', [BacktestController::class, 'destroy'])->name('backtests.destroy');
+    Route::post('backtests/{result}/rerun', [BacktestController::class, 'rerun'])->name('backtests.rerun');
     Route::post('strategies/{strategy}/backtest', [BacktestController::class, 'run'])->name('backtests.run');
 
     // Billing
