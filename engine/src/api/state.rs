@@ -7,6 +7,8 @@ use sqlx::PgPool;
 use tokio::sync::Mutex;
 
 use crate::execution::queue::ExecutionQueue;
+use crate::execution::relayer::RelayerClient;
+use crate::execution::wallet::WalletKeyStore;
 use crate::strategy::registry::AssignmentRegistry;
 
 pub struct ApiState {
@@ -18,4 +20,6 @@ pub struct ApiState {
     pub start_time: std::time::Instant,
     pub tick_count: Arc<AtomicU64>,
     pub prometheus: PrometheusHandle,
+    pub wallet_keys: Arc<WalletKeyStore>,
+    pub relayer: Arc<RelayerClient>,
 }

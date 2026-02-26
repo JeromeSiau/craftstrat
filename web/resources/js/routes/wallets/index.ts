@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:19
+* @see app/Http/Controllers/WalletController.php:20
 * @route '/wallets'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:19
+* @see app/Http/Controllers/WalletController.php:20
 * @route '/wallets'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:19
+* @see app/Http/Controllers/WalletController.php:20
 * @route '/wallets'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:19
+* @see app/Http/Controllers/WalletController.php:20
 * @route '/wallets'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:19
+* @see app/Http/Controllers/WalletController.php:20
 * @route '/wallets'
 */
 const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +55,7 @@ const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => (
 
 /**
 * @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:19
+* @see app/Http/Controllers/WalletController.php:20
 * @route '/wallets'
 */
 indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -65,7 +65,7 @@ indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:19
+* @see app/Http/Controllers/WalletController.php:20
 * @route '/wallets'
 */
 indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -82,7 +82,7 @@ index.form = indexForm
 
 /**
 * @see \App\Http\Controllers\WalletController::store
-* @see app/Http/Controllers/WalletController.php:31
+* @see app/Http/Controllers/WalletController.php:32
 * @route '/wallets'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -97,7 +97,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\WalletController::store
-* @see app/Http/Controllers/WalletController.php:31
+* @see app/Http/Controllers/WalletController.php:32
 * @route '/wallets'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -106,7 +106,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\WalletController::store
-* @see app/Http/Controllers/WalletController.php:31
+* @see app/Http/Controllers/WalletController.php:32
 * @route '/wallets'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -116,7 +116,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\WalletController::store
-* @see app/Http/Controllers/WalletController.php:31
+* @see app/Http/Controllers/WalletController.php:32
 * @route '/wallets'
 */
 const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -126,7 +126,7 @@ const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => 
 
 /**
 * @see \App\Http\Controllers\WalletController::store
-* @see app/Http/Controllers/WalletController.php:31
+* @see app/Http/Controllers/WalletController.php:32
 * @route '/wallets'
 */
 storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -138,7 +138,7 @@ store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\WalletController::destroy
-* @see app/Http/Controllers/WalletController.php:45
+* @see app/Http/Controllers/WalletController.php:49
 * @route '/wallets/{wallet}'
 */
 export const destroy = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -153,7 +153,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\WalletController::destroy
-* @see app/Http/Controllers/WalletController.php:45
+* @see app/Http/Controllers/WalletController.php:49
 * @route '/wallets/{wallet}'
 */
 destroy.url = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -186,7 +186,7 @@ destroy.url = (args: { wallet: number | { id: number } } | [wallet: number | { i
 
 /**
 * @see \App\Http\Controllers\WalletController::destroy
-* @see app/Http/Controllers/WalletController.php:45
+* @see app/Http/Controllers/WalletController.php:49
 * @route '/wallets/{wallet}'
 */
 destroy.delete = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -196,7 +196,7 @@ destroy.delete = (args: { wallet: number | { id: number } } | [wallet: number | 
 
 /**
 * @see \App\Http\Controllers\WalletController::destroy
-* @see app/Http/Controllers/WalletController.php:45
+* @see app/Http/Controllers/WalletController.php:49
 * @route '/wallets/{wallet}'
 */
 const destroyForm = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -211,7 +211,7 @@ const destroyForm = (args: { wallet: number | { id: number } } | [wallet: number
 
 /**
 * @see \App\Http\Controllers\WalletController::destroy
-* @see app/Http/Controllers/WalletController.php:45
+* @see app/Http/Controllers/WalletController.php:49
 * @route '/wallets/{wallet}'
 */
 destroyForm.delete = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -227,8 +227,88 @@ destroyForm.delete = (args: { wallet: number | { id: number } } | [wallet: numbe
 destroy.form = destroyForm
 
 /**
+* @see \App\Http\Controllers\WalletController::retry
+* @see app/Http/Controllers/WalletController.php:68
+* @route '/wallets/{wallet}/retry'
+*/
+export const retry = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: retry.url(args, options),
+    method: 'post',
+})
+
+retry.definition = {
+    methods: ["post"],
+    url: '/wallets/{wallet}/retry',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\WalletController::retry
+* @see app/Http/Controllers/WalletController.php:68
+* @route '/wallets/{wallet}/retry'
+*/
+retry.url = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { wallet: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { wallet: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            wallet: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        wallet: typeof args.wallet === 'object'
+        ? args.wallet.id
+        : args.wallet,
+    }
+
+    return retry.definition.url
+            .replace('{wallet}', parsedArgs.wallet.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\WalletController::retry
+* @see app/Http/Controllers/WalletController.php:68
+* @route '/wallets/{wallet}/retry'
+*/
+retry.post = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: retry.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\WalletController::retry
+* @see app/Http/Controllers/WalletController.php:68
+* @route '/wallets/{wallet}/retry'
+*/
+const retryForm = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: retry.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\WalletController::retry
+* @see app/Http/Controllers/WalletController.php:68
+* @route '/wallets/{wallet}/retry'
+*/
+retryForm.post = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: retry.url(args, options),
+    method: 'post',
+})
+
+retry.form = retryForm
+
+/**
 * @see \App\Http\Controllers\WalletController::assignStrategy
-* @see app/Http/Controllers/WalletController.php:60
+* @see app/Http/Controllers/WalletController.php:82
 * @route '/wallets/{wallet}/strategies'
 */
 export const assignStrategy = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -243,7 +323,7 @@ assignStrategy.definition = {
 
 /**
 * @see \App\Http\Controllers\WalletController::assignStrategy
-* @see app/Http/Controllers/WalletController.php:60
+* @see app/Http/Controllers/WalletController.php:82
 * @route '/wallets/{wallet}/strategies'
 */
 assignStrategy.url = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -276,7 +356,7 @@ assignStrategy.url = (args: { wallet: number | { id: number } } | [wallet: numbe
 
 /**
 * @see \App\Http\Controllers\WalletController::assignStrategy
-* @see app/Http/Controllers/WalletController.php:60
+* @see app/Http/Controllers/WalletController.php:82
 * @route '/wallets/{wallet}/strategies'
 */
 assignStrategy.post = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -286,7 +366,7 @@ assignStrategy.post = (args: { wallet: number | { id: number } } | [wallet: numb
 
 /**
 * @see \App\Http\Controllers\WalletController::assignStrategy
-* @see app/Http/Controllers/WalletController.php:60
+* @see app/Http/Controllers/WalletController.php:82
 * @route '/wallets/{wallet}/strategies'
 */
 const assignStrategyForm = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -296,7 +376,7 @@ const assignStrategyForm = (args: { wallet: number | { id: number } } | [wallet:
 
 /**
 * @see \App\Http\Controllers\WalletController::assignStrategy
-* @see app/Http/Controllers/WalletController.php:60
+* @see app/Http/Controllers/WalletController.php:82
 * @route '/wallets/{wallet}/strategies'
 */
 assignStrategyForm.post = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -308,7 +388,7 @@ assignStrategy.form = assignStrategyForm
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:78
+* @see app/Http/Controllers/WalletController.php:100
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 export const removeStrategy = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -323,7 +403,7 @@ removeStrategy.definition = {
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:78
+* @see app/Http/Controllers/WalletController.php:100
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 removeStrategy.url = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions) => {
@@ -353,7 +433,7 @@ removeStrategy.url = (args: { wallet: number | { id: number }, strategy: number 
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:78
+* @see app/Http/Controllers/WalletController.php:100
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 removeStrategy.delete = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -363,7 +443,7 @@ removeStrategy.delete = (args: { wallet: number | { id: number }, strategy: numb
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:78
+* @see app/Http/Controllers/WalletController.php:100
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 const removeStrategyForm = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -378,7 +458,7 @@ const removeStrategyForm = (args: { wallet: number | { id: number }, strategy: n
 
 /**
 * @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:78
+* @see app/Http/Controllers/WalletController.php:100
 * @route '/wallets/{wallet}/strategies/{strategy}'
 */
 removeStrategyForm.delete = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -397,6 +477,7 @@ const wallets = {
     index: Object.assign(index, index),
     store: Object.assign(store, store),
     destroy: Object.assign(destroy, destroy),
+    retry: Object.assign(retry, retry),
     assignStrategy: Object.assign(assignStrategy, assignStrategy),
     removeStrategy: Object.assign(removeStrategy, removeStrategy),
 }

@@ -11,9 +11,9 @@ beforeEach(function () {
 it('generates a valid ethereum keypair', function () {
     $result = $this->service->generateKeypair();
 
-    expect($result)->toHaveKeys(['address', 'private_key_enc'])
-        ->and($result['address'])->toStartWith('0x')
-        ->and($result['address'])->toHaveLength(42)
+    expect($result)->toHaveKeys(['signer_address', 'private_key_enc'])
+        ->and($result['signer_address'])->toStartWith('0x')
+        ->and($result['signer_address'])->toHaveLength(42)
         ->and($result['private_key_enc'])->not->toBeEmpty();
 });
 
@@ -21,7 +21,7 @@ it('generates unique addresses on each call', function () {
     $first = $this->service->generateKeypair();
     $second = $this->service->generateKeypair();
 
-    expect($first['address'])->not->toBe($second['address']);
+    expect($first['signer_address'])->not->toBe($second['signer_address']);
 });
 
 it('encrypts and decrypts a private key correctly', function () {

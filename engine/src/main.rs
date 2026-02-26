@@ -63,6 +63,19 @@ async fn main() -> anyhow::Result<()> {
     let ch_client = storage::clickhouse::create_client(&state.config.clickhouse_url);
     let redis_client = redis::Client::open(state.config.redis_url.as_str())?;
     let redis_conn = redis_client.get_multiplexed_tokio_connection().await?;
+    // Builder Relayer client (for Safe deployment via API handlers)
+    let relayer_credentials = execution::orders::BuilderCredentials {
+        api_key: state.config.builder_api_key.clone(),
+        secret: state.config.builder_secret.clone(),
+        passphrase: state.config.builder_passphrase.clone(),
+    };
+    let relayer_client = std::sync::Arc::new(execution::relayer::RelayerClient::new(
+        state.http.clone(),
+        &state.config.relayer_url,
+        relayer_credentials,
+        handles.wallet_keys.clone(),
+    ));
+
     let api_state = std::sync::Arc::new(api::state::ApiState {
         registry: handles.registry,
         exec_queue: handles.exec_queue,
@@ -72,6 +85,8 @@ async fn main() -> anyhow::Result<()> {
         start_time: std::time::Instant::now(),
         tick_count: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
         prometheus: prometheus_handle,
+        wallet_keys: handles.wallet_keys,
+        relayer: relayer_client,
     });
     let api_port = state.config.api_port;
     tasks.spawn(async move {

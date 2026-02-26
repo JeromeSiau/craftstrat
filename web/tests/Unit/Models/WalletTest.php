@@ -28,3 +28,26 @@ it('casts is_active as boolean', function () {
 
     expect($wallet->is_active)->toBeTrue();
 });
+
+it('reports correct deployment status', function () {
+    $deployed = Wallet::factory()->create();
+    $pending = Wallet::factory()->pending()->create();
+    $deploying = Wallet::factory()->deploying()->create();
+    $failed = Wallet::factory()->failed()->create();
+
+    expect($deployed->isDeployed())->toBeTrue()
+        ->and($deployed->isDeploying())->toBeFalse()
+        ->and($deployed->isFailed())->toBeFalse()
+        ->and($pending->isDeployed())->toBeFalse()
+        ->and($pending->isDeploying())->toBeTrue()
+        ->and($deploying->isDeployed())->toBeFalse()
+        ->and($deploying->isDeploying())->toBeTrue()
+        ->and($failed->isDeployed())->toBeFalse()
+        ->and($failed->isFailed())->toBeTrue();
+});
+
+it('casts deployed_at as datetime', function () {
+    $wallet = Wallet::factory()->create(['deployed_at' => '2026-01-15 12:00:00']);
+
+    expect($wallet->deployed_at)->toBeInstanceOf(\Carbon\CarbonImmutable::class);
+});

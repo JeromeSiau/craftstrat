@@ -21,6 +21,13 @@ class StrategyActivationService
             ->with('wallet')
             ->get();
 
+        // Ensure all assigned wallets have a deployed Safe
+        foreach ($assignments as $assignment) {
+            if (! $assignment->wallet->isDeployed()) {
+                throw new \RuntimeException("Wallet #{$assignment->wallet_id} Safe is not deployed yet.");
+            }
+        }
+
         DB::transaction(function () use ($strategy, $assignments): void {
             foreach ($assignments as $assignment) {
                 $this->engine->activateStrategy(
@@ -30,6 +37,8 @@ class StrategyActivationService
                     $assignment->markets ?? [],
                     (float) $assignment->max_position_usdc,
                     (bool) $assignment->is_paper,
+                    $assignment->wallet->private_key_enc,
+                    $assignment->wallet->safe_address,
                 );
 
                 $assignment->update(['is_running' => true, 'started_at' => now()]);

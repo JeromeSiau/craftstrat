@@ -195,7 +195,7 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                         <div key={ws.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                                             <div className="flex items-center gap-2 truncate">
                                                 <span className="truncate font-mono text-sm">
-                                                    {ws.wallet.label || `${ws.wallet.address.slice(0, 10)}...`}
+                                                    {ws.wallet.label || `${(ws.wallet.safe_address ?? ws.wallet.signer_address).slice(0, 10)}...`}
                                                 </span>
                                                 {ws.is_paper && (
                                                     <Badge variant="outline" className="shrink-0 border-amber-500/50 text-amber-600 dark:text-amber-400">

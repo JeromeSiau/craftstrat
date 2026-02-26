@@ -8,6 +8,8 @@ use serde::Deserialize;
 use crate::api::error::ApiError;
 use crate::api::state::ApiState;
 
+use alloy::primitives::Address;
+
 #[derive(Deserialize)]
 pub struct ActivateRequest {
     pub wallet_id: u64,
@@ -18,6 +20,12 @@ pub struct ActivateRequest {
     pub max_position_usdc: f64,
     #[serde(default)]
     pub is_paper: bool,
+    /// Encrypted signer private key (base64). Loaded into WalletKeyStore on activation.
+    #[serde(default)]
+    pub private_key_enc: String,
+    /// Gnosis Safe address for this wallet (used as maker in orders).
+    #[serde(default)]
+    pub safe_address: String,
 }
 
 fn default_max_position() -> f64 {
@@ -41,6 +49,24 @@ pub async fn activate(
         return Err(ApiError::Validation(
             "max_position_usdc must be positive".into(),
         ));
+    }
+
+    // Load wallet signer key and Safe address into the shared WalletKeyStore
+    if !req.private_key_enc.is_empty() {
+        state
+            .wallet_keys
+            .store_key(req.wallet_id, &req.private_key_enc)
+            .map_err(|e| ApiError::Internal(format!("failed to load wallet key: {e}")))?;
+    }
+    if !req.safe_address.is_empty() {
+        let addr: Address = req
+            .safe_address
+            .parse()
+            .map_err(|_| ApiError::Validation("invalid safe_address".into()))?;
+        state
+            .wallet_keys
+            .store_safe_address(req.wallet_id, addr)
+            .map_err(|e| ApiError::Internal(format!("failed to store safe address: {e}")))?;
     }
 
     crate::strategy::registry::activate(

@@ -24,9 +24,12 @@ export interface Strategy {
 export interface Wallet {
     id: number;
     label: string | null;
-    address: string;
+    signer_address: string;
+    safe_address: string | null;
+    status: 'pending' | 'deploying' | 'deployed' | 'failed';
     balance_usdc: string;
     is_active: boolean;
+    deployed_at: string | null;
     strategies_count?: number;
 }
 
@@ -35,7 +38,7 @@ export interface WalletStrategy {
     is_running: boolean;
     is_paper: boolean;
     max_position_usdc: string;
-    wallet: { id: number; label: string | null; address: string };
+    wallet: { id: number; label: string | null; safe_address: string | null; signer_address: string };
 }
 
 export interface BacktestResult {

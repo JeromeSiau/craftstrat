@@ -4,13 +4,16 @@ use App\Models\Strategy;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\WalletService;
+use Illuminate\Support\Facades\Bus;
 
 beforeEach(function () {
+    Bus::fake();
+
     $this->user = User::factory()->create(['plan' => 'free']);
 
     $mock = Mockery::mock(WalletService::class);
     $mock->shouldReceive('generateKeypair')->andReturn([
-        'address' => '0x'.fake()->regexify('[a-fA-F0-9]{40}'),
+        'signer_address' => '0x'.fake()->regexify('[a-fA-F0-9]{40}'),
         'private_key_enc' => base64_encode('encrypted'),
     ]);
     $this->app->instance(WalletService::class, $mock);

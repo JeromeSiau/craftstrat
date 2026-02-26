@@ -12,6 +12,24 @@ class EngineService
         private readonly int $timeout,
     ) {}
 
+    /**
+     * Deploy a Gnosis Safe wallet via the Builder Relayer.
+     *
+     * @return array{safe_address: string, transaction_hash: string}
+     */
+    public function deploySafe(int $walletId, string $signerAddress, string $privateKeyEnc): array
+    {
+        return $this->client()
+            ->timeout($this->timeout * 5)
+            ->post('/internal/wallet/deploy-safe', [
+                'wallet_id' => $walletId,
+                'signer_address' => $signerAddress,
+                'private_key_enc' => $privateKeyEnc,
+            ])
+            ->throw()
+            ->json();
+    }
+
     public function activateStrategy(
         int $walletId,
         int $strategyId,
@@ -19,6 +37,8 @@ class EngineService
         array $markets,
         float $maxPositionUsdc = 1000.0,
         bool $isPaper = false,
+        string $privateKeyEnc = '',
+        string $safeAddress = '',
     ): void {
         $this->client()->post('/internal/strategy/activate', [
             'wallet_id' => $walletId,
@@ -27,6 +47,8 @@ class EngineService
             'markets' => $markets,
             'max_position_usdc' => $maxPositionUsdc,
             'is_paper' => $isPaper,
+            'private_key_enc' => $privateKeyEnc,
+            'safe_address' => $safeAddress,
         ])->throw();
     }
 

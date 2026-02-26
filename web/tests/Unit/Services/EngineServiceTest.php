@@ -12,14 +12,19 @@ beforeEach(function () {
     );
 });
 
-it('sends activate strategy request', function () {
+it('sends activate strategy request with safe credentials', function () {
     Http::fake(['engine:8080/internal/strategy/activate' => Http::response(null, 200)]);
 
-    $this->service->activateStrategy(1, 100, ['mode' => 'form'], ['btc-15m']);
+    $this->service->activateStrategy(
+        1, 100, ['mode' => 'form'], ['btc-15m'], 1000.0, false,
+        'encrypted-key', '0xSafeAddress',
+    );
 
     Http::assertSent(fn ($request) => $request->url() === 'http://engine:8080/internal/strategy/activate'
         && $request['wallet_id'] === 1
         && $request['strategy_id'] === 100
+        && $request['private_key_enc'] === 'encrypted-key'
+        && $request['safe_address'] === '0xSafeAddress'
     );
 });
 
@@ -90,6 +95,25 @@ it('sends unwatch leader request', function () {
     $this->service->unwatchLeader('0xabc123');
 
     Http::assertSent(fn ($request) => $request['leader_address'] === '0xabc123'
+    );
+});
+
+it('sends deploy safe request', function () {
+    Http::fake(['engine:8080/internal/wallet/deploy-safe' => Http::response([
+        'safe_address' => '0xSafeAddress123',
+        'transaction_hash' => '0xTxHash456',
+    ])]);
+
+    $result = $this->service->deploySafe(1, '0xSignerAddress', 'encrypted-key');
+
+    expect($result)
+        ->toHaveKey('safe_address', '0xSafeAddress123')
+        ->toHaveKey('transaction_hash', '0xTxHash456');
+
+    Http::assertSent(fn ($request) => $request->url() === 'http://engine:8080/internal/wallet/deploy-safe'
+        && $request['wallet_id'] === 1
+        && $request['signer_address'] === '0xSignerAddress'
+        && $request['private_key_enc'] === 'encrypted-key'
     );
 });
 

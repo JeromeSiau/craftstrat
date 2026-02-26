@@ -2,6 +2,7 @@ pub mod executor;
 pub mod fees;
 pub mod orders;
 pub mod queue;
+pub mod relayer;
 pub mod wallet;
 
 use serde::{Deserialize, Serialize};

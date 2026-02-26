@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignStrategyRequest;
 use App\Http\Requests\StoreWalletRequest;
+use App\Jobs\DeploySafeWallet;
 use App\Models\Strategy;
 use App\Models\Wallet;
 use App\Services\StrategyActivationService;
@@ -34,17 +35,24 @@ class WalletController extends Controller
 
         $wallet = new Wallet([
             'label' => $request->validated('label'),
-            'address' => $keypair['address'],
+            'signer_address' => $keypair['signer_address'],
+            'status' => 'pending',
         ]);
         $wallet->private_key_enc = $keypair['private_key_enc'];
         $request->user()->wallets()->save($wallet);
 
-        return back()->with('success', 'Wallet created.');
+        DeploySafeWallet::dispatch($wallet);
+
+        return back()->with('success', 'Wallet creation started. Safe deployment in progress.');
     }
 
     public function destroy(Wallet $wallet, StrategyActivationService $activation): RedirectResponse
     {
         Gate::authorize('delete', $wallet);
+
+        if ($wallet->isDeploying()) {
+            return back()->with('error', 'Cannot delete a wallet while Safe is deploying.');
+        }
 
         try {
             $activation->deactivateAllForWallet($wallet);
@@ -55,6 +63,20 @@ class WalletController extends Controller
         $wallet->delete();
 
         return to_route('wallets.index')->with('success', 'Wallet deleted.');
+    }
+
+    public function retryDeploy(Wallet $wallet): RedirectResponse
+    {
+        Gate::authorize('update', $wallet);
+
+        if (! $wallet->isFailed()) {
+            return back()->with('error', 'Can only retry failed wallet deployments.');
+        }
+
+        $wallet->update(['status' => 'pending']);
+        DeploySafeWallet::dispatch($wallet);
+
+        return back()->with('success', 'Retrying Safe deployment.');
     }
 
     public function assignStrategy(AssignStrategyRequest $request, Wallet $wallet): RedirectResponse

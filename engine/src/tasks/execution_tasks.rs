@@ -24,20 +24,10 @@ pub fn spawn_execution(
     signal_rx: mpsc::Receiver<EngineOutput>,
     queue: Arc<Mutex<ExecutionQueue>>,
     db: PgPool,
+    wallet_keys: Arc<WalletKeyStore>,
     tasks: &mut JoinSet<anyhow::Result<()>>,
 ) {
     let cfg = &state.config;
-
-    // Wallet key store
-    let wallet_keys = Arc::new(
-        WalletKeyStore::new(&cfg.encryption_key).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "wallet_key_store_init_failed, using dummy key");
-            WalletKeyStore::new(
-                "0000000000000000000000000000000000000000000000000000000000000000",
-            )
-            .unwrap()
-        }),
-    );
 
     // Fee cache
     let fee_cache = Arc::new(FeeCache::new(state.http.clone(), &cfg.clob_api_url));

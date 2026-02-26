@@ -31,6 +31,10 @@ pub fn router(state: Arc<ApiState>) -> Router {
             post(handlers::strategy::unkill),
         )
         .route("/internal/wallet/{id}/state", get(handlers::wallet::state))
+        .route(
+            "/internal/wallet/deploy-safe",
+            post(handlers::safe::deploy_safe),
+        )
         .route("/internal/backtest/run", post(handlers::backtest::run))
         .route("/internal/engine/status", get(handlers::status::status))
         .route("/internal/copy/watch", post(handlers::copy::watch))

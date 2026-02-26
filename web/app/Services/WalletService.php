@@ -20,9 +20,9 @@ class WalletService
     }
 
     /**
-     * Generate a new Ethereum/Polygon keypair.
+     * Generate a new Ethereum/Polygon signer keypair.
      *
-     * @return array{address: string, private_key_enc: string}
+     * @return array{signer_address: string, private_key_enc: string}
      */
     public function generateKeypair(): array
     {
@@ -32,11 +32,11 @@ class WalletService
         $privateKeyHex = $keyPair->getPrivate('hex');
         $publicKeyHex = substr($keyPair->getPublic(false, 'hex'), 2); // remove '04' prefix
 
-        $address = $this->publicKeyToAddress($publicKeyHex);
+        $signerAddress = $this->publicKeyToAddress($publicKeyHex);
         $encryptedKey = $this->encrypt($privateKeyHex);
 
         return [
-            'address' => $address,
+            'signer_address' => $signerAddress,
             'private_key_enc' => $encryptedKey,
         ];
     }

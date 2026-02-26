@@ -11,10 +11,12 @@ use base64::Engine as _;
 use zeroize::Zeroize;
 
 /// Stores AES-256-GCM encrypted wallet private keys, decrypting only at signing time.
+/// Also stores the associated Gnosis Safe address for each wallet (used as `maker` in orders).
 ///
 /// Storage format: base64(nonce_12_bytes || ciphertext || auth_tag)
 pub struct WalletKeyStore {
     keys: RwLock<HashMap<u64, Vec<u8>>>,
+    safe_addresses: RwLock<HashMap<u64, Address>>,
     cipher: Aes256Gcm,
 }
 
@@ -35,12 +37,12 @@ impl WalletKeyStore {
 
         Ok(Self {
             keys: RwLock::new(HashMap::new()),
+            safe_addresses: RwLock::new(HashMap::new()),
             cipher,
         })
     }
 
     /// Stores an encrypted private key (base64-encoded) for a wallet.
-    #[allow(dead_code)]
     pub fn store_key(&self, wallet_id: u64, encrypted_b64: &str) -> Result<()> {
         let raw = BASE64
             .decode(encrypted_b64)
@@ -131,6 +133,28 @@ impl WalletKeyStore {
             Err(e) => tracing::warn!(wallet_id, error = %e, "remove_key_lock_poisoned"),
         }
     }
+
+    /// Stores the Gnosis Safe address associated with a wallet.
+    pub fn store_safe_address(&self, wallet_id: u64, safe_address: Address) -> Result<()> {
+        let mut addrs = self
+            .safe_addresses
+            .write()
+            .map_err(|e| anyhow::anyhow!("lock poisoned: {e}"))?;
+        addrs.insert(wallet_id, safe_address);
+        Ok(())
+    }
+
+    /// Returns the Gnosis Safe address for the given wallet.
+    pub fn get_safe_address(&self, wallet_id: u64) -> Result<Address> {
+        let addrs = self
+            .safe_addresses
+            .read()
+            .map_err(|e| anyhow::anyhow!("lock poisoned: {e}"))?;
+        addrs
+            .get(&wallet_id)
+            .copied()
+            .with_context(|| format!("no safe_address stored for wallet {wallet_id}"))
+    }
 }
 
 #[cfg(test)]
@@ -190,6 +214,18 @@ mod tests {
             "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
         );
         assert!(bad_hex.is_err(), "non-hex key should fail");
+    }
+
+    #[test]
+    fn test_safe_address_store_and_get() {
+        let store = WalletKeyStore::new(TEST_KEY_HEX).unwrap();
+        let addr: Address = "0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b"
+            .parse()
+            .unwrap();
+
+        assert!(store.get_safe_address(1).is_err());
+        store.store_safe_address(1, addr).unwrap();
+        assert_eq!(store.get_safe_address(1).unwrap(), addr);
     }
 
     #[test]

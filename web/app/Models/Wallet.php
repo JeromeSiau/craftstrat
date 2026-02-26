@@ -18,7 +18,10 @@ class Wallet extends Model
     protected $fillable = [
         'user_id',
         'label',
-        'address',
+        'signer_address',
+        'safe_address',
+        'status',
+        'deployed_at',
         'balance_usdc',
         'is_active',
     ];
@@ -28,6 +31,7 @@ class Wallet extends Model
         return [
             'balance_usdc' => 'decimal:6',
             'is_active' => 'boolean',
+            'deployed_at' => 'datetime',
         ];
     }
 
@@ -37,6 +41,21 @@ class Wallet extends Model
     protected $hidden = [
         'private_key_enc',
     ];
+
+    public function isDeployed(): bool
+    {
+        return $this->status === 'deployed';
+    }
+
+    public function isDeploying(): bool
+    {
+        return in_array($this->status, ['pending', 'deploying']);
+    }
+
+    public function isFailed(): bool
+    {
+        return $this->status === 'failed';
+    }
 
     public function user(): BelongsTo
     {

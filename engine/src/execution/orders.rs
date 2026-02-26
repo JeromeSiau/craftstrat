@@ -114,12 +114,16 @@ impl OrderSubmitter {
     ///
     /// Flow: build EIP-712 struct -> sign -> POST /order with Builder headers -> poll status.
     pub async fn submit(&self, order: &ExecutionOrder) -> Result<OrderResult> {
-        // 1. Get signer and address
+        // 1. Get signer and Safe address (Gnosis Safe = maker, signer = EOA)
         let signer = self
             .wallet_keys
             .get_signer(order.wallet_id)
             .context("failed to get wallet signer")?;
-        let maker_address = signer.address();
+        let signer_address = signer.address();
+        let safe_address = self
+            .wallet_keys
+            .get_safe_address(order.wallet_id)
+            .context("failed to get Safe address for wallet")?;
 
         // 2. Get fee rate
         let fee_rate_bps = self
@@ -170,8 +174,8 @@ impl OrderSubmitter {
 
         let clob_order = ClobOrder {
             salt,
-            maker: maker_address,
-            signer: maker_address,
+            maker: safe_address,
+            signer: signer_address,
             taker: Address::ZERO,
             tokenId: token_id_u256,
             makerAmount: U256::from(maker_amount),
@@ -180,7 +184,7 @@ impl OrderSubmitter {
             nonce: U256::ZERO,
             feeRateBps: U256::from(fee_rate_bps),
             side: side_u8,
-            signatureType: 0, // EOA
+            signatureType: 2, // GNOSIS_SAFE
         };
 
         // 7. Build EIP-712 domain
@@ -219,8 +223,8 @@ impl OrderSubmitter {
         let payload = serde_json::json!({
             "order": {
                 "salt": salt.to_string(),
-                "maker": format!("{:?}", maker_address),
-                "signer": format!("{:?}", maker_address),
+                "maker": format!("{:?}", safe_address),
+                "signer": format!("{:?}", signer_address),
                 "taker": format!("{:?}", Address::ZERO),
                 "tokenId": order.token_id,
                 "makerAmount": maker_amount.to_string(),
@@ -229,7 +233,7 @@ impl OrderSubmitter {
                 "nonce": "0",
                 "feeRateBps": fee_rate_bps.to_string(),
                 "side": side_u8.to_string(),
-                "signatureType": "0",
+                "signatureType": "2",
                 "signature": signature_hex,
             },
             "orderType": order_type_str,
@@ -248,7 +252,7 @@ impl OrderSubmitter {
         let mut headers = HeaderMap::new();
         headers.insert(
             "POLY_ADDRESS",
-            HeaderValue::from_str(&format!("{:?}", maker_address))
+            HeaderValue::from_str(&format!("{:?}", safe_address))
                 .context("invalid address header")?,
         );
         headers.insert(

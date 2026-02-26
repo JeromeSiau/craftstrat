@@ -22,6 +22,7 @@ pub struct SpawnedHandles {
     pub registry: crate::strategy::registry::AssignmentRegistry,
     pub exec_queue: Arc<Mutex<crate::execution::queue::ExecutionQueue>>,
     pub db: sqlx::PgPool,
+    pub wallet_keys: Arc<crate::execution::wallet::WalletKeyStore>,
 }
 
 pub struct SharedState {
@@ -84,6 +85,18 @@ pub async fn spawn_all(
         crate::execution::queue::ExecutionQueue::new(state.config.max_orders_per_day),
     ));
 
+    // Wallet key store (shared between execution and API)
+    let wallet_keys = Arc::new(
+        crate::execution::wallet::WalletKeyStore::new(&state.config.encryption_key)
+            .unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "wallet_key_store_init_failed, using dummy key");
+                crate::execution::wallet::WalletKeyStore::new(
+                    "0000000000000000000000000000000000000000000000000000000000000000",
+                )
+                .unwrap()
+            }),
+    );
+
     // Execution pipeline (replaces signal logger)
     execution_tasks::spawn_execution(
         state,
@@ -91,6 +104,7 @@ pub async fn spawn_all(
         signal_rx,
         exec_queue.clone(),
         db.clone(),
+        wallet_keys.clone(),
         tasks,
     );
 
@@ -104,5 +118,6 @@ pub async fn spawn_all(
         registry: engine_registry,
         exec_queue,
         db,
+        wallet_keys,
     })
 }

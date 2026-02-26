@@ -32,6 +32,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('wallets', [WalletController::class, 'index'])->name('wallets.index');
     Route::post('wallets', [WalletController::class, 'store'])->name('wallets.store')->middleware('plan.limit:wallets');
     Route::delete('wallets/{wallet}', [WalletController::class, 'destroy'])->name('wallets.destroy');
+    Route::post('wallets/{wallet}/retry', [WalletController::class, 'retryDeploy'])->name('wallets.retry');
     Route::post('wallets/{wallet}/strategies', [WalletController::class, 'assignStrategy'])->name('wallets.assign-strategy');
     Route::delete('wallets/{wallet}/strategies/{strategy}', [WalletController::class, 'removeStrategy'])->name('wallets.remove-strategy');
 
