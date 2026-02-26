@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 
 class EngineService
@@ -91,8 +92,8 @@ class EngineService
             ->post('/internal/backtest/run', [
                 'strategy_graph' => $strategyGraph,
                 'market_filter' => $marketFilter,
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo,
+                'date_from' => Carbon::parse($dateFrom)->startOfDay()->toIso8601ZuluString(),
+                'date_to' => Carbon::parse($dateTo)->endOfDay()->toIso8601ZuluString(),
             ])
             ->throw()
             ->json();

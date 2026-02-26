@@ -54,9 +54,17 @@ pub async fn run(
         }
 
         // Read lock -> clone assignments for this symbol -> release lock
+        // Tick symbols include a timestamp suffix (e.g. "btc-updown-15m-1772135100")
+        // but registry keys are prefixes (e.g. "btc-updown-15m"), so strip the
+        // trailing timestamp segment for the lookup.
+        let market_prefix = tick
+            .symbol
+            .rfind('-')
+            .map(|pos| &tick.symbol[..pos])
+            .unwrap_or(&tick.symbol);
         let assignments = {
             let reg = registry.read().await;
-            reg.get(&tick.symbol).cloned().unwrap_or_default()
+            reg.get(market_prefix).cloned().unwrap_or_default()
         };
 
         if assignments.is_empty() {
