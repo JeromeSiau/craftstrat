@@ -1,7 +1,8 @@
-import { Head, router } from '@inertiajs/react';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { index, show, destroy, rerun } from '@/actions/App/Http/Controllers/BacktestController';
+import { show as showStrategy } from '@/actions/App/Http/Controllers/StrategyController';
 import { PnlChart } from '@/components/charts/pnl-chart';
 import ConfirmDialog from '@/components/confirm-dialog';
 import MetricCard from '@/components/metric-card';
@@ -52,6 +53,12 @@ export default function BacktestsShow({ result }: { result: BacktestResult }) {
                         </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={showStrategy.url(result.strategy.id)}>
+                                <Pencil className="size-3.5" />
+                                Edit Strategy
+                            </Link>
+                        </Button>
                         <Button
                             variant="outline"
                             size="sm"
