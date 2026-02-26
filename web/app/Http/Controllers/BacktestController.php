@@ -137,12 +137,7 @@ class BacktestController extends Controller
             ];
         })->all();
 
-        $newResult = BacktestResult::create([
-            'user_id' => $result->user_id,
-            'strategy_id' => $result->strategy_id,
-            'market_filter' => $result->market_filter,
-            'date_from' => $result->date_from,
-            'date_to' => $result->date_to,
+        $result->update([
             'total_trades' => $engineResult['total_trades'] ?? null,
             'win_rate' => $engineResult['win_rate'] ?? null,
             'total_pnl_usdc' => $engineResult['total_pnl_usdc'] ?? null,
@@ -151,6 +146,6 @@ class BacktestController extends Controller
             'result_detail' => ['trades' => $transformedTrades],
         ]);
 
-        return to_route('backtests.show', $newResult)->with('success', 'Backtest re-run completed.');
+        return back()->with('success', 'Backtest re-run completed.');
     }
 }
