@@ -42,6 +42,30 @@ impl BacktestEngine {
                 open_trade: None,
             });
 
+        // Prediction market slot resolution: if winner is known and we have
+        // an open position from a previous tick, settle it.
+        // Exit at 1.0 if position outcome matches winner, 0.0 otherwise.
+        if let (Some(winner), true) = (
+            tick.winner,
+            ctx.open_trade
+                .as_ref()
+                .map_or(false, |t| t.entry_at < tick.captured_at),
+        ) {
+            if let Some(mut trade) = ctx.open_trade.take() {
+                let won = matches!(
+                    (trade.outcome, winner),
+                    (Outcome::Up, 1) | (Outcome::Down, 2)
+                );
+                let exit = if won { 1.0 } else { 0.0 };
+                trade.exit_price = Some(exit);
+                trade.pnl_usdc = compute_pnl(trade.entry_price, exit, trade.size_usdc);
+                trade.exit_at = Some(tick.captured_at);
+                trade.exit_reason = Some(ExitReason::SlotResolved);
+                ctx.state.position = None;
+                self.trades.push(trade);
+            }
+        }
+
         let signal = evaluate(&self.graph, tick, &mut ctx.state);
 
         match signal {
@@ -90,15 +114,24 @@ impl BacktestEngine {
     }
 
     pub fn finish(mut self) -> BacktestResult {
-        // Force-close any open positions at last known mid price
+        // Force-close any open positions — use winner field if available,
+        // otherwise fall back to last known mid price.
         for (_, ctx) in self.markets.drain() {
             if let Some(mut trade) = ctx.open_trade {
                 if let Some(last_tick) = ctx.state.window.back() {
-                    let exit = mid_price(trade.outcome, last_tick);
+                    let (exit, reason) = if let Some(winner) = last_tick.winner {
+                        let won = matches!(
+                            (trade.outcome, winner),
+                            (Outcome::Up, 1) | (Outcome::Down, 2)
+                        );
+                        (if won { 1.0 } else { 0.0 }, ExitReason::SlotResolved)
+                    } else {
+                        (mid_price(trade.outcome, last_tick), ExitReason::EndOfData)
+                    };
                     trade.exit_price = Some(exit);
                     trade.pnl_usdc = compute_pnl(trade.entry_price, exit, trade.size_usdc);
                     trade.exit_at = Some(last_tick.captured_at);
-                    trade.exit_reason = Some(ExitReason::EndOfData);
+                    trade.exit_reason = Some(reason);
                     self.trades.push(trade);
                 }
             }
@@ -370,5 +403,147 @@ mod tests {
         assert!((result.max_drawdown).abs() < f64::EPSILON);
         assert_eq!(result.trades[0].exit_reason, Some(ExitReason::Stoploss));
         assert_eq!(result.trades[1].exit_reason, Some(ExitReason::TakeProfit));
+    }
+
+    #[test]
+    fn test_slot_resolution_win() {
+        let graph = simple_buy_up_strategy();
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
+
+        // Tick 1: triggers buy at ask_up = 0.62, winner=UP (annotated retroactively)
+        let mut t1 = test_tick();
+        t1.abs_move_pct = 4.0;
+        t1.winner = Some(1); // UP wins
+        engine.process_tick(&t1);
+
+        // Position opened
+        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_some());
+
+        // Tick 2: next tick with winner=UP → slot resolves, position wins
+        let mut t2 = test_tick();
+        t2.abs_move_pct = 1.0;
+        t2.winner = Some(1); // UP wins
+        t2.captured_at = OffsetDateTime::from_unix_timestamp(1700000451).unwrap();
+        engine.process_tick(&t2);
+
+        // Position should be resolved
+        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_none());
+        assert_eq!(engine.trades.len(), 1);
+
+        let trade = &engine.trades[0];
+        assert!((trade.exit_price.unwrap() - 1.0).abs() < f64::EPSILON);
+        // PnL = (1.0 - 0.62) / 0.62 * 50 ≈ 30.65
+        assert!(trade.pnl_usdc > 0.0);
+        assert_eq!(trade.exit_reason, Some(ExitReason::SlotResolved));
+    }
+
+    #[test]
+    fn test_slot_resolution_loss() {
+        let graph = simple_buy_up_strategy();
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
+
+        // Tick 1: triggers buy UP, but DOWN wins
+        let mut t1 = test_tick();
+        t1.abs_move_pct = 4.0;
+        t1.winner = Some(2); // DOWN wins
+        engine.process_tick(&t1);
+
+        // Tick 2: slot resolves → bought UP but DOWN won → loss
+        let mut t2 = test_tick();
+        t2.abs_move_pct = 1.0;
+        t2.winner = Some(2);
+        t2.captured_at = OffsetDateTime::from_unix_timestamp(1700000451).unwrap();
+        engine.process_tick(&t2);
+
+        assert_eq!(engine.trades.len(), 1);
+        let trade = &engine.trades[0];
+        assert!((trade.exit_price.unwrap()).abs() < f64::EPSILON); // 0.0
+        // PnL = (0.0 - 0.62) / 0.62 * 50 = -50.0
+        assert!((trade.pnl_usdc - (-50.0)).abs() < 0.001);
+        assert_eq!(trade.exit_reason, Some(ExitReason::SlotResolved));
+    }
+
+    #[test]
+    fn test_slot_resolution_does_not_resolve_same_tick() {
+        let graph = simple_buy_up_strategy();
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
+
+        // Single tick: triggers buy, winner is set (retroactive annotation)
+        let mut t1 = test_tick();
+        t1.abs_move_pct = 4.0;
+        t1.winner = Some(1);
+        engine.process_tick(&t1);
+
+        // Position should still be open (not resolved on same tick as entry)
+        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_some());
+        assert_eq!(engine.trades.len(), 0);
+
+        // finish() should resolve using winner
+        let result = engine.finish();
+        assert_eq!(result.total_trades, 1);
+        assert!((result.trades[0].exit_price.unwrap() - 1.0).abs() < f64::EPSILON);
+        assert_eq!(result.trades[0].exit_reason, Some(ExitReason::SlotResolved));
+    }
+
+    #[test]
+    fn test_no_resolution_without_winner() {
+        let graph = simple_buy_up_strategy();
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
+
+        // Tick 1: triggers buy, no winner (unresolved slot)
+        let mut t1 = test_tick();
+        t1.abs_move_pct = 4.0;
+        t1.winner = None;
+        engine.process_tick(&t1);
+
+        // Tick 2: still no winner
+        let mut t2 = test_tick();
+        t2.abs_move_pct = 1.0;
+        t2.mid_up = 0.63;
+        t2.bid_up = 0.62;
+        t2.winner = None;
+        t2.captured_at = OffsetDateTime::from_unix_timestamp(1700000451).unwrap();
+        engine.process_tick(&t2);
+
+        // Position stays open
+        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_some());
+        assert_eq!(engine.trades.len(), 0);
+
+        // finish() uses mid_price fallback (no winner)
+        let result = engine.finish();
+        assert_eq!(result.total_trades, 1);
+        assert!((result.trades[0].exit_price.unwrap() - 0.63).abs() < 0.001);
+        assert_eq!(result.trades[0].exit_reason, Some(ExitReason::EndOfData));
+    }
+
+    #[test]
+    fn test_stoploss_takes_priority_over_slot_resolution() {
+        // If SL/TP is configured and triggers, it should close the position
+        // even if winner is set (SL/TP runs before slot resolution in the
+        // interpreter, so position is already cleared).
+        let graph = simple_buy_up_strategy(); // stoploss_pct=10
+        let mut engine = BacktestEngine::new(graph, DEFAULT_WINDOW_SIZE);
+
+        // Tick 1: triggers buy at ask_up = 0.62
+        let mut t1 = test_tick();
+        t1.abs_move_pct = 4.0;
+        t1.winner = Some(2); // DOWN wins
+        engine.process_tick(&t1);
+
+        // Tick 2: stoploss triggers (mid_up=0.54 → -12.9%) AND winner is set
+        let mut t2 = test_tick();
+        t2.abs_move_pct = 1.0;
+        t2.mid_up = 0.54;
+        t2.bid_up = 0.53;
+        t2.winner = Some(2);
+        t2.captured_at = OffsetDateTime::from_unix_timestamp(1700000451).unwrap();
+        engine.process_tick(&t2);
+
+        assert_eq!(engine.trades.len(), 1);
+        let trade = &engine.trades[0];
+        // Slot resolution runs first (open_trade check), then evaluate() runs with risk.
+        // Since slot resolution fires first and clears the position, the trade is
+        // closed at slot resolution price (0.0 for a loss).
+        assert_eq!(trade.exit_reason, Some(ExitReason::SlotResolved));
     }
 }

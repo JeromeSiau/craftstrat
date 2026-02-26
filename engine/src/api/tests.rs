@@ -10,6 +10,23 @@ use super::state::ApiState;
 fn test_state() -> Arc<ApiState> {
     let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
     let handle = recorder.handle();
+    let wallet_keys = Arc::new(
+        crate::execution::wallet::WalletKeyStore::new(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        )
+        .unwrap(),
+    );
+    let http = crate::proxy::HttpPool::new(&[], std::time::Duration::from_secs(5)).unwrap();
+    let relayer = Arc::new(crate::execution::relayer::RelayerClient::new(
+        http,
+        "http://localhost:9999",
+        crate::execution::orders::BuilderCredentials {
+            api_key: String::new(),
+            secret: String::new(),
+            passphrase: String::new(),
+        },
+        wallet_keys.clone(),
+    ));
     Arc::new(ApiState {
         registry: crate::strategy::registry::AssignmentRegistry::new(),
         exec_queue: Arc::new(tokio::sync::Mutex::new(
@@ -23,6 +40,8 @@ fn test_state() -> Arc<ApiState> {
         start_time: std::time::Instant::now(),
         tick_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         prometheus: handle,
+        wallet_keys,
+        relayer,
     })
 }
 

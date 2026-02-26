@@ -62,6 +62,7 @@ pub enum ExitReason {
     TakeProfit,
     Signal,
     EndOfData,
+    SlotResolved,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
