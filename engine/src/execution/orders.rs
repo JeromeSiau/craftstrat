@@ -6,7 +6,7 @@ use alloy::signers::SignerSync;
 use alloy::sol;
 use alloy::sol_types::{eip712_domain, SolStruct};
 use anyhow::{Context, Result};
-use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::engine::general_purpose::{STANDARD as BASE64, URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD};
 use base64::Engine as _;
 use hmac::{Hmac, Mac};
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -326,8 +326,10 @@ impl OrderSubmitter {
         timestamp: &str,
         body: &str,
     ) -> Result<String> {
-        let secret_bytes = BASE64
+        let secret_bytes = BASE64_URL
             .decode(&self.credentials.secret)
+            .or_else(|_| BASE64_URL_NOPAD.decode(&self.credentials.secret))
+            .or_else(|_| BASE64.decode(&self.credentials.secret))
             .context("builder_secret is not valid base64")?;
 
         let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
