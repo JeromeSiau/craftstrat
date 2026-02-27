@@ -127,15 +127,20 @@ impl RelayerClient {
         let signer = self.wallet_keys.get_signer(wallet_id)?;
         let signer_address = signer.address();
 
-        // 1. Check if already deployed
-        if self.is_deployed(&signer_address).await? {
-            anyhow::bail!("Safe already deployed for signer {signer_address:?}");
-        }
-
-        // 2. Derive the Safe address via CREATE2 (deterministic, before on-chain deployment)
+        // 1. Derive the Safe address via CREATE2 (deterministic, before on-chain deployment)
         let safe_factory: Address = SAFE_FACTORY.parse().unwrap();
         let proxy_wallet = derive_safe_address(&signer_address, &safe_factory);
         debug!(%wallet_id, ?signer_address, ?proxy_wallet, "deploying_safe");
+
+        // 2. Check if already deployed (using derived Safe address)
+        if self.is_deployed(&proxy_wallet).await? {
+            debug!(%wallet_id, ?proxy_wallet, "safe_already_deployed");
+            self.wallet_keys.store_safe_address(wallet_id, proxy_wallet)?;
+            return Ok(SafeDeployResult {
+                safe_address: format!("{:?}", proxy_wallet),
+                transaction_hash: String::new(),
+            });
+        }
 
         // 3. Sign EIP-712 CreateProxy typed data
         let domain = eip712_domain! {
