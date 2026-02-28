@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\BacktestController::index
 * @see app/Http/Controllers/BacktestController.php:17
@@ -42,6 +42,43 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(options),
     method: 'head',
 })
+
+/**
+* @see \App\Http\Controllers\BacktestController::index
+* @see app/Http/Controllers/BacktestController.php:17
+* @route '/backtests'
+*/
+const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::index
+* @see app/Http/Controllers/BacktestController.php:17
+* @route '/backtests'
+*/
+indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::index
+* @see app/Http/Controllers/BacktestController.php:17
+* @route '/backtests'
+*/
+indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url({
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+index.form = indexForm
 
 /**
 * @see \App\Http\Controllers\BacktestController::show
@@ -112,6 +149,43 @@ show.head = (args: { result: number | { id: number } } | [result: number | { id:
 })
 
 /**
+* @see \App\Http\Controllers\BacktestController::show
+* @see app/Http/Controllers/BacktestController.php:27
+* @route '/backtests/{result}'
+*/
+const showForm = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: show.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::show
+* @see app/Http/Controllers/BacktestController.php:27
+* @route '/backtests/{result}'
+*/
+showForm.get = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: show.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::show
+* @see app/Http/Controllers/BacktestController.php:27
+* @route '/backtests/{result}'
+*/
+showForm.head = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: show.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+show.form = showForm
+
+/**
 * @see \App\Http\Controllers\BacktestController::destroy
 * @see app/Http/Controllers/BacktestController.php:93
 * @route '/backtests/{result}'
@@ -168,6 +242,38 @@ destroy.delete = (args: { result: number | { id: number } } | [result: number | 
     url: destroy.url(args, options),
     method: 'delete',
 })
+
+/**
+* @see \App\Http\Controllers\BacktestController::destroy
+* @see app/Http/Controllers/BacktestController.php:93
+* @route '/backtests/{result}'
+*/
+const destroyForm = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: destroy.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'DELETE',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::destroy
+* @see app/Http/Controllers/BacktestController.php:93
+* @route '/backtests/{result}'
+*/
+destroyForm.delete = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: destroy.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'DELETE',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+destroy.form = destroyForm
 
 /**
 * @see \App\Http\Controllers\BacktestController::rerun
@@ -228,6 +334,28 @@ rerun.post = (args: { result: number | { id: number } } | [result: number | { id
 })
 
 /**
+* @see \App\Http\Controllers\BacktestController::rerun
+* @see app/Http/Controllers/BacktestController.php:102
+* @route '/backtests/{result}/rerun'
+*/
+const rerunForm = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: rerun.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::rerun
+* @see app/Http/Controllers/BacktestController.php:102
+* @route '/backtests/{result}/rerun'
+*/
+rerunForm.post = (args: { result: number | { id: number } } | [result: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: rerun.url(args, options),
+    method: 'post',
+})
+
+rerun.form = rerunForm
+
+/**
 * @see \App\Http\Controllers\BacktestController::run
 * @see app/Http/Controllers/BacktestController.php:38
 * @route '/strategies/{strategy}/backtest'
@@ -284,6 +412,28 @@ run.post = (args: { strategy: number | { id: number } } | [strategy: number | { 
     url: run.url(args, options),
     method: 'post',
 })
+
+/**
+* @see \App\Http\Controllers\BacktestController::run
+* @see app/Http/Controllers/BacktestController.php:38
+* @route '/strategies/{strategy}/backtest'
+*/
+const runForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: run.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BacktestController::run
+* @see app/Http/Controllers/BacktestController.php:38
+* @route '/strategies/{strategy}/backtest'
+*/
+runForm.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: run.url(args, options),
+    method: 'post',
+})
+
+run.form = runForm
 
 const backtests = {
     index: Object.assign(index, index),

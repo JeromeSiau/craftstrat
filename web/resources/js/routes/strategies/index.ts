@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\StrategyController::generate
 * @see app/Http/Controllers/StrategyController.php:38
@@ -32,6 +32,28 @@ generate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: generate.url(options),
     method: 'post',
 })
+
+/**
+* @see \App\Http\Controllers\StrategyController::generate
+* @see app/Http/Controllers/StrategyController.php:38
+* @route '/strategies/generate'
+*/
+const generateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: generate.url(options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::generate
+* @see app/Http/Controllers/StrategyController.php:38
+* @route '/strategies/generate'
+*/
+generateForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: generate.url(options),
+    method: 'post',
+})
+
+generate.form = generateForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::index
@@ -78,6 +100,43 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\StrategyController::index
+* @see app/Http/Controllers/StrategyController.php:22
+* @route '/strategies'
+*/
+const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::index
+* @see app/Http/Controllers/StrategyController.php:22
+* @route '/strategies'
+*/
+indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::index
+* @see app/Http/Controllers/StrategyController.php:22
+* @route '/strategies'
+*/
+indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url({
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+index.form = indexForm
+
+/**
 * @see \App\Http\Controllers\StrategyController::create
 * @see app/Http/Controllers/StrategyController.php:33
 * @route '/strategies/create'
@@ -120,6 +179,43 @@ create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: create.url(options),
     method: 'head',
 })
+
+/**
+* @see \App\Http\Controllers\StrategyController::create
+* @see app/Http/Controllers/StrategyController.php:33
+* @route '/strategies/create'
+*/
+const createForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: create.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::create
+* @see app/Http/Controllers/StrategyController.php:33
+* @route '/strategies/create'
+*/
+createForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: create.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::create
+* @see app/Http/Controllers/StrategyController.php:33
+* @route '/strategies/create'
+*/
+createForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: create.url({
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+create.form = createForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::show
@@ -190,6 +286,43 @@ show.head = (args: { strategy: number | { id: number } } | [strategy: number | {
 })
 
 /**
+* @see \App\Http\Controllers\StrategyController::show
+* @see app/Http/Controllers/StrategyController.php:65
+* @route '/strategies/{strategy}'
+*/
+const showForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: show.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::show
+* @see app/Http/Controllers/StrategyController.php:65
+* @route '/strategies/{strategy}'
+*/
+showForm.get = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: show.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::show
+* @see app/Http/Controllers/StrategyController.php:65
+* @route '/strategies/{strategy}'
+*/
+showForm.head = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: show.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+show.form = showForm
+
+/**
 * @see \App\Http\Controllers\StrategyController::edit
 * @see app/Http/Controllers/StrategyController.php:56
 * @route '/strategies/{strategy}/edit'
@@ -256,6 +389,43 @@ edit.head = (args: { strategy: number | { id: number } } | [strategy: number | {
     url: edit.url(args, options),
     method: 'head',
 })
+
+/**
+* @see \App\Http\Controllers\StrategyController::edit
+* @see app/Http/Controllers/StrategyController.php:56
+* @route '/strategies/{strategy}/edit'
+*/
+const editForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: edit.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::edit
+* @see app/Http/Controllers/StrategyController.php:56
+* @route '/strategies/{strategy}/edit'
+*/
+editForm.get = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: edit.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::edit
+* @see app/Http/Controllers/StrategyController.php:56
+* @route '/strategies/{strategy}/edit'
+*/
+editForm.head = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: edit.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+edit.form = editForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::update
@@ -326,6 +496,53 @@ update.patch = (args: { strategy: number | { id: number } } | [strategy: number 
 })
 
 /**
+* @see \App\Http\Controllers\StrategyController::update
+* @see app/Http/Controllers/StrategyController.php:101
+* @route '/strategies/{strategy}'
+*/
+const updateForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: update.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'PUT',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::update
+* @see app/Http/Controllers/StrategyController.php:101
+* @route '/strategies/{strategy}'
+*/
+updateForm.put = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: update.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'PUT',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::update
+* @see app/Http/Controllers/StrategyController.php:101
+* @route '/strategies/{strategy}'
+*/
+updateForm.patch = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: update.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'PATCH',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+update.form = updateForm
+
+/**
 * @see \App\Http\Controllers\StrategyController::destroy
 * @see app/Http/Controllers/StrategyController.php:108
 * @route '/strategies/{strategy}'
@@ -384,6 +601,38 @@ destroy.delete = (args: { strategy: number | { id: number } } | [strategy: numbe
 })
 
 /**
+* @see \App\Http\Controllers\StrategyController::destroy
+* @see app/Http/Controllers/StrategyController.php:108
+* @route '/strategies/{strategy}'
+*/
+const destroyForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: destroy.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'DELETE',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::destroy
+* @see app/Http/Controllers/StrategyController.php:108
+* @route '/strategies/{strategy}'
+*/
+destroyForm.delete = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: destroy.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'DELETE',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'post',
+})
+
+destroy.form = destroyForm
+
+/**
 * @see \App\Http\Controllers\StrategyController::store
 * @see app/Http/Controllers/StrategyController.php:49
 * @route '/strategies'
@@ -416,6 +665,28 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
     method: 'post',
 })
+
+/**
+* @see \App\Http\Controllers\StrategyController::store
+* @see app/Http/Controllers/StrategyController.php:49
+* @route '/strategies'
+*/
+const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: store.url(options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::store
+* @see app/Http/Controllers/StrategyController.php:49
+* @route '/strategies'
+*/
+storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: store.url(options),
+    method: 'post',
+})
+
+store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::activate
@@ -476,6 +747,28 @@ activate.post = (args: { strategy: number | { id: number } } | [strategy: number
 })
 
 /**
+* @see \App\Http\Controllers\StrategyController::activate
+* @see app/Http/Controllers/StrategyController.php:123
+* @route '/strategies/{strategy}/activate'
+*/
+const activateForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: activate.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::activate
+* @see app/Http/Controllers/StrategyController.php:123
+* @route '/strategies/{strategy}/activate'
+*/
+activateForm.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: activate.url(args, options),
+    method: 'post',
+})
+
+activate.form = activateForm
+
+/**
 * @see \App\Http\Controllers\StrategyController::deactivate
 * @see app/Http/Controllers/StrategyController.php:136
 * @route '/strategies/{strategy}/deactivate'
@@ -532,6 +825,28 @@ deactivate.post = (args: { strategy: number | { id: number } } | [strategy: numb
     url: deactivate.url(args, options),
     method: 'post',
 })
+
+/**
+* @see \App\Http\Controllers\StrategyController::deactivate
+* @see app/Http/Controllers/StrategyController.php:136
+* @route '/strategies/{strategy}/deactivate'
+*/
+const deactivateForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: deactivate.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::deactivate
+* @see app/Http/Controllers/StrategyController.php:136
+* @route '/strategies/{strategy}/deactivate'
+*/
+deactivateForm.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: deactivate.url(args, options),
+    method: 'post',
+})
+
+deactivate.form = deactivateForm
 
 /**
 * @see \App\Http\Controllers\StrategyController::kill
@@ -592,6 +907,28 @@ kill.post = (args: { strategy: number | { id: number } } | [strategy: number | {
 })
 
 /**
+* @see \App\Http\Controllers\StrategyController::kill
+* @see app/Http/Controllers/StrategyController.php:149
+* @route '/strategies/{strategy}/kill'
+*/
+const killForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: kill.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::kill
+* @see app/Http/Controllers/StrategyController.php:149
+* @route '/strategies/{strategy}/kill'
+*/
+killForm.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: kill.url(args, options),
+    method: 'post',
+})
+
+kill.form = killForm
+
+/**
 * @see \App\Http\Controllers\StrategyController::unkill
 * @see app/Http/Controllers/StrategyController.php:165
 * @route '/strategies/{strategy}/unkill'
@@ -648,6 +985,28 @@ unkill.post = (args: { strategy: number | { id: number } } | [strategy: number |
     url: unkill.url(args, options),
     method: 'post',
 })
+
+/**
+* @see \App\Http\Controllers\StrategyController::unkill
+* @see app/Http/Controllers/StrategyController.php:165
+* @route '/strategies/{strategy}/unkill'
+*/
+const unkillForm = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: unkill.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\StrategyController::unkill
+* @see app/Http/Controllers/StrategyController.php:165
+* @route '/strategies/{strategy}/unkill'
+*/
+unkillForm.post = (args: { strategy: number | { id: number } } | [strategy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: unkill.url(args, options),
+    method: 'post',
+})
+
+unkill.form = unkillForm
 
 const strategies = {
     generate: Object.assign(generate, generate),

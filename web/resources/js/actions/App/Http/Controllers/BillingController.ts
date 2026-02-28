@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\BillingController::index
 * @see app/Http/Controllers/BillingController.php:14
@@ -44,6 +44,43 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\BillingController::index
+* @see app/Http/Controllers/BillingController.php:14
+* @route '/billing'
+*/
+const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\BillingController::index
+* @see app/Http/Controllers/BillingController.php:14
+* @route '/billing'
+*/
+indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\BillingController::index
+* @see app/Http/Controllers/BillingController.php:14
+* @route '/billing'
+*/
+indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: index.url({
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+index.form = indexForm
+
+/**
 * @see \App\Http\Controllers\BillingController::subscribe
 * @see app/Http/Controllers/BillingController.php:24
 * @route '/billing/subscribe'
@@ -78,6 +115,28 @@ subscribe.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\BillingController::subscribe
+* @see app/Http/Controllers/BillingController.php:24
+* @route '/billing/subscribe'
+*/
+const subscribeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: subscribe.url(options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BillingController::subscribe
+* @see app/Http/Controllers/BillingController.php:24
+* @route '/billing/subscribe'
+*/
+subscribeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: subscribe.url(options),
+    method: 'post',
+})
+
+subscribe.form = subscribeForm
+
+/**
 * @see \App\Http\Controllers\BillingController::portal
 * @see app/Http/Controllers/BillingController.php:30
 * @route '/billing/portal'
@@ -110,6 +169,28 @@ portal.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: portal.url(options),
     method: 'post',
 })
+
+/**
+* @see \App\Http\Controllers\BillingController::portal
+* @see app/Http/Controllers/BillingController.php:30
+* @route '/billing/portal'
+*/
+const portalForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: portal.url(options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\BillingController::portal
+* @see app/Http/Controllers/BillingController.php:30
+* @route '/billing/portal'
+*/
+portalForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: portal.url(options),
+    method: 'post',
+})
+
+portal.form = portalForm
 
 const BillingController = { index, subscribe, portal }
 

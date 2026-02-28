@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\InternalNotificationController::send
 * @see app/Http/Controllers/InternalNotificationController.php:12
@@ -32,6 +32,28 @@ send.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: send.url(options),
     method: 'post',
 })
+
+/**
+* @see \App\Http\Controllers\InternalNotificationController::send
+* @see app/Http/Controllers/InternalNotificationController.php:12
+* @route '/internal/notification/send'
+*/
+const sendForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: send.url(options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\InternalNotificationController::send
+* @see app/Http/Controllers/InternalNotificationController.php:12
+* @route '/internal/notification/send'
+*/
+sendForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: send.url(options),
+    method: 'post',
+})
+
+send.form = sendForm
 
 const InternalNotificationController = { send }
 

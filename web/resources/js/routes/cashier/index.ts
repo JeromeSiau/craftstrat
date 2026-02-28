@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \Laravel\Cashier\Http\Controllers\PaymentController::payment
 * @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
@@ -62,6 +62,43 @@ payment.head = (args: { id: string | number } | [id: string | number ] | string 
 })
 
 /**
+* @see \Laravel\Cashier\Http\Controllers\PaymentController::payment
+* @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
+* @route '/stripe/payment/{id}'
+*/
+const paymentForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: payment.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \Laravel\Cashier\Http\Controllers\PaymentController::payment
+* @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
+* @route '/stripe/payment/{id}'
+*/
+paymentForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: payment.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \Laravel\Cashier\Http\Controllers\PaymentController::payment
+* @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
+* @route '/stripe/payment/{id}'
+*/
+paymentForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: payment.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+payment.form = paymentForm
+
+/**
 * @see \Laravel\Cashier\Http\Controllers\WebhookController::webhook
 * @see vendor/laravel/cashier/src/Http/Controllers/WebhookController.php:40
 * @route '/stripe/webhook'
@@ -98,6 +135,28 @@ webhook.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 /**
 * @see \Laravel\Cashier\Http\Controllers\WebhookController::webhook
 * @see vendor/laravel/cashier/src/Http/Controllers/WebhookController.php:40
+* @route '/stripe/webhook'
+*/
+const webhookForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: webhook.url(options),
+    method: 'post',
+})
+
+/**
+* @see \Laravel\Cashier\Http\Controllers\WebhookController::webhook
+* @see vendor/laravel/cashier/src/Http/Controllers/WebhookController.php:40
+* @route '/stripe/webhook'
+*/
+webhookForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: webhook.url(options),
+    method: 'post',
+})
+
+webhook.form = webhookForm
+
+/**
+* @see \Laravel\Cashier\Http\Controllers\WebhookController::webhook
+* @see vendor/laravel/cashier/src/Http/Controllers/WebhookController.php:40
 * @route '/webhooks/stripe'
 */
 export const webhook = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -128,6 +187,28 @@ webhook.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: webhook.url(options),
     method: 'post',
 })
+
+/**
+* @see \Laravel\Cashier\Http\Controllers\WebhookController::webhook
+* @see vendor/laravel/cashier/src/Http/Controllers/WebhookController.php:40
+* @route '/webhooks/stripe'
+*/
+const webhookForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: webhook.url(options),
+    method: 'post',
+})
+
+/**
+* @see \Laravel\Cashier\Http\Controllers\WebhookController::webhook
+* @see vendor/laravel/cashier/src/Http/Controllers/WebhookController.php:40
+* @route '/webhooks/stripe'
+*/
+webhookForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    action: webhook.url(options),
+    method: 'post',
+})
+
+webhook.form = webhookForm
 
 const cashier = {
     payment: Object.assign(payment, payment),
