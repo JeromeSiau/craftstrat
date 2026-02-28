@@ -53,6 +53,15 @@ class StrategyController extends Controller
         return to_route('strategies.index')->with('success', 'Strategy created.');
     }
 
+    public function edit(Strategy $strategy): Response
+    {
+        Gate::authorize('update', $strategy);
+
+        return Inertia::render('strategies/edit', [
+            'strategy' => $strategy,
+        ]);
+    }
+
     public function show(Strategy $strategy): Response
     {
         Gate::authorize('view', $strategy);

@@ -21,7 +21,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Strategies
     Route::post('strategies/generate', [StrategyController::class, 'generate'])->name('strategies.generate')->middleware('throttle:ai-generation');
-    Route::resource('strategies', StrategyController::class)->except(['edit', 'store']);
+    Route::resource('strategies', StrategyController::class)->except(['store']);
     Route::post('strategies', [StrategyController::class, 'store'])->name('strategies.store')->middleware('plan.limit:strategies');
     Route::post('strategies/{strategy}/activate', [StrategyController::class, 'activate'])->name('strategies.activate');
     Route::post('strategies/{strategy}/deactivate', [StrategyController::class, 'deactivate'])->name('strategies.deactivate');

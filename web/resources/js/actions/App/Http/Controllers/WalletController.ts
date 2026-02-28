@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\WalletController::index
 * @see app/Http/Controllers/WalletController.php:20
@@ -44,43 +44,6 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:20
-* @route '/wallets'
-*/
-const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url(options),
-    method: 'get',
-})
-
-/**
-* @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:20
-* @route '/wallets'
-*/
-indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url(options),
-    method: 'get',
-})
-
-/**
-* @see \App\Http\Controllers\WalletController::index
-* @see app/Http/Controllers/WalletController.php:20
-* @route '/wallets'
-*/
-indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: index.url({
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-index.form = indexForm
-
-/**
 * @see \App\Http\Controllers\WalletController::store
 * @see app/Http/Controllers/WalletController.php:32
 * @route '/wallets'
@@ -113,28 +76,6 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
     method: 'post',
 })
-
-/**
-* @see \App\Http\Controllers\WalletController::store
-* @see app/Http/Controllers/WalletController.php:32
-* @route '/wallets'
-*/
-const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: store.url(options),
-    method: 'post',
-})
-
-/**
-* @see \App\Http\Controllers\WalletController::store
-* @see app/Http/Controllers/WalletController.php:32
-* @route '/wallets'
-*/
-storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: store.url(options),
-    method: 'post',
-})
-
-store.form = storeForm
 
 /**
 * @see \App\Http\Controllers\WalletController::destroy
@@ -195,38 +136,6 @@ destroy.delete = (args: { wallet: number | { id: number } } | [wallet: number | 
 })
 
 /**
-* @see \App\Http\Controllers\WalletController::destroy
-* @see app/Http/Controllers/WalletController.php:49
-* @route '/wallets/{wallet}'
-*/
-const destroyForm = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: destroy.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'DELETE',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-/**
-* @see \App\Http\Controllers\WalletController::destroy
-* @see app/Http/Controllers/WalletController.php:49
-* @route '/wallets/{wallet}'
-*/
-destroyForm.delete = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: destroy.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'DELETE',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-destroy.form = destroyForm
-
-/**
 * @see \App\Http\Controllers\WalletController::retryDeploy
 * @see app/Http/Controllers/WalletController.php:68
 * @route '/wallets/{wallet}/retry'
@@ -283,28 +192,6 @@ retryDeploy.post = (args: { wallet: number | { id: number } } | [wallet: number 
     url: retryDeploy.url(args, options),
     method: 'post',
 })
-
-/**
-* @see \App\Http\Controllers\WalletController::retryDeploy
-* @see app/Http/Controllers/WalletController.php:68
-* @route '/wallets/{wallet}/retry'
-*/
-const retryDeployForm = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: retryDeploy.url(args, options),
-    method: 'post',
-})
-
-/**
-* @see \App\Http\Controllers\WalletController::retryDeploy
-* @see app/Http/Controllers/WalletController.php:68
-* @route '/wallets/{wallet}/retry'
-*/
-retryDeployForm.post = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: retryDeploy.url(args, options),
-    method: 'post',
-})
-
-retryDeploy.form = retryDeployForm
 
 /**
 * @see \App\Http\Controllers\WalletController::assignStrategy
@@ -365,28 +252,6 @@ assignStrategy.post = (args: { wallet: number | { id: number } } | [wallet: numb
 })
 
 /**
-* @see \App\Http\Controllers\WalletController::assignStrategy
-* @see app/Http/Controllers/WalletController.php:82
-* @route '/wallets/{wallet}/strategies'
-*/
-const assignStrategyForm = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: assignStrategy.url(args, options),
-    method: 'post',
-})
-
-/**
-* @see \App\Http\Controllers\WalletController::assignStrategy
-* @see app/Http/Controllers/WalletController.php:82
-* @route '/wallets/{wallet}/strategies'
-*/
-assignStrategyForm.post = (args: { wallet: number | { id: number } } | [wallet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: assignStrategy.url(args, options),
-    method: 'post',
-})
-
-assignStrategy.form = assignStrategyForm
-
-/**
 * @see \App\Http\Controllers\WalletController::removeStrategy
 * @see app/Http/Controllers/WalletController.php:100
 * @route '/wallets/{wallet}/strategies/{strategy}'
@@ -440,38 +305,6 @@ removeStrategy.delete = (args: { wallet: number | { id: number }, strategy: numb
     url: removeStrategy.url(args, options),
     method: 'delete',
 })
-
-/**
-* @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:100
-* @route '/wallets/{wallet}/strategies/{strategy}'
-*/
-const removeStrategyForm = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: removeStrategy.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'DELETE',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-/**
-* @see \App\Http\Controllers\WalletController::removeStrategy
-* @see app/Http/Controllers/WalletController.php:100
-* @route '/wallets/{wallet}/strategies/{strategy}'
-*/
-removeStrategyForm.delete = (args: { wallet: number | { id: number }, strategy: number | { id: number } } | [wallet: number | { id: number }, strategy: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-    action: removeStrategy.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'DELETE',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'post',
-})
-
-removeStrategy.form = removeStrategyForm
 
 const WalletController = { index, store, destroy, retryDeploy, assignStrategy, removeStrategy }
 

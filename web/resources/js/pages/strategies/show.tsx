@@ -1,7 +1,7 @@
-import { Deferred, Head, router, useForm } from '@inertiajs/react';
-import { Activity, ArrowLeftRight, FlaskConical, LineChart, OctagonX, Settings2, TrendingUp, Wallet } from 'lucide-react';
+import { Deferred, Head, Link, router, useForm } from '@inertiajs/react';
+import { Activity, ArrowLeftRight, FlaskConical, LineChart, OctagonX, Pencil, Settings2, TrendingUp, Wallet, X } from 'lucide-react';
 import { run as runBacktest } from '@/actions/App/Http/Controllers/BacktestController';
-import { index, show, activate, deactivate, destroy, kill, unkill } from '@/actions/App/Http/Controllers/StrategyController';
+import { index, show, edit, activate, deactivate, destroy, kill, unkill } from '@/actions/App/Http/Controllers/StrategyController';
 import BacktestResultsTable from '@/components/backtest-results-table';
 import ConfirmDialog from '@/components/confirm-dialog';
 import InputError from '@/components/input-error';
@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { MARKET_OPTIONS, MARKET_LABEL_MAP } from '@/lib/constants';
 import { formatPnl, formatWinRate } from '@/lib/formatters';
+import { removeStrategy } from '@/routes/wallets';
 import type { BreadcrumbItem } from '@/types';
 import type { LiveStats, Strategy, Trade } from '@/types/models';
 
@@ -100,6 +101,12 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                         )}
                     </div>
                     <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href={edit.url(strategy.id)}>
+                                <Pencil className="mr-1.5 size-4" />
+                                Edit
+                            </Link>
+                        </Button>
                         {strategy.is_active && (
                             <>
                                 <ConfirmDialog
@@ -205,15 +212,28 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                                         </Badge>
                                                     )}
                                                 </div>
-                                                <span
-                                                    className={`shrink-0 text-xs font-semibold ${
-                                                        ws.is_running
-                                                            ? 'text-emerald-600 dark:text-emerald-400'
-                                                            : 'text-muted-foreground'
-                                                    }`}
-                                                >
-                                                    {ws.is_running ? 'Running' : 'Stopped'}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className={`shrink-0 text-xs font-semibold ${
+                                                            ws.is_running
+                                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                                : 'text-muted-foreground'
+                                                        }`}
+                                                    >
+                                                        {ws.is_running ? 'Running' : 'Stopped'}
+                                                    </span>
+                                                    <ConfirmDialog
+                                                        trigger={
+                                                            <button type="button" className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+                                                                <X className="size-3.5" />
+                                                            </button>
+                                                        }
+                                                        title="Remove from Wallet"
+                                                        description={`Remove this strategy from wallet "${ws.wallet.label || 'this wallet'}"? The strategy will stop running on this wallet.`}
+                                                        confirmLabel="Remove"
+                                                        onConfirm={() => router.delete(removeStrategy.url({ wallet: ws.wallet.id, strategy: strategy.id }))}
+                                                    />
+                                                </div>
                                             </div>
                                             {ws.markets?.length > 0 && (
                                                 <div className="mt-1.5 flex flex-wrap gap-1">

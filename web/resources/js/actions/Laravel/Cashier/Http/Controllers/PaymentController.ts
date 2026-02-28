@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \Laravel\Cashier\Http\Controllers\PaymentController::show
 * @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
@@ -60,43 +60,6 @@ show.head = (args: { id: string | number } | [id: string | number ] | string | n
     url: show.url(args, options),
     method: 'head',
 })
-
-/**
-* @see \Laravel\Cashier\Http\Controllers\PaymentController::show
-* @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
-* @route '/stripe/payment/{id}'
-*/
-const showForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: show.url(args, options),
-    method: 'get',
-})
-
-/**
-* @see \Laravel\Cashier\Http\Controllers\PaymentController::show
-* @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
-* @route '/stripe/payment/{id}'
-*/
-showForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: show.url(args, options),
-    method: 'get',
-})
-
-/**
-* @see \Laravel\Cashier\Http\Controllers\PaymentController::show
-* @see vendor/laravel/cashier/src/Http/Controllers/PaymentController.php:30
-* @route '/stripe/payment/{id}'
-*/
-showForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-    action: show.url(args, {
-        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-            _method: 'HEAD',
-            ...(options?.query ?? options?.mergeQuery ?? {}),
-        }
-    }),
-    method: 'get',
-})
-
-show.form = showForm
 
 const PaymentController = { show }
 
