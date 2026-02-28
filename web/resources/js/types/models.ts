@@ -38,6 +38,7 @@ export interface WalletStrategy {
     is_running: boolean;
     is_paper: boolean;
     max_position_usdc: string;
+    markets: string[];
     wallet: { id: number; label: string | null; safe_address: string | null; signer_address: string };
 }
 
@@ -48,6 +49,7 @@ export interface BacktestResult {
     total_pnl_usdc: string | null;
     max_drawdown: string | null;
     sharpe_ratio: string | null;
+    market_filter: string[] | null;
     date_from: string | null;
     date_to: string | null;
     created_at: string;

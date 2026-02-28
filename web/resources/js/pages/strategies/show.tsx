@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import { MARKET_OPTIONS } from '@/lib/constants';
+import { MARKET_OPTIONS, MARKET_LABEL_MAP } from '@/lib/constants';
 import { formatPnl, formatWinRate } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { LiveStats, Strategy, Trade } from '@/types/models';
@@ -193,26 +193,37 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                             ) : (
                                 <div className="divide-y">
                                     {strategy.wallet_strategies.map((ws) => (
-                                        <div key={ws.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                                            <div className="flex items-center gap-2 truncate">
-                                                <span className="truncate font-mono text-sm">
-                                                    {ws.wallet.label || `${(ws.wallet.safe_address ?? ws.wallet.signer_address).slice(0, 10)}...`}
+                                        <div key={ws.id} className="py-3 first:pt-0 last:pb-0">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <span className="truncate font-mono text-sm">
+                                                        {ws.wallet.label || `${(ws.wallet.safe_address ?? ws.wallet.signer_address).slice(0, 10)}...`}
+                                                    </span>
+                                                    {ws.is_paper && (
+                                                        <Badge variant="outline" className="shrink-0 border-amber-500/50 text-amber-600 dark:text-amber-400">
+                                                            Paper
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <span
+                                                    className={`shrink-0 text-xs font-semibold ${
+                                                        ws.is_running
+                                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                                            : 'text-muted-foreground'
+                                                    }`}
+                                                >
+                                                    {ws.is_running ? 'Running' : 'Stopped'}
                                                 </span>
-                                                {ws.is_paper && (
-                                                    <Badge variant="outline" className="shrink-0 border-amber-500/50 text-amber-600 dark:text-amber-400">
-                                                        Paper
-                                                    </Badge>
-                                                )}
                                             </div>
-                                            <span
-                                                className={`shrink-0 text-xs font-semibold ${
-                                                    ws.is_running
-                                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                                        : 'text-muted-foreground'
-                                                }`}
-                                            >
-                                                {ws.is_running ? 'Running' : 'Stopped'}
-                                            </span>
+                                            {ws.markets?.length > 0 && (
+                                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                                    {ws.markets.map((m) => (
+                                                        <span key={m} className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                                                            {MARKET_LABEL_MAP[m] ?? m}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

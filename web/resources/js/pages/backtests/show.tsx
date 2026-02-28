@@ -9,6 +9,7 @@ import MetricCard from '@/components/metric-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import { MARKET_LABEL_MAP } from '@/lib/constants';
 import { formatWinRate, formatPnl, formatPercentage } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { BacktestResult } from '@/types/models';
@@ -51,6 +52,17 @@ export default function BacktestsShow({ result }: { result: BacktestResult }) {
                                 </>
                             )}
                         </p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                            {result.market_filter?.length ? (
+                                result.market_filter.map((m) => (
+                                    <span key={m} className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                                        {MARKET_LABEL_MAP[m] ?? m}
+                                    </span>
+                                ))
+                            ) : (
+                                <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">All markets</span>
+                            )}
+                        </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
                         <Button variant="outline" size="sm" asChild>

@@ -5,6 +5,7 @@ import StatusBadge from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import { MARKET_LABEL_MAP } from '@/lib/constants';
 import type { BreadcrumbItem } from '@/types';
 import type { Strategy, Paginated } from '@/types/models';
 
@@ -74,6 +75,18 @@ export default function StrategiesIndex({
                                             <p className="mt-1.5 text-sm text-muted-foreground">
                                                 {strategy.mode} mode · {strategy.wallets_count ?? 0} wallet(s)
                                             </p>
+                                            {(() => {
+                                                const markets = [...new Set(strategy.wallet_strategies?.flatMap((ws) => ws.markets) ?? [])];
+                                                return markets.length > 0 ? (
+                                                    <div className="mt-2 flex flex-wrap gap-1">
+                                                        {markets.map((m) => (
+                                                            <span key={m} className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                                                                {MARKET_LABEL_MAP[m] ?? m}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : null;
+                                            })()}
                                         </div>
                                         <ChevronRight className="size-5 shrink-0 text-muted-foreground/50 transition group-hover:text-primary" />
                                     </CardContent>

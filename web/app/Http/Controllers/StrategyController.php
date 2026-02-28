@@ -24,6 +24,7 @@ class StrategyController extends Controller
         return Inertia::render('strategies/index', [
             'strategies' => auth()->user()->strategies()
                 ->withCount('wallets')
+                ->with('walletStrategies:id,strategy_id,markets')
                 ->latest()
                 ->paginate(20),
         ]);

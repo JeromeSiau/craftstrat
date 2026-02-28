@@ -5,3 +5,7 @@ export const MARKET_OPTIONS = [
     { label: 'SOL 15m', value: 'sol-updown-15m' },
     { label: 'XRP 15m', value: 'xrp-updown-15m' },
 ];
+
+export const MARKET_LABEL_MAP: Record<string, string> = Object.fromEntries(
+    MARKET_OPTIONS.map((m) => [m.value, m.label]),
+);
