@@ -199,6 +199,7 @@ async fn update_position(
                 entry_price: filled_price,
                 size_usdc: order.size_usdc,
                 entry_at: now,
+                symbol: order.symbol.clone(),
             });
         }
         Side::Sell => {
@@ -305,6 +306,7 @@ mod tests {
             entry_price: 0.50,
             size_usdc: 50.0,
             entry_at: 0,
+            symbol: "btc".to_string(),
         });
 
         activate(

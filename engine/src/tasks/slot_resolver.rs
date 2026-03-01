@@ -2,9 +2,14 @@ use std::time::Duration;
 
 use anyhow::Result;
 use clickhouse::Client;
+use metrics::gauge;
 use serde::Deserialize;
+use sqlx::PgPool;
 
+use crate::metrics as m;
 use crate::proxy::HttpPool;
+use crate::strategy::registry::AssignmentRegistry;
+use crate::strategy::Outcome;
 
 #[derive(Debug, clickhouse::Row, Deserialize)]
 struct UnresolvedSlot {
@@ -28,6 +33,8 @@ pub async fn run_slot_resolver(
     ch: Client,
     http: HttpPool,
     gamma_url: String,
+    db: PgPool,
+    registry: AssignmentRegistry,
 ) -> Result<()> {
     let mut interval = tokio::time::interval(Duration::from_secs(60));
 
@@ -82,6 +89,7 @@ pub async fn run_slot_resolver(
                 continue;
             };
 
+            // 1. Update ClickHouse analytics
             if let Err(e) = ch
                 .query("ALTER TABLE slot_snapshots UPDATE winner = ? WHERE symbol = ?")
                 .bind(winner)
@@ -93,13 +101,143 @@ pub async fn run_slot_resolver(
                 continue;
             }
 
+            let winning_outcome = if winner == 1 { "UP" } else { "DOWN" };
+
             tracing::info!(
                 slug = %slot.symbol,
                 winner = winner,
-                label = if winner == 1 { "UP" } else { "DOWN" },
+                label = winning_outcome,
                 "slot_resolved",
             );
+
+            // 2. Resolve open trades in PostgreSQL
+            resolve_trades(&db, &registry, &slot.symbol, winning_outcome).await;
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// resolve_trades — close open trades and clear strategy positions
+// ---------------------------------------------------------------------------
+
+async fn resolve_trades(
+    db: &PgPool,
+    registry: &AssignmentRegistry,
+    symbol: &str,
+    winning_outcome: &str,
+) {
+    // Find all open trades for this symbol
+    let rows: Vec<(i64, i64, Option<i64>, String, Option<f64>, f64)> = match sqlx::query_as(
+        "SELECT id, wallet_id, strategy_id, outcome, price, size_usdc \
+         FROM trades WHERE symbol = $1 AND status = 'filled'",
+    )
+    .bind(symbol)
+    .fetch_all(db)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(symbol, error = %e, "resolve_trades_query_failed");
+            return;
+        }
+    };
+
+    if rows.is_empty() {
+        return;
+    }
+
+    for (trade_id, wallet_id, strategy_id, outcome, entry_price, size_usdc) in &rows {
+        let is_winner = outcome == winning_outcome;
+        let resolved_price: f64 = if is_winner { 1.0 } else { 0.0 };
+        let new_status = if is_winner { "won" } else { "lost" };
+        let entry = entry_price.unwrap_or(0.5);
+        let pnl = (resolved_price - entry) * size_usdc;
+
+        // Update trade record
+        if let Err(e) = sqlx::query(
+            "UPDATE trades SET status = $1, filled_price = $2 WHERE id = $3",
+        )
+        .bind(new_status)
+        .bind(resolved_price)
+        .bind(trade_id)
+        .execute(db)
+        .await
+        {
+            tracing::warn!(trade_id, error = %e, "resolve_trade_update_failed");
+            continue;
+        }
+
+        tracing::info!(
+            trade_id,
+            wallet_id,
+            symbol,
+            outcome = outcome.as_str(),
+            result = new_status,
+            pnl = format!("{pnl:.2}"),
+            "trade_resolved",
+        );
+
+        // Clear position in strategy state
+        if let Some(sid) = strategy_id {
+            let winning = if winning_outcome == "UP" {
+                Outcome::Up
+            } else {
+                Outcome::Down
+            };
+            clear_position(registry, *wallet_id as u64, *sid as u64, pnl, symbol, winning).await;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// clear_position — reset the assignment's in-memory position and update PnL
+// ---------------------------------------------------------------------------
+
+async fn clear_position(
+    registry: &AssignmentRegistry,
+    wallet_id: u64,
+    strategy_id: u64,
+    pnl: f64,
+    symbol: &str,
+    _winning_outcome: Outcome,
+) {
+    let reg = registry.read().await;
+
+    // The registry is keyed by market prefix (e.g. "btc-updown-15m").
+    // Find the assignment matching (wallet_id, strategy_id).
+    let assignment = reg.values().flatten().find(|a| {
+        a.wallet_id == wallet_id && a.strategy_id == strategy_id
+    });
+
+    let assignment = match assignment {
+        Some(a) => a,
+        None => return, // strategy may have been deactivated
+    };
+
+    let mut state = match assignment.state.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
+    // Only clear if the position matches this symbol
+    let should_clear = state
+        .position
+        .as_ref()
+        .map(|p| p.symbol == symbol)
+        .unwrap_or(false);
+
+    if should_clear {
+        state.position = None;
+        state.pnl += pnl;
+        state.daily_pnl += pnl;
+        gauge!(m::PNL_USDC).increment(pnl);
+
+        tracing::info!(
+            wallet_id,
+            strategy_id,
+            pnl = format!("{pnl:.2}"),
+            "position_cleared_by_resolution",
+        );
     }
 }
 

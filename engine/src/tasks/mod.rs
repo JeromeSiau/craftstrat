@@ -50,16 +50,6 @@ pub async fn spawn_all(
     writers::spawn_clickhouse_writer(state, tasks);
     writers::spawn_kafka_publisher(state, tasks)?;
 
-    // Slot resolution (backfill winner from Gamma API)
-    {
-        let ch = crate::storage::clickhouse::create_client(&state.config.clickhouse_url);
-        let http = state.http.clone();
-        let gamma_url = state.config.gamma_api_url.clone();
-        tasks.spawn(async move {
-            slot_resolver::run_slot_resolver(ch, http, gamma_url).await
-        });
-    }
-
     // Strategy engine
     let engine_registry = crate::strategy::registry::AssignmentRegistry::new();
     let (signal_tx, signal_rx) = mpsc::channel::<crate::strategy::EngineOutput>(256);
@@ -110,6 +100,19 @@ pub async fn spawn_all(
 
     // Copy trading watcher
     execution_tasks::spawn_watcher(state, exec_queue.clone(), db.clone(), tasks);
+
+    // Slot resolution (backfill winner from Gamma API + resolve trades)
+    {
+        let ch = crate::storage::clickhouse::create_client(&state.config.clickhouse_url);
+        let http = state.http.clone();
+        let gamma_url = state.config.gamma_api_url.clone();
+        let resolver_db = db.clone();
+        let resolver_registry = engine_registry.clone();
+        tasks.spawn(async move {
+            slot_resolver::run_slot_resolver(ch, http, gamma_url, resolver_db, resolver_registry)
+                .await
+        });
+    }
 
     // Redis state persistence
     persistence::spawn_redis_state_persister(state, engine_registry.clone(), tasks);

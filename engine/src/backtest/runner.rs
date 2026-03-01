@@ -84,6 +84,7 @@ impl BacktestEngine {
                     entry_price,
                     size_usdc,
                     entry_at: tick.captured_at.unix_timestamp(),
+                    symbol: tick.symbol.clone(),
                 });
                 ctx.open_trade = Some(BacktestTrade {
                     symbol: tick.symbol.clone(),

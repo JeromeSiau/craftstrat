@@ -11,6 +11,9 @@ pub struct Position {
     pub entry_price: f64,
     pub size_usdc: f64,
     pub entry_at: i64,
+    /// The full slot symbol (e.g. "btc-updown-15m-1772366400") this position was opened on.
+    #[serde(default)]
+    pub symbol: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

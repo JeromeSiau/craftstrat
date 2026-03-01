@@ -235,6 +235,7 @@ mod tests {
             entry_price: 0.5,
             size_usdc: 50.0,
             entry_at: 0,
+            symbol: String::new(),
         });
         let signal = Signal::Buy {
             outcome: Outcome::Up,
@@ -257,6 +258,7 @@ mod tests {
             entry_price: 0.5,
             size_usdc: 50.0,
             entry_at: 0,
+            symbol: String::new(),
         });
         let signal = Signal::Buy {
             outcome: Outcome::Down,
@@ -295,6 +297,7 @@ mod tests {
             entry_price: 0.5,
             size_usdc: 50.0,
             entry_at: 0,
+            symbol: String::new(),
         });
         let signal = Signal::Buy {
             outcome: Outcome::Up,

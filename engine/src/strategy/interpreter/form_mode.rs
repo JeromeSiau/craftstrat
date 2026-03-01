@@ -100,6 +100,7 @@ mod tests {
             entry_price: 0.62,
             size_usdc: 50.0,
             entry_at: 1700000450,
+            symbol: String::new(),
         });
         assert!(matches!(evaluate(&graph, &tick, &mut state), Signal::Hold));
     }
@@ -114,6 +115,7 @@ mod tests {
             entry_price: 0.90,
             size_usdc: 50.0,
             entry_at: 1700000000,
+            symbol: String::new(),
         });
         let signal = evaluate(&graph, &tick, &mut state);
         assert!(matches!(
@@ -135,6 +137,7 @@ mod tests {
             entry_price: 0.30,
             size_usdc: 50.0,
             entry_at: 1700000000,
+            symbol: String::new(),
         });
         let signal = evaluate(&graph, &tick, &mut state);
         assert!(matches!(
