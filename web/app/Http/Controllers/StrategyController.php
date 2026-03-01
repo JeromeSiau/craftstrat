@@ -94,7 +94,7 @@ class StrategyController extends Controller
             'recentTrades' => Inertia::defer(fn () => $strategy->trades()
                 ->latest('executed_at')
                 ->limit(20)
-                ->get(['id', 'market_id', 'side', 'outcome', 'price', 'size_usdc', 'status', 'is_paper', 'executed_at']), 'liveData'),
+                ->get(['id', 'symbol', 'side', 'outcome', 'price', 'size_usdc', 'status', 'is_paper', 'executed_at']), 'liveData'),
         ]);
     }
 

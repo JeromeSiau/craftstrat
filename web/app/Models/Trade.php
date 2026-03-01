@@ -18,7 +18,8 @@ class Trade extends Model
         'wallet_id',
         'strategy_id',
         'copy_relationship_id',
-        'market_id',
+        'symbol',
+        'token_id',
         'side',
         'outcome',
         'price',
@@ -28,6 +29,7 @@ class Trade extends Model
         'is_paper',
         'polymarket_order_id',
         'fee_bps',
+        'filled_price',
         'executed_at',
     ];
 

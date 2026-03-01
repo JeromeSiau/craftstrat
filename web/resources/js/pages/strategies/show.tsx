@@ -335,7 +335,7 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                                         : '-'}
                                                 </TableCell>
                                                 <TableCell className="max-w-[200px] truncate font-mono text-xs">
-                                                    {trade.market_id ?? '-'}
+                                                    {trade.symbol ?? '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className={

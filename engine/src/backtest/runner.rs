@@ -86,7 +86,7 @@ impl BacktestEngine {
                     entry_at: tick.captured_at.unix_timestamp(),
                 });
                 ctx.open_trade = Some(BacktestTrade {
-                    market_id: tick.symbol.clone(),
+                    symbol: tick.symbol.clone(),
                     outcome,
                     side: Side::Buy,
                     entry_price,

@@ -67,7 +67,7 @@ pub enum ExitReason {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BacktestTrade {
-    pub market_id: String,
+    pub symbol: String,
     pub outcome: Outcome,
     pub side: Side,
     pub entry_price: f64,
@@ -102,7 +102,7 @@ mod tests {
             max_drawdown: 0.15,
             sharpe_ratio: 1.2,
             trades: vec![BacktestTrade {
-                market_id: "btc-updown-15m-1700000000".into(),
+                symbol: "btc-updown-15m-1700000000".into(),
                 outcome: Outcome::Up,
                 side: Side::Buy,
                 entry_price: 0.62,

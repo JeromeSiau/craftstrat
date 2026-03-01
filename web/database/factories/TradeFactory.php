@@ -21,7 +21,7 @@ class TradeFactory extends Factory
         return [
             'wallet_id' => Wallet::factory(),
             'strategy_id' => Strategy::factory(),
-            'market_id' => 'btc-updown-15m-'.fake()->unixTime(),
+            'symbol' => 'btc-updown-15m-'.fake()->unixTime(),
             'side' => fake()->randomElement(['buy', 'sell']),
             'outcome' => fake()->randomElement(['UP', 'DOWN']),
             'price' => fake()->randomFloat(6, 0.01, 0.99),

@@ -75,7 +75,7 @@ mod tests {
 
     fn trade(pnl: f64, size: f64) -> BacktestTrade {
         BacktestTrade {
-            market_id: "test".into(),
+            symbol: "test".into(),
             outcome: Outcome::Up,
             side: Side::Buy,
             entry_price: 0.50,

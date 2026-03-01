@@ -139,7 +139,7 @@ export interface BacktestTrade {
 
 export interface Trade {
     id: number;
-    market_id: string | null;
+    symbol: string | null;
     side: string | null;
     outcome: string | null;
     price: string | null;
