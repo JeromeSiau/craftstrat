@@ -224,9 +224,9 @@ fn handle_price_change(event: &serde_json::Value, cache: &mut HashMap<String, Or
         let Some(token_id) = change.get("asset_id").and_then(|v| v.as_str()) else {
             continue;
         };
-        let Some(book) = cache.get_mut(token_id) else {
-            continue;
-        };
+        let book = cache
+            .entry(token_id.to_string())
+            .or_insert_with(OrderBook::default);
         let price = parse_f32(change.get("price"));
         let size = parse_f32(change.get("size"));
         let side = match change.get("side").and_then(|v| v.as_str()) {
