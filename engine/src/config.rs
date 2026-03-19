@@ -54,7 +54,7 @@ fn default_sources() -> Vec<MarketSource> {
         MarketSource::CryptoUpDown {
             binance_symbol: "BTCUSDT".into(),
             slug_prefix: "btc".into(),
-            slot_durations: vec![300, 900, 3600, 14400, 86400],
+            slot_durations: vec![300, 900],
         },
         MarketSource::CryptoUpDown {
             binance_symbol: "ETHUSDT".into(),
