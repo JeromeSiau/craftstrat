@@ -133,7 +133,7 @@ async fn resolve_trades(
 ) {
     // Find all open trades for this symbol
     let rows: Vec<(i64, i64, Option<i64>, String, Option<f64>, f64)> = match sqlx::query_as(
-        "SELECT id, wallet_id, strategy_id, outcome, COALESCE(filled_price, price), size_usdc \
+        "SELECT id, wallet_id, strategy_id, outcome, COALESCE(filled_price, price)::float8, size_usdc \
          FROM trades WHERE symbol = $1 AND status = 'filled'",
     )
     .bind(symbol)
