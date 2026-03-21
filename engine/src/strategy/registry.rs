@@ -58,6 +58,10 @@ pub async fn activate(
     };
     let (wallets, assignments) = {
         let mut reg = registry.write().await;
+        for assignments in reg.values_mut() {
+            assignments.retain(|a| !(a.wallet_id == wallet_id && a.strategy_id == strategy_id));
+        }
+        reg.retain(|_, assignments| !assignments.is_empty());
         for market in &markets {
             reg.entry(market.clone())
                 .or_default()
@@ -229,6 +233,40 @@ mod tests {
 
         let r = reg.read().await;
         assert!(!r.contains_key("btc"));
+    }
+
+    #[tokio::test]
+    async fn test_activate_is_idempotent_for_same_assignment() {
+        let reg = AssignmentRegistry::new();
+
+        activate(
+            &reg,
+            1,
+            100,
+            serde_json::json!({}),
+            vec!["btc".into()],
+            100.0,
+            false,
+            None,
+        )
+        .await;
+        activate(
+            &reg,
+            1,
+            100,
+            serde_json::json!({}),
+            vec!["btc".into()],
+            100.0,
+            false,
+            None,
+        )
+        .await;
+
+        let r = reg.read().await;
+        let assignments = r.get("btc").unwrap();
+        assert_eq!(assignments.len(), 1);
+        assert_eq!(assignments[0].wallet_id, 1);
+        assert_eq!(assignments[0].strategy_id, 100);
     }
 
     #[tokio::test]

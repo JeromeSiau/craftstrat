@@ -80,9 +80,11 @@ pub async fn run(
         };
         counter!(m::ORDERS_TOTAL, "status" => status_label).increment(1);
 
-        // 4. If filled, update position state
+        // 4. Update in-memory strategy state after the execution completes
         if result.status == OrderStatus::Filled {
             update_position(&registry, &order, &result).await;
+        } else if matches!(order.side, Side::Buy) {
+            clear_pending_entry(&registry, &order).await;
         }
 
         // 5. Write trade to PostgreSQL
@@ -196,6 +198,7 @@ async fn update_position(
 
     match order.side {
         Side::Buy => {
+            state.pending_entry_symbol = None;
             state.position = Some(Position {
                 outcome: order.outcome,
                 entry_price: filled_price,
@@ -214,6 +217,29 @@ async fn update_position(
             state.position = None;
         }
     }
+}
+
+async fn clear_pending_entry(registry: &AssignmentRegistry, order: &ExecutionOrder) {
+    let strategy_id = match order.strategy_id {
+        Some(id) => id,
+        None => return,
+    };
+
+    let reg = registry.read().await;
+    let assignment = reg
+        .values()
+        .flatten()
+        .find(|a| a.wallet_id == order.wallet_id && a.strategy_id == strategy_id);
+
+    let Some(assignment) = assignment else {
+        return;
+    };
+
+    let mut state = match assignment.state.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    state.pending_entry_symbol = None;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +290,8 @@ mod tests {
     #[tokio::test]
     async fn test_update_position_buy_sets_position() {
         let registry = AssignmentRegistry::new();
+        let mut initial_state = StrategyState::new(200);
+        initial_state.pending_entry_symbol = Some("btc".to_string());
         activate(
             &registry,
             1,
@@ -272,7 +300,7 @@ mod tests {
             vec!["btc".into()],
             200.0,
             false,
-            None,
+            Some(initial_state),
         )
         .await;
 
@@ -286,6 +314,10 @@ mod tests {
         let state = assignment.state.lock().unwrap();
 
         assert!(state.position.is_some(), "position should be set after buy");
+        assert!(
+            state.pending_entry_symbol.is_none(),
+            "pending entry should be cleared after fill"
+        );
         let pos = state.position.as_ref().unwrap();
         assert!(
             (pos.entry_price - 0.60).abs() < f64::EPSILON,
@@ -343,6 +375,38 @@ mod tests {
             (state.pnl - expected_pnl).abs() < f64::EPSILON,
             "pnl should be {expected_pnl}, got {}",
             state.pnl
+        );
+    }
+
+    #[tokio::test]
+    async fn test_failed_buy_clears_pending_entry() {
+        let registry = AssignmentRegistry::new();
+        let mut initial_state = StrategyState::new(200);
+        initial_state.pending_entry_symbol = Some("btc".to_string());
+
+        activate(
+            &registry,
+            1,
+            100,
+            serde_json::json!({}),
+            vec!["btc".into()],
+            200.0,
+            false,
+            Some(initial_state),
+        )
+        .await;
+
+        let order = make_order(1, 100, Side::Buy, 50.0);
+
+        clear_pending_entry(&registry, &order).await;
+
+        let reg = registry.read().await;
+        let assignment = reg.get("btc").unwrap().first().unwrap();
+        let state = assignment.state.lock().unwrap();
+
+        assert!(
+            state.pending_entry_symbol.is_none(),
+            "pending entry should be cleared after failed/cancelled buy"
         );
     }
 

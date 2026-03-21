@@ -21,6 +21,8 @@ pub struct StrategyState {
     pub window: VecDeque<Tick>,
     pub window_size: usize,
     pub position: Option<Position>,
+    #[serde(default)]
+    pub pending_entry_symbol: Option<String>,
     pub pnl: f64,
     pub trades_this_slot: u32,
     pub current_slot_ts: u32,
@@ -39,6 +41,7 @@ impl StrategyState {
             window: VecDeque::with_capacity(window_size),
             window_size,
             position: None,
+            pending_entry_symbol: None,
             pnl: 0.0,
             trades_this_slot: 0,
             current_slot_ts: 0,

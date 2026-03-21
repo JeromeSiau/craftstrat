@@ -61,6 +61,10 @@ pub fn evaluate_with_caches(
         return Signal::Hold; // in position, no risk trigger → hold
     }
 
+    if state.pending_entry_symbol.is_some() {
+        return Signal::Hold;
+    }
+
     // Cooldown — block entries if too soon after last trade
     if check_cooldown(graph, state, tick) {
         return Signal::Hold;
@@ -84,6 +88,10 @@ pub fn evaluate_with_caches(
     // Duplicate prevention — block if same position already open
     if check_duplicate(graph, state, &signal) {
         return Signal::Hold;
+    }
+
+    if matches!(signal, Signal::Buy { .. }) {
+        state.pending_entry_symbol = Some(tick.symbol.clone());
     }
 
     if matches!(signal, Signal::Buy { .. } | Signal::Sell { .. }) {
@@ -280,5 +288,33 @@ mod tests {
             "expected Buy when under daily loss limit, got {:?}",
             signal
         );
+    }
+
+    #[test]
+    fn test_pending_entry_blocks_duplicate_buys_until_execution_finishes() {
+        let graph = serde_json::json!({
+            "mode": "form",
+            "conditions": [{
+                "type": "AND",
+                "rules": [{ "indicator": "abs_move_pct", "operator": ">", "value": 0.5 }]
+            }],
+            "action": { "signal": "buy", "outcome": "UP", "size_usdc": 50, "order_type": "market" },
+            "risk": {
+                "max_trades_per_slot": 10
+            }
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+
+        let first_signal = evaluate(&graph, &tick, &mut state);
+        assert!(matches!(first_signal, Signal::Buy { .. }));
+        assert_eq!(
+            state.pending_entry_symbol.as_deref(),
+            Some(tick.symbol.as_str())
+        );
+
+        let second_signal = evaluate(&graph, &tick, &mut state);
+        assert!(matches!(second_signal, Signal::Hold));
+        assert_eq!(state.trades_this_slot, 1);
     }
 }
