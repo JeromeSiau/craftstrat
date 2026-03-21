@@ -12,6 +12,8 @@ use crate::strategy::state::{Position, StrategyState};
 use crate::strategy::{OrderType, Outcome, Signal};
 use crate::tasks::model_score_task::{fetch_prediction_batch, ModelScoreCache};
 
+const MODEL_SCORE_BATCH_SIZE: usize = 128;
+
 pub struct BacktestEngine {
     graph: Value,
     window_size: usize,
@@ -336,7 +338,10 @@ async fn precompute_model_scores(
             continue;
         }
 
-        for (row_chunk, key_chunk) in rows.chunks(256).zip(keys.chunks(256)) {
+        for (row_chunk, key_chunk) in rows
+            .chunks(MODEL_SCORE_BATCH_SIZE)
+            .zip(keys.chunks(MODEL_SCORE_BATCH_SIZE))
+        {
             let predictions = fetch_prediction_batch(&client, url, row_chunk).await?;
             for (key, payload) in key_chunk.iter().zip(predictions.into_iter()) {
                 lookup.insert(key.clone(), payload);
