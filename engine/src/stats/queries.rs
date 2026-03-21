@@ -656,12 +656,23 @@ pub async fn fetch_ml_dataset(
                 cos(2 * pi() * toFloat64(day_of_week) / 7.0) AS f_dow_cos,
                 toFloat64(dir_move_pct) AS f_dir_move_pct,
                 toFloat64(abs_move_pct) AS f_abs_move_pct,
-                if(ref_price_start > 0, toFloat64(ref_price / ref_price_start - 1), 0.0) AS f_ref_move_from_start,
+                if(
+                    btc_price_start > 0,
+                    toFloat64(chainlink_price / btc_price_start - 1),
+                    0.0
+                ) AS f_ref_move_from_start,
                 toFloat64(mid_up - lagInFrame(mid_up, 1, mid_up) OVER slot_order) AS f_d_mid_up_1,
                 toFloat64(spread_up - lagInFrame(spread_up, 1, spread_up) OVER slot_order) AS f_d_spread_up_1,
                 imbalance_up - lagInFrame(imbalance_up, 1, imbalance_up) OVER slot_order AS f_d_imbalance_up_1,
-                if(ref_price > 0 AND lagInFrame(ref_price, 1, ref_price) OVER slot_order > 0,
-                    log(toFloat64(ref_price) / toFloat64(lagInFrame(ref_price, 1, ref_price) OVER slot_order)),
+                if(
+                    chainlink_price > 0
+                    AND lagInFrame(chainlink_price, 1, chainlink_price) OVER slot_order > 0,
+                    log(
+                        toFloat64(chainlink_price)
+                        / toFloat64(
+                            lagInFrame(chainlink_price, 1, chainlink_price) OVER slot_order
+                        )
+                    ),
                     0.0
                 ) AS f_d_ref_1,
                 toFloat64(mid_up - avg(mid_up) OVER slot_ma5) AS f_mid_up_vs_ma5,
