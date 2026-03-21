@@ -55,18 +55,29 @@ export default function BacktestResultsTable({
                             {r.market_filter?.length ? (
                                 <div className="flex flex-wrap gap-1">
                                     {r.market_filter.map((m) => (
-                                        <span key={m} className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                                        <span
+                                            key={m}
+                                            className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                                        >
                                             {MARKET_LABEL_MAP[m] ?? m}
                                         </span>
                                     ))}
                                 </div>
                             ) : (
-                                <span className="text-xs text-muted-foreground">All</span>
+                                <span className="text-xs text-muted-foreground">
+                                    All
+                                </span>
                             )}
                         </TableCell>
-                        <TableCell className="tabular-nums">{r.total_trades ?? '-'}</TableCell>
-                        <TableCell className="tabular-nums">{formatWinRate(r.win_rate)}</TableCell>
-                        <TableCell className={`tabular-nums font-medium ${pnlColorClass(r.total_pnl_usdc)}`}>
+                        <TableCell className="tabular-nums">
+                            {r.total_trades ?? '-'}
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                            {formatWinRate(r.win_rate)}
+                        </TableCell>
+                        <TableCell
+                            className={`font-medium tabular-nums ${pnlColorClass(r.total_pnl_usdc)}`}
+                        >
                             {formatPnl(r.total_pnl_usdc)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">

@@ -5,6 +5,7 @@ mod execution_tasks;
 pub mod model_score_task;
 mod persistence;
 mod slot_resolver;
+mod trade_analytics;
 mod writers;
 
 use std::collections::HashMap;
@@ -131,6 +132,13 @@ pub async fn spawn_all(
             slot_resolver::run_slot_resolver(ch, http, gamma_url, resolver_db, resolver_registry)
                 .await
         });
+    }
+
+    // Post-fill execution analytics (60s markout from ClickHouse mid prices)
+    {
+        let ch = crate::storage::clickhouse::create_client(&state.config.clickhouse_url);
+        let analytics_db = db.clone();
+        tasks.spawn(async move { trade_analytics::run_trade_analytics(ch, analytics_db).await });
     }
 
     // Redis state persistence

@@ -1,7 +1,7 @@
-import notification from './notification'
+import notification from './notification';
 
 const internal = {
     notification: Object.assign(notification, notification),
-}
+};
 
-export default internal
+export default internal;

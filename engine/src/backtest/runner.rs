@@ -13,6 +13,7 @@ use crate::strategy::{OrderType, Outcome, Signal};
 use crate::tasks::model_score_task::{fetch_prediction_batch, ModelScoreCache};
 
 const MODEL_SCORE_BATCH_SIZE: usize = 64;
+const DEPTH_LEVEL_WEIGHTS: [f64; 3] = [1.0, 0.75, 0.5];
 
 pub struct BacktestEngine {
     graph: Value,
@@ -31,6 +32,15 @@ struct BacktestModelScores {
     urls: Vec<String>,
     lookup: HashMap<String, Value>,
     cache: ModelScoreCache,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SimulatedFill {
+    average_price: f64,
+    reference_price: f64,
+    slippage_bps: f64,
+    book_depth_usdc: f64,
+    depth_ratio: f64,
 }
 
 impl BacktestEngine {
@@ -104,14 +114,14 @@ impl BacktestEngine {
             Signal::Buy {
                 outcome, size_usdc, ..
             } => {
-                let entry_price = ask_price(outcome, tick);
-                if entry_price <= 0.0 {
+                let Some(entry_fill) = simulate_entry_fill(outcome, tick, size_usdc) else {
                     // No liquidity — skip this entry
                     return;
-                }
+                };
+                ctx.state.pending_entry_symbol = None;
                 ctx.state.position = Some(Position {
                     outcome,
-                    entry_price,
+                    entry_price: entry_fill.average_price,
                     size_usdc,
                     entry_at: tick.captured_at.unix_timestamp(),
                     symbol: tick.symbol.clone(),
@@ -120,8 +130,16 @@ impl BacktestEngine {
                     symbol: tick.symbol.clone(),
                     outcome,
                     side: Side::Buy,
-                    entry_price,
+                    entry_price: entry_fill.average_price,
+                    entry_reference_price: entry_fill.reference_price,
+                    entry_slippage_bps: entry_fill.slippage_bps,
+                    entry_book_depth_usdc: entry_fill.book_depth_usdc,
+                    entry_depth_ratio: entry_fill.depth_ratio,
                     exit_price: None,
+                    exit_reference_price: None,
+                    exit_slippage_bps: None,
+                    exit_book_depth_usdc: None,
+                    exit_depth_ratio: None,
                     size_usdc,
                     pnl_usdc: 0.0,
                     entry_at: tick.captured_at,
@@ -134,11 +152,28 @@ impl BacktestEngine {
                 order_type,
                 ..
             } => {
-                // evaluate() already cleared state.position
                 if let Some(mut trade) = ctx.open_trade.take() {
-                    let exit = bid_price(outcome, tick);
-                    trade.exit_price = Some(exit);
-                    trade.pnl_usdc = compute_pnl(trade.entry_price, exit, trade.size_usdc);
+                    let Some(exit_fill) =
+                        simulate_exit_fill(outcome, tick, trade.size_usdc, trade.entry_price)
+                    else {
+                        ctx.state.position = Some(Position {
+                            outcome: trade.outcome,
+                            entry_price: trade.entry_price,
+                            size_usdc: trade.size_usdc,
+                            entry_at: trade.entry_at.unix_timestamp(),
+                            symbol: trade.symbol.clone(),
+                        });
+                        ctx.open_trade = Some(trade);
+                        return;
+                    };
+
+                    trade.exit_price = Some(exit_fill.average_price);
+                    trade.exit_reference_price = Some(exit_fill.reference_price);
+                    trade.exit_slippage_bps = Some(exit_fill.slippage_bps);
+                    trade.exit_book_depth_usdc = Some(exit_fill.book_depth_usdc);
+                    trade.exit_depth_ratio = Some(exit_fill.depth_ratio);
+                    trade.pnl_usdc =
+                        compute_pnl(trade.entry_price, exit_fill.average_price, trade.size_usdc);
                     trade.exit_at = Some(tick.captured_at);
                     trade.exit_reason = Some(map_exit_reason(&order_type));
                     self.trades.push(trade);
@@ -170,16 +205,50 @@ impl BacktestEngine {
         for (_, ctx) in self.markets.drain() {
             if let Some(mut trade) = ctx.open_trade {
                 if let Some(last_tick) = ctx.state.window.back() {
-                    let (exit, reason) = if let Some(winner) = last_tick.winner {
-                        let won = matches!(
-                            (trade.outcome, winner),
-                            (Outcome::Up, 1) | (Outcome::Down, 2)
-                        );
-                        (if won { 1.0 } else { 0.0 }, ExitReason::SlotResolved)
-                    } else {
-                        (mid_price(trade.outcome, last_tick), ExitReason::EndOfData)
-                    };
+                    let (exit, reference_price, slippage_bps, book_depth_usdc, depth_ratio, reason) =
+                        if let Some(winner) = last_tick.winner {
+                            let won = matches!(
+                                (trade.outcome, winner),
+                                (Outcome::Up, 1) | (Outcome::Down, 2)
+                            );
+                            (
+                                if won { 1.0 } else { 0.0 },
+                                None,
+                                None,
+                                None,
+                                None,
+                                ExitReason::SlotResolved,
+                            )
+                        } else {
+                            match simulate_exit_fill(
+                                trade.outcome,
+                                last_tick,
+                                trade.size_usdc,
+                                trade.entry_price,
+                            ) {
+                                Some(fill) => (
+                                    fill.average_price,
+                                    Some(fill.reference_price),
+                                    Some(fill.slippage_bps),
+                                    Some(fill.book_depth_usdc),
+                                    Some(fill.depth_ratio),
+                                    ExitReason::EndOfData,
+                                ),
+                                None => (
+                                    mid_price(trade.outcome, last_tick),
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    ExitReason::EndOfData,
+                                ),
+                            }
+                        };
                     trade.exit_price = Some(exit);
+                    trade.exit_reference_price = reference_price;
+                    trade.exit_slippage_bps = slippage_bps;
+                    trade.exit_book_depth_usdc = book_depth_usdc;
+                    trade.exit_depth_ratio = depth_ratio;
                     trade.pnl_usdc = compute_pnl(trade.entry_price, exit, trade.size_usdc);
                     trade.exit_at = Some(last_tick.captured_at);
                     trade.exit_reason = Some(reason);
@@ -191,25 +260,176 @@ impl BacktestEngine {
     }
 }
 
-fn ask_price(outcome: Outcome, tick: &Tick) -> f64 {
-    match outcome {
-        Outcome::Up => tick.ask_up as f64,
-        Outcome::Down => tick.ask_down as f64,
-    }
-}
-
-fn bid_price(outcome: Outcome, tick: &Tick) -> f64 {
-    match outcome {
-        Outcome::Up => tick.bid_up as f64,
-        Outcome::Down => tick.bid_down as f64,
-    }
-}
-
 fn mid_price(outcome: Outcome, tick: &Tick) -> f64 {
     match outcome {
         Outcome::Up => tick.mid_up as f64,
         Outcome::Down => tick.mid_down as f64,
     }
+}
+
+fn simulate_entry_fill(outcome: Outcome, tick: &Tick, size_usdc: f64) -> Option<SimulatedFill> {
+    if size_usdc <= 0.0 {
+        return None;
+    }
+
+    let (reference_price, l2_price, l3_price, l1_size_tokens) = match outcome {
+        Outcome::Up => (
+            tick.ask_up as f64,
+            tick.ask_up_l2 as f64,
+            tick.ask_up_l3 as f64,
+            tick.ask_size_up as f64,
+        ),
+        Outcome::Down => (
+            tick.ask_down as f64,
+            tick.ask_down_l2 as f64,
+            tick.ask_down_l3 as f64,
+            tick.ask_size_down as f64,
+        ),
+    };
+
+    let levels = estimated_levels(reference_price, l2_price, l3_price, l1_size_tokens);
+    simulate_buy_usdc_fill(&levels, size_usdc)
+}
+
+fn simulate_exit_fill(
+    outcome: Outcome,
+    tick: &Tick,
+    size_usdc: f64,
+    entry_price: f64,
+) -> Option<SimulatedFill> {
+    if size_usdc <= 0.0 || entry_price <= 0.0 {
+        return None;
+    }
+
+    let (reference_price, l2_price, l3_price, l1_size_tokens) = match outcome {
+        Outcome::Up => (
+            tick.bid_up as f64,
+            tick.bid_up_l2 as f64,
+            tick.bid_up_l3 as f64,
+            tick.bid_size_up as f64,
+        ),
+        Outcome::Down => (
+            tick.bid_down as f64,
+            tick.bid_down_l2 as f64,
+            tick.bid_down_l3 as f64,
+            tick.bid_size_down as f64,
+        ),
+    };
+
+    let levels = estimated_levels(reference_price, l2_price, l3_price, l1_size_tokens);
+    let token_qty = size_usdc / entry_price;
+    simulate_sell_token_fill(&levels, token_qty)
+}
+
+fn estimated_levels(
+    l1_price: f64,
+    l2_price: f64,
+    l3_price: f64,
+    l1_size_tokens: f64,
+) -> Vec<(f64, f64)> {
+    if l1_price <= 0.0 || l1_size_tokens <= 0.0 {
+        return Vec::new();
+    }
+
+    [l1_price, l2_price, l3_price]
+        .into_iter()
+        .zip(DEPTH_LEVEL_WEIGHTS)
+        .filter_map(|(price, weight)| {
+            if price > 0.0 {
+                Some((price, l1_size_tokens * weight))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn simulate_buy_usdc_fill(levels: &[(f64, f64)], budget_usdc: f64) -> Option<SimulatedFill> {
+    let reference_price = levels.first()?.0;
+    let book_depth_usdc = levels.iter().map(|(price, size)| price * size).sum::<f64>();
+    if book_depth_usdc + f64::EPSILON < budget_usdc {
+        return None;
+    }
+
+    let mut remaining_budget = budget_usdc;
+    let mut total_tokens = 0.0;
+    for (price, size_tokens) in levels {
+        let level_capacity_usdc = price * size_tokens;
+        let budget_here = remaining_budget.min(level_capacity_usdc);
+        total_tokens += budget_here / price;
+        remaining_budget -= budget_here;
+        if remaining_budget <= f64::EPSILON {
+            break;
+        }
+    }
+
+    if total_tokens <= 0.0 {
+        return None;
+    }
+
+    let average_price = budget_usdc / total_tokens;
+    let slippage_bps = if reference_price > 0.0 {
+        (average_price - reference_price) / reference_price * 10_000.0
+    } else {
+        0.0
+    };
+
+    Some(SimulatedFill {
+        average_price,
+        reference_price,
+        slippage_bps,
+        book_depth_usdc,
+        depth_ratio: if book_depth_usdc > 0.0 {
+            budget_usdc / book_depth_usdc
+        } else {
+            0.0
+        },
+    })
+}
+
+fn simulate_sell_token_fill(levels: &[(f64, f64)], token_qty: f64) -> Option<SimulatedFill> {
+    let reference_price = levels.first()?.0;
+    let total_capacity_tokens = levels.iter().map(|(_, size)| size).sum::<f64>();
+    if total_capacity_tokens + f64::EPSILON < token_qty {
+        return None;
+    }
+
+    let book_depth_usdc = levels.iter().map(|(price, size)| price * size).sum::<f64>();
+    let requested_notional_usdc = token_qty * reference_price;
+    let mut remaining_tokens = token_qty;
+    let mut proceeds_usdc = 0.0;
+
+    for (price, size_tokens) in levels {
+        let tokens_here = remaining_tokens.min(*size_tokens);
+        proceeds_usdc += tokens_here * price;
+        remaining_tokens -= tokens_here;
+        if remaining_tokens <= f64::EPSILON {
+            break;
+        }
+    }
+
+    if token_qty <= 0.0 {
+        return None;
+    }
+
+    let average_price = proceeds_usdc / token_qty;
+    let slippage_bps = if reference_price > 0.0 {
+        (reference_price - average_price) / reference_price * 10_000.0
+    } else {
+        0.0
+    };
+
+    Some(SimulatedFill {
+        average_price,
+        reference_price,
+        slippage_bps,
+        book_depth_usdc,
+        depth_ratio: if book_depth_usdc > 0.0 {
+            requested_notional_usdc / book_depth_usdc
+        } else {
+            0.0
+        },
+    })
 }
 
 fn map_exit_reason(order_type: &OrderType) -> ExitReason {
@@ -451,6 +671,7 @@ mod tests {
         let mut t1 = test_tick();
         t1.abs_move_pct = 4.0;
         t1.ask_up = 0.50; // entry price
+        t1.ask_size_up = 120.0;
         t1.mid_up = 0.49;
         engine.process_tick(&t1);
 
@@ -495,8 +716,8 @@ mod tests {
         let trade = &result.trades[0];
         assert!(trade.exit_price.is_some());
         assert_eq!(trade.exit_reason, Some(ExitReason::EndOfData));
-        // Exit at mid_up of last tick (0.63)
-        assert!((trade.exit_price.unwrap() - 0.63).abs() < 0.001);
+        // Exit through the bid side of the last book snapshot.
+        assert!((trade.exit_price.unwrap() - 0.62).abs() < 0.001);
     }
 
     #[test]
@@ -556,6 +777,7 @@ mod tests {
         let mut t3 = test_tick();
         t3.abs_move_pct = 4.0;
         t3.ask_up = 0.50;
+        t3.ask_size_up = 120.0;
         t3.mid_up = 0.49;
         t3.captured_at = OffsetDateTime::from_unix_timestamp(1700000452).unwrap();
         engine.process_tick(&t3);
@@ -696,10 +918,10 @@ mod tests {
             .is_some());
         assert_eq!(engine.trades.len(), 0);
 
-        // finish() uses mid_price fallback (no winner)
+        // finish() exits through the bid side of the final book snapshot.
         let result = engine.finish();
         assert_eq!(result.total_trades, 1);
-        assert!((result.trades[0].exit_price.unwrap() - 0.63).abs() < 0.001);
+        assert!((result.trades[0].exit_price.unwrap() - 0.62).abs() < 0.001);
         assert_eq!(result.trades[0].exit_reason, Some(ExitReason::EndOfData));
     }
 

@@ -1,5 +1,9 @@
 import { Head, useForm } from '@inertiajs/react';
-import { index, create, store } from '@/actions/App/Http/Controllers/StrategyController';
+import {
+    index,
+    create,
+    store,
+} from '@/actions/App/Http/Controllers/StrategyController';
 import InputError from '@/components/input-error';
 import AiBuilder from '@/components/strategy/ai-builder';
 import FormBuilder from '@/components/strategy/form-builder';
@@ -13,6 +17,13 @@ import { uid } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
 import type { FormModeGraph, NodeModeGraph } from '@/types/models';
 
+type StrategyFormData = {
+    name: string;
+    description: string;
+    mode: 'form' | 'node';
+    graph: FormModeGraph | NodeModeGraph;
+};
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Strategies', href: index.url() },
     { title: 'Create', href: create.url() },
@@ -24,7 +35,14 @@ const defaultFormGraph: FormModeGraph = {
         {
             id: uid(),
             type: 'AND',
-            rules: [{ id: uid(), indicator: 'abs_move_pct', operator: '>', value: 3.0 }],
+            rules: [
+                {
+                    id: uid(),
+                    indicator: 'abs_move_pct',
+                    operator: '>',
+                    value: 3.0,
+                },
+            ],
         },
     ],
     action: {
@@ -48,9 +66,24 @@ const defaultFormGraph: FormModeGraph = {
 const defaultNodeGraph: NodeModeGraph = {
     mode: 'node',
     nodes: [
-        { id: 'n1', type: 'input', data: { field: 'abs_move_pct' }, position: { x: 50, y: 100 } },
-        { id: 'n2', type: 'comparator', data: { operator: '>', value: 3.0 }, position: { x: 300, y: 100 } },
-        { id: 'n3', type: 'action', data: { signal: 'buy', outcome: 'UP', size_usdc: 50 }, position: { x: 550, y: 100 } },
+        {
+            id: 'n1',
+            type: 'input',
+            data: { field: 'abs_move_pct' },
+            position: { x: 50, y: 100 },
+        },
+        {
+            id: 'n2',
+            type: 'comparator',
+            data: { operator: '>', value: 3.0 },
+            position: { x: 300, y: 100 },
+        },
+        {
+            id: 'n3',
+            type: 'action',
+            data: { signal: 'buy', outcome: 'UP', size_usdc: 50 },
+            position: { x: 550, y: 100 },
+        },
     ],
     edges: [
         { source: 'n1', target: 'n2' },
@@ -59,12 +92,13 @@ const defaultNodeGraph: NodeModeGraph = {
 };
 
 export default function StrategiesCreate() {
-    const { data, setData, post, processing, errors } = useForm({
-        name: '',
-        description: '',
-        mode: 'form' as 'form' | 'node',
-        graph: defaultFormGraph as FormModeGraph | NodeModeGraph,
-    });
+    const { data, setData, post, processing, errors } =
+        useForm<StrategyFormData>({
+            name: '',
+            description: '',
+            mode: 'form' as 'form' | 'node',
+            graph: defaultFormGraph as FormModeGraph | NodeModeGraph,
+        });
 
     function handleTabChange(tab: string): void {
         if (tab === 'form') {
@@ -84,9 +118,12 @@ export default function StrategiesCreate() {
             <Head title="Create Strategy" />
             <div className="p-4 md:p-8">
                 <div className="mb-8">
-                    <h1 className="text-2xl font-bold tracking-tight">Create Strategy</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Create Strategy
+                    </h1>
                     <p className="mt-1 text-muted-foreground">
-                        Define conditions, actions, and risk parameters for your new strategy.
+                        Define conditions, actions, and risk parameters for your
+                        new strategy.
                     </p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-8">
@@ -96,7 +133,9 @@ export default function StrategiesCreate() {
                             <Input
                                 id="name"
                                 value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    setData('name', e.target.value)
+                                }
                                 placeholder="e.g. BTC Momentum Long"
                             />
                             <InputError message={errors.name} />
@@ -106,14 +145,18 @@ export default function StrategiesCreate() {
                             <Input
                                 id="description"
                                 value={data.description}
-                                onChange={(e) => setData('description', e.target.value)}
+                                onChange={(e) =>
+                                    setData('description', e.target.value)
+                                }
                                 placeholder="Describe what this strategy does..."
                             />
                         </div>
                     </div>
 
                     <AiBuilder
-                        onGenerated={(graph) => setData({ ...data, mode: 'form', graph })}
+                        onGenerated={(graph) =>
+                            setData({ ...data, mode: 'form', graph })
+                        }
                     />
 
                     <Tabs defaultValue="form" onValueChange={handleTabChange}>
@@ -139,7 +182,11 @@ export default function StrategiesCreate() {
 
                     <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/80 px-4 py-4 backdrop-blur-sm md:-mx-8 md:px-8">
                         <div className="flex items-center gap-4">
-                            <Button type="submit" size="lg" disabled={processing}>
+                            <Button
+                                type="submit"
+                                size="lg"
+                                disabled={processing}
+                            >
                                 Create Strategy
                             </Button>
                             <p className="text-sm text-muted-foreground">

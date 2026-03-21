@@ -39,7 +39,12 @@ export interface WalletStrategy {
     is_paper: boolean;
     max_position_usdc: string;
     markets: string[];
-    wallet: { id: number; label: string | null; safe_address: string | null; signer_address: string };
+    wallet: {
+        id: number;
+        label: string | null;
+        safe_address: string | null;
+        signer_address: string;
+    };
 }
 
 export interface BacktestResult {
@@ -53,7 +58,7 @@ export interface BacktestResult {
     date_from: string | null;
     date_to: string | null;
     created_at: string;
-    strategy: { id: number; name: string; graph?: Record<string, unknown> };
+    strategy: { id: number; name: string; graph?: Record<string, GraphValue> };
     result_detail?: {
         trades?: BacktestTrade[];
     } | null;
@@ -66,6 +71,10 @@ export interface DashboardStats {
     total_pnl_usdc: string;
     running_assignments: number;
 }
+
+type GraphPrimitive = string | number | boolean | null | undefined;
+
+export type GraphValue = GraphPrimitive | GraphPrimitive[];
 
 // Strategy graph types for form mode
 export interface StrategyRule {
@@ -124,7 +133,7 @@ export interface GraphNode {
         | 'notify'
         | 'api_fetch'
         | 'model_score';
-    data: Record<string, unknown>;
+    data: Record<string, GraphValue>;
     position?: { x: number; y: number };
 }
 
@@ -146,9 +155,21 @@ export interface BacktestTrade {
     side: 'buy' | 'sell';
     outcome: 'UP' | 'DOWN';
     entry_price: number;
+    entry_reference_price: number;
+    entry_slippage_bps: number;
+    entry_book_depth_usdc: number;
+    entry_depth_ratio: number;
     exit_price: number | null;
+    exit_reference_price?: number | null;
+    exit_slippage_bps?: number | null;
+    exit_book_depth_usdc?: number | null;
+    exit_depth_ratio?: number | null;
     pnl: number;
     cumulative_pnl: number;
+    symbol?: string | null;
+    entry_at?: string | null;
+    exit_at?: string | null;
+    exit_reason?: string | null;
 }
 
 export interface Trade {
@@ -157,18 +178,25 @@ export interface Trade {
     side: string | null;
     outcome: string | null;
     price: string | null;
+    reference_price: string | null;
     filled_price: string | null;
+    resolved_price: string | null;
+    fill_slippage_bps: string | null;
+    markout_bps_60s: string | null;
     size_usdc: string | null;
     status: string;
     is_paper: boolean;
     executed_at: string | null;
     created_at: string | null;
+    markout_at_60s: string | null;
 }
 
 export interface LiveStatsEntry {
     total_trades: number;
     win_rate: string | null;
     total_pnl_usdc: string | null;
+    avg_fill_slippage_bps: string | null;
+    avg_markout_bps_60s: string | null;
 }
 
 export interface LiveStats {

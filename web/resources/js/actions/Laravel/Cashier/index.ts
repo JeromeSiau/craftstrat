@@ -1,7 +1,7 @@
-import Http from './Http'
+import Http from './Http';
 
 const Cashier = {
     Http: Object.assign(Http, Http),
-}
+};
 
-export default Cashier
+export default Cashier;

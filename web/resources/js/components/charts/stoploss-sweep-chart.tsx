@@ -16,7 +16,11 @@ interface StoplossSweepChartProps {
 
 export function StoplossSweepChart({ data }: StoplossSweepChartProps) {
     if (data.length === 0) {
-        return <p className="py-8 text-center text-sm text-muted-foreground">No stoploss sweep data available.</p>;
+        return (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+                No stoploss sweep data available.
+            </p>
+        );
     }
 
     const chartData = data.map((d) => ({
@@ -29,30 +33,60 @@ export function StoplossSweepChart({ data }: StoplossSweepChartProps) {
     return (
         <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                />
                 <XAxis
                     dataKey="threshold"
                     tick={{ fontSize: 12 }}
                     tickFormatter={(v) => v.toFixed(2)}
                 />
-                <YAxis yAxisId="left" tick={{ fontSize: 12 }} label={{ value: 'Count', angle: -90, position: 'insideLeft', fontSize: 12 }} />
+                <YAxis
+                    yAxisId="left"
+                    tick={{ fontSize: 12 }}
+                    label={{
+                        value: 'Count',
+                        angle: -90,
+                        position: 'insideLeft',
+                        fontSize: 12,
+                    }}
+                />
                 <YAxis
                     yAxisId="right"
                     orientation="right"
                     domain={[0, 100]}
                     tick={{ fontSize: 12 }}
                     tickFormatter={(v) => `${v}%`}
-                    label={{ value: 'Precision %', angle: 90, position: 'insideRight', fontSize: 12 }}
+                    label={{
+                        value: 'Precision %',
+                        angle: 90,
+                        position: 'insideRight',
+                        fontSize: 12,
+                    }}
                 />
                 <Tooltip
-                    contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '0.5rem' }}
-                    formatter={(value: number, name: string) => {
-                        if (name === 'precision') return [`${value.toFixed(1)}%`, 'Precision'];
-                        if (name === 'trueSaves') return [value, 'True Saves'];
-                        if (name === 'falseExits') return [value, 'False Exits'];
-                        return [value, name];
+                    contentStyle={{
+                        background: 'var(--background)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '0.5rem',
                     }}
-                    labelFormatter={(label) => `Threshold: ${Number(label).toFixed(2)}`}
+                    formatter={(
+                        value: number | undefined,
+                        name: string | undefined,
+                    ) => {
+                        const displayValue = value ?? 0;
+                        if (name === 'precision')
+                            return [`${displayValue.toFixed(1)}%`, 'Precision'];
+                        if (name === 'trueSaves')
+                            return [displayValue, 'True Saves'];
+                        if (name === 'falseExits')
+                            return [displayValue, 'False Exits'];
+                        return [displayValue, name ?? 'Value'];
+                    }}
+                    labelFormatter={(label) =>
+                        `Threshold: ${Number(label).toFixed(2)}`
+                    }
                 />
                 <Bar
                     yAxisId="left"

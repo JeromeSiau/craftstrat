@@ -5,7 +5,14 @@ interface UpRateHeatmapProps {
 }
 
 // Move bins from the Rust multiIf, ordered top-to-bottom (positive moves first)
-const MOVE_BINS = ['>= 0.2', '0.1 / 0.2', '0 / 0.1', '-0.1 / 0', '-0.2 / -0.1', '< -0.2'];
+const MOVE_BINS = [
+    '>= 0.2',
+    '0.1 / 0.2',
+    '0 / 0.1',
+    '-0.1 / 0',
+    '-0.2 / -0.1',
+    '< -0.2',
+];
 
 function cellColor(upRate: number, total: number): string {
     if (total < 3) return 'bg-muted text-muted-foreground';
@@ -33,7 +40,11 @@ function sortTimeBins(bins: string[]): string[] {
 
 export function UpRateHeatmap({ data }: UpRateHeatmapProps) {
     if (data.length === 0) {
-        return <p className="py-8 text-center text-sm text-muted-foreground">No heatmap data available.</p>;
+        return (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+                No heatmap data available.
+            </p>
+        );
     }
 
     // Extract and sort unique time bins
@@ -66,7 +77,7 @@ export function UpRateHeatmap({ data }: UpRateHeatmapProps) {
                 <tbody>
                     {MOVE_BINS.map((mb) => (
                         <tr key={mb}>
-                            <td className="border border-border bg-muted px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap">
+                            <td className="border border-border bg-muted px-2 py-1.5 font-medium whitespace-nowrap text-muted-foreground">
                                 {mb}
                             </td>
                             {timeBins.map((tb) => {
@@ -80,11 +91,17 @@ export function UpRateHeatmap({ data }: UpRateHeatmapProps) {
                                         className={`border border-border px-2 py-1.5 text-center ${cellColor(upRate, total)}`}
                                     >
                                         {total < 3 ? (
-                                            <span className="opacity-50">-</span>
+                                            <span className="opacity-50">
+                                                -
+                                            </span>
                                         ) : (
                                             <>
-                                                <div className="font-semibold">{upRate.toFixed(0)}%</div>
-                                                <div className="text-[10px] opacity-75">n={formatN(total)}</div>
+                                                <div className="font-semibold">
+                                                    {upRate.toFixed(0)}%
+                                                </div>
+                                                <div className="text-[10px] opacity-75">
+                                                    n={formatN(total)}
+                                                </div>
                                             </>
                                         )}
                                     </td>

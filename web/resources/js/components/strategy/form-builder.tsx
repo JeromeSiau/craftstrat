@@ -17,7 +17,10 @@ interface FormBuilderProps {
 }
 
 export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
-    function handleConditionChange(index: number, group: ConditionGroupType): void {
+    function handleConditionChange(
+        index: number,
+        group: ConditionGroupType,
+    ): void {
         const updatedConditions = [...graph.conditions];
         updatedConditions[index] = group;
         onChange({ ...graph, conditions: updatedConditions });
@@ -27,7 +30,9 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
         if (graph.conditions.length <= 1) {
             return;
         }
-        const updatedConditions = graph.conditions.filter((_, i) => i !== index);
+        const updatedConditions = graph.conditions.filter(
+            (_, i) => i !== index,
+        );
         onChange({ ...graph, conditions: updatedConditions });
     }
 
@@ -39,7 +44,14 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
                 {
                     id: uid(),
                     type: 'AND',
-                    rules: [{ id: uid(), indicator: 'abs_move_pct', operator: '>', value: 0 }],
+                    rules: [
+                        {
+                            id: uid(),
+                            indicator: 'abs_move_pct',
+                            operator: '>',
+                            value: 0,
+                        },
+                    ],
                 },
             ],
         });
@@ -83,7 +95,9 @@ export default function FormBuilder({ graph, onChange }: FormBuilderProps) {
                         key={group.id}
                         group={group}
                         index={index}
-                        onChange={(updatedGroup) => handleConditionChange(index, updatedGroup)}
+                        onChange={(updatedGroup) =>
+                            handleConditionChange(index, updatedGroup)
+                        }
                         onRemove={() => handleConditionRemove(index)}
                     />
                 ))}

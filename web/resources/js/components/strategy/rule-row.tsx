@@ -40,10 +40,16 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
 
     function handleOperatorChange(value: string): void {
         if (value === 'between') {
-            const currentValue = typeof rule.value === 'number' ? rule.value : rule.value[0];
-            onChange({ ...rule, operator: value, value: [currentValue, currentValue + 1] });
+            const currentValue =
+                typeof rule.value === 'number' ? rule.value : rule.value[0];
+            onChange({
+                ...rule,
+                operator: value,
+                value: [currentValue, currentValue + 1],
+            });
         } else {
-            const currentValue = typeof rule.value === 'number' ? rule.value : rule.value[0];
+            const currentValue =
+                typeof rule.value === 'number' ? rule.value : rule.value[0];
             onChange({ ...rule, operator: value, value: currentValue });
         }
     }
@@ -64,21 +70,29 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
 
     return (
         <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/40 p-3">
-            <Select value={rule.indicator} onValueChange={handleIndicatorChange}>
+            <Select
+                value={rule.indicator}
+                onValueChange={handleIndicatorChange}
+            >
                 <SelectTrigger className="w-52">
                     <SelectValue placeholder="Indicator" />
                 </SelectTrigger>
                 <SelectContent>
-                    {Object.entries(indicatorsByCategory).map(([category, items]) => (
-                        <SelectGroup key={category}>
-                            <SelectLabel>{category}</SelectLabel>
-                            {items.map((indicator) => (
-                                <SelectItem key={indicator.value} value={indicator.value}>
-                                    {indicator.label}
-                                </SelectItem>
-                            ))}
-                        </SelectGroup>
-                    ))}
+                    {Object.entries(indicatorsByCategory).map(
+                        ([category, items]) => (
+                            <SelectGroup key={category}>
+                                <SelectLabel>{category}</SelectLabel>
+                                {items.map((indicator) => (
+                                    <SelectItem
+                                        key={indicator.value}
+                                        value={indicator.value}
+                                    >
+                                        {indicator.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        ),
+                    )}
                 </SelectContent>
             </Select>
 
@@ -101,10 +115,16 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
                         type="number"
                         step="any"
                         className="w-28"
-                        value={Array.isArray(rule.value) ? rule.value[0] : rule.value}
+                        value={
+                            Array.isArray(rule.value)
+                                ? rule.value[0]
+                                : rule.value
+                        }
                         onChange={(e) => handleBetweenMinChange(e.target.value)}
                     />
-                    <span className="text-sm font-medium text-muted-foreground">and</span>
+                    <span className="text-sm font-medium text-muted-foreground">
+                        and
+                    </span>
                     <Input
                         type="number"
                         step="any"
@@ -118,7 +138,11 @@ export default function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
                     type="number"
                     step="any"
                     className="w-32"
-                    value={typeof rule.value === 'number' ? rule.value : rule.value[0]}
+                    value={
+                        typeof rule.value === 'number'
+                            ? rule.value
+                            : rule.value[0]
+                    }
                     onChange={(e) => handleValueChange(e.target.value)}
                 />
             )}

@@ -11,13 +11,19 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Backtests', href: index.url() },
 ];
 
-export default function BacktestsIndex({ results }: { results: Paginated<BacktestResult> }) {
+export default function BacktestsIndex({
+    results,
+}: {
+    results: Paginated<BacktestResult>;
+}) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Backtests" />
             <div className="p-4 md:p-8">
                 <div className="mb-8">
-                    <h1 className="text-2xl font-bold tracking-tight">Backtest Results</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Backtest Results
+                    </h1>
                     <p className="mt-1 text-muted-foreground">
                         Review historical performance of your strategies.
                     </p>
@@ -29,9 +35,12 @@ export default function BacktestsIndex({ results }: { results: Paginated<Backtes
                             <div className="rounded-xl bg-muted p-4">
                                 <LineChart className="size-8 text-muted-foreground" />
                             </div>
-                            <p className="mt-4 font-medium">No backtest results yet</p>
+                            <p className="mt-4 font-medium">
+                                No backtest results yet
+                            </p>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Run a backtest from a strategy page to see results here.
+                                Run a backtest from a strategy page to see
+                                results here.
                             </p>
                         </CardContent>
                     </Card>

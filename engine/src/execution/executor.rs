@@ -112,7 +112,7 @@ pub async fn run(
                 &order.leader_address,
                 &order.symbol,
                 outcome_str,
-                order.price.unwrap_or(0.0),
+                order.reference_price.or(order.price).unwrap_or(0.0),
                 order.size_usdc,
                 &order.leader_tx_hash,
                 result.filled_price,

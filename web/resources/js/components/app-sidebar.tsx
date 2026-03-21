@@ -1,5 +1,13 @@
 import { Link } from '@inertiajs/react';
-import { BarChart3, BookOpen, CreditCard, LayoutGrid, LineChart, Target, Wallet } from 'lucide-react';
+import {
+    BarChart3,
+    BookOpen,
+    CreditCard,
+    LayoutGrid,
+    LineChart,
+    Target,
+    Wallet,
+} from 'lucide-react';
 import { index as analyticsIndex } from '@/actions/App/Http/Controllers/AnalyticsController';
 import { index as backtestsIndex } from '@/actions/App/Http/Controllers/BacktestController';
 import { index as billingIndex } from '@/actions/App/Http/Controllers/BillingController';
@@ -31,7 +39,11 @@ const mainNavItems: NavItem[] = [
 ];
 
 const footerNavItems: NavItem[] = [
-    { title: 'Documentation', href: 'https://docs.craftstrat.com', icon: BookOpen },
+    {
+        title: 'Documentation',
+        href: 'https://docs.craftstrat.com',
+        icon: BookOpen,
+    },
 ];
 
 export function AppSidebar() {

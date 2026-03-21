@@ -1,5 +1,12 @@
 import { Head, router } from '@inertiajs/react';
-import { ArrowDownRight, ArrowUpRight, Clock, Database, Layers, TrendingUp } from 'lucide-react';
+import {
+    ArrowDownRight,
+    ArrowUpRight,
+    Clock,
+    Database,
+    Layers,
+    TrendingUp,
+} from 'lucide-react';
 import { index as analyticsIndex } from '@/actions/App/Http/Controllers/AnalyticsController';
 import { CalibrationChart } from '@/components/charts/calibration-chart';
 import { StoplossSweepChart } from '@/components/charts/stoploss-sweep-chart';
@@ -7,7 +14,13 @@ import { UpRateBarChart } from '@/components/charts/up-rate-bar-chart';
 import { UpRateHeatmap } from '@/components/charts/up-rate-heatmap';
 import MetricCard from '@/components/metric-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AnalyticsFilters, SlotAnalyticsData } from '@/types/models';
@@ -34,21 +47,10 @@ function formatCompact(n: number): string {
     return n.toLocaleString();
 }
 
-function formatDataAge(lastSnapshotAt: string | null): string {
-    if (!lastSnapshotAt) return '-';
-    const now = Date.now();
-    const then = new Date(lastSnapshotAt + 'Z').getTime();
-    const diffMs = now - then;
-    if (diffMs < 0) return 'just now';
-    const totalMinutes = Math.floor(diffMs / 60000);
-    if (totalMinutes < 1) return '<1m ago';
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours === 0) return `${minutes}m ago`;
-    return `${hours}h ${minutes}m ago`;
-}
-
-function applyFilters(filters: AnalyticsFilters, overrides: Partial<AnalyticsFilters>): void {
+function applyFilters(
+    filters: AnalyticsFilters,
+    overrides: Partial<AnalyticsFilters>,
+): void {
     const merged = { ...filters, ...overrides };
     const params: Record<string, string | number> = {
         slot_duration: merged.slot_duration,
@@ -57,10 +59,15 @@ function applyFilters(filters: AnalyticsFilters, overrides: Partial<AnalyticsFil
     if (merged.symbols.length > 0) {
         params.symbols = merged.symbols.join(',');
     }
-    router.get(analyticsIndex.url(), params, { preserveState: true, preserveScroll: true });
+    router.get(analyticsIndex.url(), params, {
+        preserveState: true,
+        preserveScroll: true,
+    });
 }
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Analytics', href: analyticsIndex.url() }];
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Analytics', href: analyticsIndex.url() },
+];
 
 export default function AnalyticsIndex({ stats, filters }: Props) {
     if (!stats) {
@@ -71,7 +78,8 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
                     <Card>
                         <CardContent className="flex items-center justify-center py-16">
                             <p className="text-muted-foreground">
-                                Unable to load analytics data. The engine may be unavailable.
+                                Unable to load analytics data. The engine may be
+                                unavailable.
                             </p>
                         </CardContent>
                     </Card>
@@ -80,7 +88,15 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
         );
     }
 
-    const { summary, heatmap, calibration, by_symbol, stoploss_sweep, by_hour, by_day } = stats;
+    const {
+        summary,
+        heatmap,
+        calibration,
+        by_symbol,
+        stoploss_sweep,
+        by_hour,
+        by_day,
+    } = stats;
 
     // Collect all unique symbols from by_symbol data
     const allSymbols = by_symbol.map((s) => s.symbol);
@@ -118,7 +134,8 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
 
     const overallUpRate =
         summary.resolved_slots > 0
-            ? by_symbol.reduce((acc, s) => acc + s.wins, 0) / by_symbol.reduce((acc, s) => acc + s.total, 0)
+            ? by_symbol.reduce((acc, s) => acc + s.wins, 0) /
+              by_symbol.reduce((acc, s) => acc + s.total, 0)
             : null;
 
     return (
@@ -127,18 +144,27 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
             <div className="space-y-6 p-4 md:p-8">
                 {/* Header + Filters */}
                 <div className="flex flex-wrap items-center gap-4">
-                    <h1 className="text-2xl font-bold tracking-tight">Slot Analytics</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Slot Analytics
+                    </h1>
                     <div className="ml-auto flex flex-wrap items-center gap-3">
                         <Select
                             value={String(filters.slot_duration)}
-                            onValueChange={(v) => applyFilters(filters, { slot_duration: Number(v) })}
+                            onValueChange={(v) =>
+                                applyFilters(filters, {
+                                    slot_duration: Number(v),
+                                })
+                            }
                         >
                             <SelectTrigger className="w-[130px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 {DURATION_OPTIONS.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>
+                                    <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                    >
                                         {opt.label}
                                     </SelectItem>
                                 ))}
@@ -148,7 +174,8 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
                             <div className="flex flex-wrap gap-1">
                                 {allSymbols.map((sym) => {
                                     const isActive =
-                                        filters.symbols.length === 0 || filters.symbols.includes(sym);
+                                        filters.symbols.length === 0 ||
+                                        filters.symbols.includes(sym);
                                     return (
                                         <button
                                             key={sym}
@@ -170,9 +197,24 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
 
                 {/* KPI Row */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                    <MetricCard label="Total Slots" value={summary.total_slots.toLocaleString()} icon={Layers} accent="blue" />
-                    <MetricCard label="Resolved" value={summary.resolved_slots.toLocaleString()} icon={TrendingUp} accent="emerald" />
-                    <MetricCard label="In Progress" value={summary.unresolved_slots.toLocaleString()} icon={Clock} accent="amber" />
+                    <MetricCard
+                        label="Total Slots"
+                        value={summary.total_slots.toLocaleString()}
+                        icon={Layers}
+                        accent="blue"
+                    />
+                    <MetricCard
+                        label="Resolved"
+                        value={summary.resolved_slots.toLocaleString()}
+                        icon={TrendingUp}
+                        accent="emerald"
+                    />
+                    <MetricCard
+                        label="In Progress"
+                        value={summary.unresolved_slots.toLocaleString()}
+                        icon={Clock}
+                        accent="amber"
+                    />
                     <MetricCard
                         label="Snapshots"
                         value={formatCompact(summary.total_snapshots)}
@@ -181,9 +223,21 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
                     />
                     <MetricCard
                         label="UP Rate"
-                        value={overallUpRate !== null ? `${(overallUpRate * 100).toFixed(1)}%` : '-'}
-                        icon={overallUpRate !== null && overallUpRate >= 0.5 ? ArrowUpRight : ArrowDownRight}
-                        accent={overallUpRate !== null && overallUpRate >= 0.5 ? 'emerald' : 'red'}
+                        value={
+                            overallUpRate !== null
+                                ? `${(overallUpRate * 100).toFixed(1)}%`
+                                : '-'
+                        }
+                        icon={
+                            overallUpRate !== null && overallUpRate >= 0.5
+                                ? ArrowUpRight
+                                : ArrowDownRight
+                        }
+                        accent={
+                            overallUpRate !== null && overallUpRate >= 0.5
+                                ? 'emerald'
+                                : 'red'
+                        }
                     />
                 </div>
 
@@ -249,8 +303,8 @@ export default function AnalyticsIndex({ stats, filters }: Props) {
 
                 {/* Footer Summary */}
                 <p className="text-center text-sm text-muted-foreground">
-                    {summary.resolved_slots.toLocaleString()} resolved slots
-                    {' '}&middot; last {filters.hours}h window
+                    {summary.resolved_slots.toLocaleString()} resolved slots{' '}
+                    &middot; last {filters.hours}h window
                 </p>
             </div>
         </AppLayout>

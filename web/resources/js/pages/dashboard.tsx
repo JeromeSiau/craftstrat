@@ -1,5 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
-import { Activity, ChevronRight, LineChart, Target, Wallet } from 'lucide-react';
+import {
+    Activity,
+    ChevronRight,
+    LineChart,
+    Target,
+    Wallet,
+} from 'lucide-react';
 import { show as strategyShow } from '@/actions/App/Http/Controllers/StrategyController';
 import MetricCard from '@/components/metric-card';
 import StatusBadge from '@/components/status-badge';
@@ -22,14 +28,25 @@ export default function Dashboard({ stats, recentStrategies }: Props) {
     const pnlValue = parseFloat(stats.total_pnl_usdc || '0');
 
     const cards = [
-        { label: 'Active Strategies', value: stats.active_strategies, icon: Target },
+        {
+            label: 'Active Strategies',
+            value: stats.active_strategies,
+            icon: Target,
+        },
         { label: 'Total Wallets', value: stats.total_wallets, icon: Wallet },
-        { label: 'Running Assignments', value: stats.running_assignments, icon: Activity },
+        {
+            label: 'Running Assignments',
+            value: stats.running_assignments,
+            icon: Activity,
+        },
         {
             label: 'Total PnL',
             value: `$${pnlValue.toFixed(2)}`,
             icon: LineChart,
-            trend: (pnlValue > 0 ? 'up' : pnlValue < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
+            trend: (pnlValue > 0 ? 'up' : pnlValue < 0 ? 'down' : 'neutral') as
+                | 'up'
+                | 'down'
+                | 'neutral',
         },
     ];
 
@@ -38,8 +55,12 @@ export default function Dashboard({ stats, recentStrategies }: Props) {
             <Head title="Dashboard" />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-                    <p className="mt-1 text-muted-foreground">Overview of your trading activity.</p>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Dashboard
+                    </h1>
+                    <p className="mt-1 text-muted-foreground">
+                        Overview of your trading activity.
+                    </p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -69,7 +90,9 @@ export default function Dashboard({ stats, recentStrategies }: Props) {
                                 <div className="rounded-xl bg-muted p-4">
                                     <Target className="size-8 text-muted-foreground" />
                                 </div>
-                                <p className="mt-4 font-medium">No strategies yet</p>
+                                <p className="mt-4 font-medium">
+                                    No strategies yet
+                                </p>
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     Create your first strategy to get started.
                                 </p>
@@ -83,13 +106,19 @@ export default function Dashboard({ stats, recentStrategies }: Props) {
                                         className="flex items-center justify-between gap-4 py-3.5 transition first:pt-0 last:pb-0 hover:opacity-75"
                                     >
                                         <div className="min-w-0">
-                                            <p className="truncate font-medium">{strategy.name}</p>
+                                            <p className="truncate font-medium">
+                                                {strategy.name}
+                                            </p>
                                             <p className="mt-0.5 text-sm text-muted-foreground">
-                                                {strategy.mode} mode · {strategy.wallets_count ?? 0} wallet(s)
+                                                {strategy.mode} mode ·{' '}
+                                                {strategy.wallets_count ?? 0}{' '}
+                                                wallet(s)
                                             </p>
                                         </div>
                                         <div className="flex shrink-0 items-center gap-3">
-                                            <StatusBadge active={strategy.is_active} />
+                                            <StatusBadge
+                                                active={strategy.is_active}
+                                            />
                                             <ChevronRight className="size-4 text-muted-foreground" />
                                         </div>
                                     </Link>

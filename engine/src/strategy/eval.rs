@@ -8,8 +8,22 @@ pub fn get_field(tick: &Tick, name: &str) -> Option<f64> {
         "dir_move_pct" => Some(tick.dir_move_pct as f64),
         "spread_up" => Some(tick.spread_up as f64),
         "spread_down" => Some(tick.spread_down as f64),
+        "spread_up_rel" => Some(relative_spread(tick.spread_up as f64, tick.mid_up as f64)),
+        "spread_down_rel" => Some(relative_spread(
+            tick.spread_down as f64,
+            tick.mid_down as f64,
+        )),
         "size_ratio_up" => Some(tick.size_ratio_up as f64),
         "size_ratio_down" => Some(tick.size_ratio_down as f64),
+        "l1_imbalance_up" => Some(imbalance(tick.bid_size_up as f64, tick.ask_size_up as f64)),
+        "l1_imbalance_down" => Some(imbalance(
+            tick.bid_size_down as f64,
+            tick.ask_size_down as f64,
+        )),
+        "cross_sum_mid" => Some(tick.mid_up as f64 + tick.mid_down as f64 - 1.0),
+        "cross_sum_bid" => Some(tick.bid_up as f64 + tick.bid_down as f64 - 1.0),
+        "cross_sum_ask" => Some(tick.ask_up as f64 + tick.ask_down as f64 - 1.0),
+        "parity_gap_up" => Some(tick.mid_up as f64 - (1.0 - tick.mid_down as f64)),
         "pct_into_slot" => Some(tick.pct_into_slot as f64),
         "minutes_into_slot" => Some(tick.minutes_into_slot as f64),
         "mid_up" => Some(tick.mid_up as f64),
@@ -26,15 +40,40 @@ pub fn get_field(tick: &Tick, name: &str) -> Option<f64> {
         "ask_up_l2" => Some(tick.ask_up_l2 as f64),
         "bid_up_l3" => Some(tick.bid_up_l3 as f64),
         "ask_up_l3" => Some(tick.ask_up_l3 as f64),
+        "bid_gap_up_12" => Some((tick.bid_up - tick.bid_up_l2) as f64),
+        "bid_gap_up_23" => Some((tick.bid_up_l2 - tick.bid_up_l3) as f64),
+        "ask_gap_up_12" => Some((tick.ask_up_l2 - tick.ask_up) as f64),
+        "ask_gap_up_23" => Some((tick.ask_up_l3 - tick.ask_up_l2) as f64),
         "bid_down_l2" => Some(tick.bid_down_l2 as f64),
         "ask_down_l2" => Some(tick.ask_down_l2 as f64),
         "bid_down_l3" => Some(tick.bid_down_l3 as f64),
         "ask_down_l3" => Some(tick.ask_down_l3 as f64),
+        "bid_gap_down_12" => Some((tick.bid_down - tick.bid_down_l2) as f64),
+        "bid_gap_down_23" => Some((tick.bid_down_l2 - tick.bid_down_l3) as f64),
+        "ask_gap_down_12" => Some((tick.ask_down_l2 - tick.ask_down) as f64),
+        "ask_gap_down_23" => Some((tick.ask_down_l3 - tick.ask_down_l2) as f64),
         "ref_price" | "chainlink_price" => Some(tick.ref_price as f64),
         "hour_utc" => Some(tick.hour_utc as f64),
         "day_of_week" => Some(tick.day_of_week as f64),
         "market_volume_usd" => Some(tick.market_volume_usd as f64),
         _ => None,
+    }
+}
+
+fn relative_spread(spread: f64, mid: f64) -> f64 {
+    if mid > 0.0 {
+        spread / mid
+    } else {
+        0.0
+    }
+}
+
+fn imbalance(bid_size: f64, ask_size: f64) -> f64 {
+    let denom = bid_size + ask_size;
+    if denom > 0.0 {
+        (bid_size - ask_size) / denom
+    } else {
+        0.0
     }
 }
 
@@ -91,6 +130,18 @@ mod tests {
         assert!((get_field(&tick, "bid_up_l3").unwrap() - 0.55).abs() < 0.001);
         assert!((get_field(&tick, "bid_down_l2").unwrap() - 0.36).abs() < 0.001);
         assert!((get_field(&tick, "ask_down_l3").unwrap() - 0.44).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_get_field_microstructure_derivatives() {
+        let tick = test_tick();
+
+        assert!((get_field(&tick, "spread_up_rel").unwrap() - (0.02 / 0.61)).abs() < 0.001);
+        assert!((get_field(&tick, "l1_imbalance_up").unwrap() - 0.1111).abs() < 0.001);
+        assert!((get_field(&tick, "cross_sum_mid").unwrap()).abs() < 0.001);
+        assert!((get_field(&tick, "parity_gap_up").unwrap()).abs() < 0.001);
+        assert!((get_field(&tick, "bid_gap_up_12").unwrap() - 0.02).abs() < 0.001);
+        assert!((get_field(&tick, "ask_gap_down_23").unwrap() - 0.02).abs() < 0.001);
     }
 
     #[test]

@@ -80,17 +80,31 @@ class StrategyController extends Controller
                             COALESCE(SUM(
                                 CASE
                                     WHEN status IN ('won', 'lost')
-                                        THEN (COALESCE(filled_price, price, 0.5) - COALESCE(price, 0.5)) * COALESCE(size_usdc, 0)
+                                        THEN (
+                                            (
+                                                COALESCE(resolved_price, filled_price, price, 0.5)
+                                                - COALESCE(filled_price, price, 0.5)
+                                            )
+                                            / NULLIF(COALESCE(filled_price, price, 0.5), 0)
+                                        ) * COALESCE(size_usdc, 0)
                                     ELSE 0
                                 END
                             ), 0) as total_pnl_usdc
                         ")
+                        ->selectRaw('AVG(fill_slippage_bps) as avg_fill_slippage_bps')
+                        ->selectRaw('AVG(markout_bps_60s) as avg_markout_bps_60s')
                         ->first();
 
                     $totalTrades = (int) ($stats?->total_trades ?? 0);
                     $resolvedTrades = (int) ($stats?->resolved_trades ?? 0);
                     $wonTrades = (int) ($stats?->won_trades ?? 0);
                     $totalPnl = (float) ($stats?->total_pnl_usdc ?? 0);
+                    $avgFillSlippage = $stats?->avg_fill_slippage_bps !== null
+                        ? number_format((float) $stats->avg_fill_slippage_bps, 2, '.', '')
+                        : null;
+                    $avgMarkout = $stats?->avg_markout_bps_60s !== null
+                        ? number_format((float) $stats->avg_markout_bps_60s, 2, '.', '')
+                        : null;
 
                     return [
                         'total_trades' => $totalTrades,
@@ -98,6 +112,8 @@ class StrategyController extends Controller
                             ? number_format($wonTrades / $resolvedTrades, 4)
                             : null,
                         'total_pnl_usdc' => number_format($totalPnl, 2, '.', ''),
+                        'avg_fill_slippage_bps' => $avgFillSlippage,
+                        'avg_markout_bps_60s' => $avgMarkout,
                     ];
                 };
 
@@ -109,7 +125,24 @@ class StrategyController extends Controller
             'recentTrades' => Inertia::defer(fn () => $strategy->trades()
                 ->orderByRaw('COALESCE(executed_at, created_at) DESC')
                 ->limit(20)
-                ->get(['id', 'symbol', 'side', 'outcome', 'price', 'filled_price', 'size_usdc', 'status', 'is_paper', 'executed_at', 'created_at']), 'liveData'),
+                ->get([
+                    'id',
+                    'symbol',
+                    'side',
+                    'outcome',
+                    'price',
+                    'reference_price',
+                    'filled_price',
+                    'resolved_price',
+                    'fill_slippage_bps',
+                    'markout_bps_60s',
+                    'size_usdc',
+                    'status',
+                    'is_paper',
+                    'executed_at',
+                    'created_at',
+                    'markout_at_60s',
+                ]), 'liveData'),
         ]);
     }
 

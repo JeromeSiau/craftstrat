@@ -9,7 +9,7 @@ import {
     type Edge,
     type OnConnect,
 } from '@xyflow/react';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import '@xyflow/react/dist/style.css';
 import ActionNode from '@/components/strategy/nodes/action-node';
 import ApiFetchNode from '@/components/strategy/nodes/api-fetch-node';
@@ -26,14 +26,14 @@ import ModelScoreNode from '@/components/strategy/nodes/model-score-node';
 import NotNode from '@/components/strategy/nodes/not-node';
 import NotifyNode from '@/components/strategy/nodes/notify-node';
 import { Button } from '@/components/ui/button';
-import type { NodeModeGraph } from '@/types/models';
+import type { GraphValue, NodeModeGraph } from '@/types/models';
 
 interface NodeEditorProps {
     graph: NodeModeGraph;
     onChange: (graph: NodeModeGraph) => void;
 }
 
-const nodeDefaults: Record<string, Record<string, unknown>> = {
+const nodeDefaults: Record<string, Record<string, GraphValue>> = {
     input: { field: 'abs_move_pct' },
     indicator: { fn: 'EMA', period: 20, field: 'mid_up' },
     comparator: { operator: '>', value: 0 },
@@ -46,13 +46,23 @@ const nodeDefaults: Record<string, Record<string, unknown>> = {
     kelly: { fraction: 0.5 },
     cancel: { outcome: 'UP' },
     notify: { channel: 'database', message: 'Strategy alert' },
-    api_fetch: { url: '', json_path: '', interval_secs: 60, label: 'API Value' },
-    model_score: { url: '', json_path: 'proba_up', interval_ms: 2000, label: 'Model Score' },
+    api_fetch: {
+        url: '',
+        json_path: '',
+        interval_secs: 60,
+        label: 'API Value',
+    },
+    model_score: {
+        url: '',
+        json_path: 'proba_up',
+        interval_ms: 2000,
+        label: 'Model Score',
+    },
 };
 
 function toFlowNodes(
     graphNodes: NodeModeGraph['nodes'],
-    onUpdate: (id: string, data: Record<string, unknown>) => void,
+    onUpdate: (id: string, data: Record<string, GraphValue>) => void,
 ): Node[] {
     return graphNodes.map((node) => ({
         id: node.id,
@@ -80,19 +90,45 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
         }, 0),
     );
 
-    const handleNodeDataUpdate = useCallback(
-        (nodeId: string, newData: Record<string, unknown>) => {
-            setNodes((prevNodes) =>
-                prevNodes.map((node) =>
-                    node.id === nodeId ? { ...node, data: { ...newData, onUpdate: handleNodeDataUpdate } } : node,
-                ),
-            );
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const handleNodeDataUpdateRef = useRef<
+        (nodeId: string, newData: Record<string, GraphValue>) => void
+    >(() => undefined);
+    const proxyNodeDataUpdate = useCallback(
+        (nodeId: string, newData: Record<string, GraphValue>) => {
+            handleNodeDataUpdateRef.current(nodeId, newData);
         },
         [],
     );
 
-    const [nodes, setNodes, onNodesChange] = useNodesState(toFlowNodes(graph.nodes, handleNodeDataUpdate));
-    const [edges, setEdges, onEdgesChange] = useEdgesState(toFlowEdges(graph.edges));
+    const handleNodeDataUpdate = useCallback(
+        (nodeId: string, newData: Record<string, GraphValue>) => {
+            setNodes((prevNodes) =>
+                prevNodes.map((node) =>
+                    node.id === nodeId
+                        ? {
+                              ...node,
+                              data: {
+                                  ...newData,
+                                  onUpdate: proxyNodeDataUpdate,
+                              },
+                          }
+                        : node,
+                ),
+            );
+        },
+        [proxyNodeDataUpdate, setNodes],
+    );
+
+    useEffect(() => {
+        handleNodeDataUpdateRef.current = handleNodeDataUpdate;
+    }, [handleNodeDataUpdate]);
+
+    useEffect(() => {
+        setNodes(toFlowNodes(graph.nodes, proxyNodeDataUpdate));
+        setEdges(toFlowEdges(graph.edges));
+    }, [graph.edges, graph.nodes, proxyNodeDataUpdate, setEdges, setNodes]);
 
     const nodeTypes = useMemo(
         () => ({
@@ -127,7 +163,10 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
         const newNode: Node = {
             id,
             type,
-            position: { x: 100 + Math.random() * 200, y: 50 + Math.random() * 300 },
+            position: {
+                x: 100 + Math.random() * 200,
+                y: 50 + Math.random() * 300,
+            },
             data: { ...nodeDefaults[type], onUpdate: handleNodeDataUpdate },
         };
         setNodes((prev) => [...prev, newNode]);
@@ -135,7 +174,8 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
 
     function handleSave(): void {
         const graphNodes = nodes.map((node) => {
-            const { onUpdate, ...rest } = node.data as Record<string, unknown>;
+            const rest = { ...(node.data as Record<string, GraphValue>) };
+            delete rest.onUpdate;
             return {
                 id: node.id,
                 type: node.type as NodeModeGraph['nodes'][number]['type'],
@@ -155,53 +195,144 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
     return (
         <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Add:</span>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('input')}>
+                <span className="text-xs font-medium text-muted-foreground">
+                    Add:
+                </span>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('input')}
+                >
                     + Input
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('indicator')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('indicator')}
+                >
                     + Indicator
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('comparator')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('comparator')}
+                >
                     + Compare
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('logic')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('logic')}
+                >
                     + Logic
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('action')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('action')}
+                >
                     + Action
                 </Button>
                 <span className="text-muted-foreground">|</span>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('not')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('not')}
+                >
                     + NOT
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('if_else')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('if_else')}
+                >
                     + IF/ELSE
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('math')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('math')}
+                >
                     + Math
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('ev_calculator')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('ev_calculator')}
+                >
                     + EV Calc
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('kelly')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('kelly')}
+                >
                     + Kelly
                 </Button>
                 <span className="text-muted-foreground">|</span>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('cancel')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('cancel')}
+                >
                     + Cancel
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('notify')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('notify')}
+                >
                     + Notify
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('api_fetch')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('api_fetch')}
+                >
                     + API Fetch
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('model_score')}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addNode('model_score')}
+                >
                     + Model Score
                 </Button>
                 <div className="flex-1" />
-                <Button type="button" size="sm" className="h-7 text-xs" onClick={handleSave}>
+                <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={handleSave}
+                >
                     Save Graph
                 </Button>
             </div>

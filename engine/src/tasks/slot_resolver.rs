@@ -160,7 +160,7 @@ async fn resolve_trades(
 
         // Update trade record
         if let Err(e) =
-            sqlx::query("UPDATE trades SET status = $1, filled_price = $2 WHERE id = $3")
+            sqlx::query("UPDATE trades SET status = $1, resolved_price = $2 WHERE id = $3")
                 .bind(new_status)
                 .bind(resolved_price)
                 .bind(trade_id)

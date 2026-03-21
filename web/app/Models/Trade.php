@@ -23,6 +23,7 @@ class Trade extends Model
         'side',
         'outcome',
         'price',
+        'reference_price',
         'size_usdc',
         'order_type',
         'status',
@@ -30,6 +31,12 @@ class Trade extends Model
         'polymarket_order_id',
         'fee_bps',
         'filled_price',
+        'resolved_price',
+        'fill_slippage_bps',
+        'fill_slippage_pct',
+        'markout_price_60s',
+        'markout_at_60s',
+        'markout_bps_60s',
         'executed_at',
     ];
 
@@ -37,11 +44,18 @@ class Trade extends Model
     {
         return [
             'price' => 'decimal:6',
+            'reference_price' => 'decimal:6',
             'filled_price' => 'decimal:6',
+            'resolved_price' => 'decimal:6',
             'size_usdc' => 'decimal:6',
             'is_paper' => 'boolean',
             'fee_bps' => 'integer',
+            'fill_slippage_bps' => 'decimal:2',
+            'fill_slippage_pct' => 'decimal:6',
+            'markout_price_60s' => 'decimal:6',
+            'markout_bps_60s' => 'decimal:2',
             'executed_at' => 'datetime',
+            'markout_at_60s' => 'datetime',
         ];
     }
 

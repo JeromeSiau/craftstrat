@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod executor;
 pub mod fees;
 pub mod orders;

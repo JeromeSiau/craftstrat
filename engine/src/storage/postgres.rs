@@ -24,6 +24,18 @@ pub async fn write_trade(
     order: &ExecutionOrder,
     result: &OrderResult,
 ) -> Result<i64> {
+    let fill_slippage_pct = crate::execution::analytics::fill_slippage_pct(
+        order.side,
+        order.reference_price,
+        result.filled_price,
+    );
+    let fill_slippage_bps = crate::execution::analytics::fill_slippage_bps(
+        order.side,
+        order.reference_price,
+        result.filled_price,
+    );
+    let executed_at = chrono::Utc::now().timestamp();
+
     let side_str = match order.side {
         Side::Buy => "buy",
         Side::Sell => "sell",
@@ -54,10 +66,15 @@ pub async fn write_trade(
             wallet_id, strategy_id, copy_relationship_id,
             symbol, token_id, side, outcome,
             order_type, price, size_usdc,
-            polymarket_order_id, status, is_paper, filled_price, fee_bps,
-            created_at
+            polymarket_order_id, status, is_paper,
+            reference_price, filled_price, resolved_price, fee_bps,
+            fill_slippage_bps, fill_slippage_pct, executed_at, created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, to_timestamp($16))
+        VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15, $16, $17,
+            $18, $19, to_timestamp($20), to_timestamp($21)
+        )
         RETURNING id
         "#,
     )
@@ -74,8 +91,13 @@ pub async fn write_trade(
     .bind(&result.polymarket_order_id)
     .bind(status_str)
     .bind(order.is_paper)
+    .bind(order.reference_price)
     .bind(result.filled_price)
+    .bind(Option::<f64>::None)
     .bind(result.fee_bps.map(|b| b as i16))
+    .bind(fill_slippage_bps)
+    .bind(fill_slippage_pct)
+    .bind(executed_at)
     .bind(order.created_at)
     .fetch_one(pool)
     .await?;
@@ -104,6 +126,7 @@ pub async fn write_copy_trade(
     skip_reason: Option<&str>,
 ) -> Result<i64> {
     let slippage_pct = follower_price.map(|fp| (fp - leader_price) / leader_price);
+    let executed_at = chrono::Utc::now().timestamp();
 
     let copy_trade_id = sqlx::query_scalar::<_, i64>(
         r#"
@@ -112,9 +135,9 @@ pub async fn write_copy_trade(
             leader_address, leader_market_id, leader_outcome,
             leader_price, leader_size_usdc, leader_tx_hash,
             follower_price, slippage_pct,
-            status, skip_reason
+            status, skip_reason, executed_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, to_timestamp($13))
         RETURNING id
         "#,
     )
@@ -130,6 +153,7 @@ pub async fn write_copy_trade(
     .bind(slippage_pct)
     .bind(status)
     .bind(skip_reason)
+    .bind(executed_at)
     .fetch_one(pool)
     .await?;
 

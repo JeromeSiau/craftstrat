@@ -25,6 +25,15 @@ export function formatPercentage(value: string | null): string {
     return `${(parseFloat(value) * 100).toFixed(1)}%`;
 }
 
+export function formatBps(value: string | null): string {
+    if (!value) return '-';
+
+    const parsed = parseFloat(value);
+    if (Number.isNaN(parsed)) return '-';
+
+    return `${parsed > 0 ? '+' : ''}${parsed.toFixed(2)} bps`;
+}
+
 export function pnlColorClass(pnlUsdc: string | null): string {
     if (!pnlUsdc) return '';
     return parseFloat(pnlUsdc) >= 0 ? 'text-green-600' : 'text-red-600';

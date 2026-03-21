@@ -10,7 +10,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { uid } from '@/lib/formatters';
-import type { ConditionGroup as ConditionGroupType, StrategyRule } from '@/types/models';
+import type {
+    ConditionGroup as ConditionGroupType,
+    StrategyRule,
+} from '@/types/models';
 
 interface ConditionGroupProps {
     group: ConditionGroupType;
@@ -19,7 +22,12 @@ interface ConditionGroupProps {
     onRemove: () => void;
 }
 
-export default function ConditionGroup({ group, index, onChange, onRemove }: ConditionGroupProps) {
+export default function ConditionGroup({
+    group,
+    index,
+    onChange,
+    onRemove,
+}: ConditionGroupProps) {
     function handleTypeChange(value: string): void {
         onChange({ ...group, type: value as 'AND' | 'OR' });
     }
@@ -41,7 +49,15 @@ export default function ConditionGroup({ group, index, onChange, onRemove }: Con
     function handleAddRule(): void {
         onChange({
             ...group,
-            rules: [...group.rules, { id: uid(), indicator: 'abs_move_pct', operator: '>', value: 0 }],
+            rules: [
+                ...group.rules,
+                {
+                    id: uid(),
+                    indicator: 'abs_move_pct',
+                    operator: '>',
+                    value: 0,
+                },
+            ],
         });
     }
 
@@ -51,7 +67,10 @@ export default function ConditionGroup({ group, index, onChange, onRemove }: Con
                 <div className="flex items-center gap-3">
                     <CardTitle className="text-sm">Group {index + 1}</CardTitle>
                     {index > 0 && (
-                        <Select value={group.type} onValueChange={handleTypeChange}>
+                        <Select
+                            value={group.type}
+                            onValueChange={handleTypeChange}
+                        >
                             <SelectTrigger className="w-24 font-mono text-xs font-bold">
                                 <SelectValue />
                             </SelectTrigger>
@@ -77,7 +96,9 @@ export default function ConditionGroup({ group, index, onChange, onRemove }: Con
                     <RuleRow
                         key={rule.id}
                         rule={rule}
-                        onChange={(updatedRule) => handleRuleChange(ruleIndex, updatedRule)}
+                        onChange={(updatedRule) =>
+                            handleRuleChange(ruleIndex, updatedRule)
+                        }
                         onRemove={() => handleRuleRemove(ruleIndex)}
                     />
                 ))}

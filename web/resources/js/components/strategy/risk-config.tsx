@@ -12,7 +12,10 @@ interface RiskConfigProps {
 }
 
 export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
-    function handleChange(field: 'max_position_usdc' | 'max_trades_per_slot', value: string): void {
+    function handleChange(
+        field: 'max_position_usdc' | 'max_trades_per_slot',
+        value: string,
+    ): void {
         onChange({ ...risk, [field]: safeParseFloat(value) });
     }
 
@@ -54,26 +57,40 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
             <CardContent>
                 <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
                     <div className="space-y-2">
-                        <Label htmlFor="max_position_usdc">Max Position (USDC)</Label>
+                        <Label htmlFor="max_position_usdc">
+                            Max Position (USDC)
+                        </Label>
                         <Input
                             id="max_position_usdc"
                             type="number"
                             min={1}
                             step="any"
                             value={risk.max_position_usdc}
-                            onChange={(e) => handleChange('max_position_usdc', e.target.value)}
+                            onChange={(e) =>
+                                handleChange(
+                                    'max_position_usdc',
+                                    e.target.value,
+                                )
+                            }
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="max_trades_per_slot">Max Trades / Slot</Label>
+                        <Label htmlFor="max_trades_per_slot">
+                            Max Trades / Slot
+                        </Label>
                         <Input
                             id="max_trades_per_slot"
                             type="number"
                             min={1}
                             step={1}
                             value={risk.max_trades_per_slot}
-                            onChange={(e) => handleChange('max_trades_per_slot', e.target.value)}
+                            onChange={(e) =>
+                                handleChange(
+                                    'max_trades_per_slot',
+                                    e.target.value,
+                                )
+                            }
                         />
                     </div>
 
@@ -84,7 +101,9 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 checked={risk.stoploss_pct !== null}
                                 onCheckedChange={handleToggleSL}
                             />
-                            <Label htmlFor="stoploss_enabled">Stop Loss (%)</Label>
+                            <Label htmlFor="stoploss_enabled">
+                                Stop Loss (%)
+                            </Label>
                         </div>
                         {risk.stoploss_pct !== null && (
                             <Input
@@ -95,7 +114,12 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 step="any"
                                 value={risk.stoploss_pct}
                                 onChange={(e) =>
-                                    onChange({ ...risk, stoploss_pct: safeParseFloat(e.target.value) })
+                                    onChange({
+                                        ...risk,
+                                        stoploss_pct: safeParseFloat(
+                                            e.target.value,
+                                        ),
+                                    })
                                 }
                             />
                         )}
@@ -108,7 +132,9 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 checked={risk.take_profit_pct !== null}
                                 onCheckedChange={handleToggleTP}
                             />
-                            <Label htmlFor="take_profit_enabled">Take Profit (%)</Label>
+                            <Label htmlFor="take_profit_enabled">
+                                Take Profit (%)
+                            </Label>
                         </div>
                         {risk.take_profit_pct !== null && (
                             <Input
@@ -119,7 +145,12 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 step="any"
                                 value={risk.take_profit_pct}
                                 onChange={(e) =>
-                                    onChange({ ...risk, take_profit_pct: safeParseFloat(e.target.value) })
+                                    onChange({
+                                        ...risk,
+                                        take_profit_pct: safeParseFloat(
+                                            e.target.value,
+                                        ),
+                                    })
                                 }
                             />
                         )}
@@ -132,7 +163,9 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 checked={risk.daily_loss_limit_usdc !== null}
                                 onCheckedChange={handleToggleDailyLoss}
                             />
-                            <Label htmlFor="daily_loss_enabled">Daily Loss Limit (USDC)</Label>
+                            <Label htmlFor="daily_loss_enabled">
+                                Daily Loss Limit (USDC)
+                            </Label>
                         </div>
                         {risk.daily_loss_limit_usdc !== null && (
                             <Input
@@ -142,7 +175,12 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 step="any"
                                 value={risk.daily_loss_limit_usdc}
                                 onChange={(e) =>
-                                    onChange({ ...risk, daily_loss_limit_usdc: safeParseFloat(e.target.value) })
+                                    onChange({
+                                        ...risk,
+                                        daily_loss_limit_usdc: safeParseFloat(
+                                            e.target.value,
+                                        ),
+                                    })
                                 }
                             />
                         )}
@@ -155,7 +193,9 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 checked={risk.cooldown_seconds !== null}
                                 onCheckedChange={handleToggleCooldown}
                             />
-                            <Label htmlFor="cooldown_enabled">Cooldown (seconds)</Label>
+                            <Label htmlFor="cooldown_enabled">
+                                Cooldown (seconds)
+                            </Label>
                         </div>
                         {risk.cooldown_seconds !== null && (
                             <Input
@@ -165,7 +205,12 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 step={1}
                                 value={risk.cooldown_seconds}
                                 onChange={(e) =>
-                                    onChange({ ...risk, cooldown_seconds: safeParseFloat(e.target.value) })
+                                    onChange({
+                                        ...risk,
+                                        cooldown_seconds: safeParseFloat(
+                                            e.target.value,
+                                        ),
+                                    })
                                 }
                             />
                         )}
@@ -178,7 +223,9 @@ export default function RiskConfig({ risk, onChange }: RiskConfigProps) {
                                 checked={risk.prevent_duplicates}
                                 onCheckedChange={handleToggleDuplicates}
                             />
-                            <Label htmlFor="prevent_duplicates">Prevent Duplicates</Label>
+                            <Label htmlFor="prevent_duplicates">
+                                Prevent Duplicates
+                            </Label>
                         </div>
                     </div>
                 </div>

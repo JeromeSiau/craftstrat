@@ -7,18 +7,11 @@ import {
 } from '@/actions/App/Http/Controllers/BillingController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Billing', href: index.url() },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Billing', href: index.url() }];
 
 const plans = [
     {
@@ -89,7 +82,9 @@ export default function BillingIndex({ plan, subscribed }: Props) {
             <Head title="Billing" />
             <div className="p-4 md:p-8">
                 <div className="mb-8">
-                    <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Billing
+                    </h1>
                     <p className="mt-1 text-muted-foreground">
                         Manage your subscription and billing details.
                     </p>
@@ -101,7 +96,7 @@ export default function BillingIndex({ plan, subscribed }: Props) {
                             key={p.key}
                             className={`relative flex flex-col transition ${
                                 plan === p.key
-                                    ? 'ring-2 ring-primary shadow-lg'
+                                    ? 'shadow-lg ring-2 ring-primary'
                                     : p.popular
                                       ? 'border-primary/30'
                                       : ''
@@ -113,7 +108,9 @@ export default function BillingIndex({ plan, subscribed }: Props) {
                                 </Badge>
                             )}
                             <CardHeader>
-                                <CardTitle className="text-lg">{p.name}</CardTitle>
+                                <CardTitle className="text-lg">
+                                    {p.name}
+                                </CardTitle>
                                 <div className="mt-2">
                                     <span className="text-4xl font-bold tracking-tight">
                                         {p.price}

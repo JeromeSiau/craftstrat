@@ -911,8 +911,8 @@ export default function Welcome({
                         </div>
 
                         <p className="text-xs text-muted-foreground">
-                            &copy; {new Date().getFullYear()} CraftStrat. All rights
-                            reserved.
+                            &copy; {new Date().getFullYear()} CraftStrat. All
+                            rights reserved.
                         </p>
                     </div>
                 </footer>

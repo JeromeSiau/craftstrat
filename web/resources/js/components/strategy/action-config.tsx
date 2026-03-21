@@ -40,7 +40,10 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                         <Select
                             value={action.signal}
                             onValueChange={(value) =>
-                                onChange({ ...action, signal: value as 'buy' | 'sell' })
+                                onChange({
+                                    ...action,
+                                    signal: value as 'buy' | 'sell',
+                                })
                             }
                         >
                             <SelectTrigger id="signal">
@@ -58,7 +61,10 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                         <Select
                             value={action.outcome}
                             onValueChange={(value) =>
-                                onChange({ ...action, outcome: value as 'UP' | 'DOWN' })
+                                onChange({
+                                    ...action,
+                                    outcome: value as 'UP' | 'DOWN',
+                                })
                             }
                         >
                             <SelectTrigger id="outcome">
@@ -76,7 +82,12 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                         <Select
                             value={action.size_mode}
                             onValueChange={(value) =>
-                                onChange({ ...action, size_mode: value as 'fixed' | 'proportional' })
+                                onChange({
+                                    ...action,
+                                    size_mode: value as
+                                        | 'fixed'
+                                        | 'proportional',
+                                })
                             }
                         >
                             <SelectTrigger id="size_mode">
@@ -84,7 +95,9 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="fixed">Fixed</SelectItem>
-                                <SelectItem value="proportional">Proportional</SelectItem>
+                                <SelectItem value="proportional">
+                                    Proportional
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -98,7 +111,10 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                             step="any"
                             value={action.size_usdc}
                             onChange={(e) =>
-                                onChange({ ...action, size_usdc: safeParseFloat(e.target.value) })
+                                onChange({
+                                    ...action,
+                                    size_usdc: safeParseFloat(e.target.value),
+                                })
                             }
                         />
                     </div>
@@ -108,7 +124,10 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                         <Select
                             value={action.order_type}
                             onValueChange={(value) =>
-                                onChange({ ...action, order_type: value as 'market' | 'limit' })
+                                onChange({
+                                    ...action,
+                                    order_type: value as 'market' | 'limit',
+                                })
                             }
                         >
                             <SelectTrigger id="order_type">

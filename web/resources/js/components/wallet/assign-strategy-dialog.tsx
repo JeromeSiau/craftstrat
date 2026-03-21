@@ -70,20 +70,28 @@ export default function AssignStrategyDialog({
                         <Label htmlFor="strategy_id">Strategy</Label>
                         <Select
                             value={form.data.strategy_id}
-                            onValueChange={(value) => form.setData('strategy_id', value)}
+                            onValueChange={(value) =>
+                                form.setData('strategy_id', value)
+                            }
                         >
                             <SelectTrigger id="strategy_id" className="mt-1">
                                 <SelectValue placeholder="Select a strategy" />
                             </SelectTrigger>
                             <SelectContent>
                                 {strategies.map((strategy) => (
-                                    <SelectItem key={strategy.id} value={String(strategy.id)}>
+                                    <SelectItem
+                                        key={strategy.id}
+                                        value={String(strategy.id)}
+                                    >
                                         {strategy.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        <InputError message={form.errors.strategy_id} className="mt-1" />
+                        <InputError
+                            message={form.errors.strategy_id}
+                            className="mt-1"
+                        />
                     </div>
                     <div>
                         <Label>Markets</Label>
@@ -101,8 +109,12 @@ export default function AssignStrategyDialog({
                                             let next: string[];
                                             if (current.length === 0) {
                                                 next = [m.value];
-                                            } else if (current.includes(m.value)) {
-                                                next = current.filter((v) => v !== m.value);
+                                            } else if (
+                                                current.includes(m.value)
+                                            ) {
+                                                next = current.filter(
+                                                    (v) => v !== m.value,
+                                                );
                                             } else {
                                                 next = [...current, m.value];
                                             }
@@ -126,23 +138,35 @@ export default function AssignStrategyDialog({
                         </p>
                     </div>
                     <div>
-                        <Label htmlFor="max_position_usdc">Max Position (USDC)</Label>
+                        <Label htmlFor="max_position_usdc">
+                            Max Position (USDC)
+                        </Label>
                         <Input
                             id="max_position_usdc"
                             type="number"
                             min="1"
                             className="mt-1"
                             value={form.data.max_position_usdc}
-                            onChange={(e) => form.setData('max_position_usdc', e.target.value)}
+                            onChange={(e) =>
+                                form.setData(
+                                    'max_position_usdc',
+                                    e.target.value,
+                                )
+                            }
                         />
-                        <InputError message={form.errors.max_position_usdc} className="mt-1" />
+                        <InputError
+                            message={form.errors.max_position_usdc}
+                            className="mt-1"
+                        />
                     </div>
                     <div className="flex items-center justify-between">
                         <Label htmlFor="is_paper">Paper Trading</Label>
                         <Switch
                             id="is_paper"
                             checked={form.data.is_paper}
-                            onCheckedChange={(checked) => form.setData('is_paper', checked)}
+                            onCheckedChange={(checked) =>
+                                form.setData('is_paper', checked)
+                            }
                         />
                     </div>
                     <Button

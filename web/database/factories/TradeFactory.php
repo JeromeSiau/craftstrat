@@ -25,10 +25,18 @@ class TradeFactory extends Factory
             'side' => fake()->randomElement(['buy', 'sell']),
             'outcome' => fake()->randomElement(['UP', 'DOWN']),
             'price' => fake()->randomFloat(6, 0.01, 0.99),
+            'reference_price' => fake()->randomFloat(6, 0.01, 0.99),
             'size_usdc' => fake()->randomFloat(6, 10, 500),
             'order_type' => fake()->randomElement(['market', 'limit']),
             'status' => 'filled',
             'fee_bps' => fake()->randomElement([0, 50, 100]),
+            'filled_price' => fake()->randomFloat(6, 0.01, 0.99),
+            'resolved_price' => null,
+            'fill_slippage_bps' => fake()->randomFloat(2, -25, 25),
+            'fill_slippage_pct' => fake()->randomFloat(6, -0.01, 0.01),
+            'markout_price_60s' => fake()->randomFloat(6, 0.01, 0.99),
+            'markout_at_60s' => now(),
+            'markout_bps_60s' => fake()->randomFloat(2, -50, 50),
             'executed_at' => now(),
         ];
     }

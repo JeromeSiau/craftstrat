@@ -22,7 +22,7 @@ export default function AiBuilder({ onGenerated }: AiBuilderProps) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                     'X-XSRF-TOKEN': decodeURIComponent(
                         document.cookie
                             .split('; ')
@@ -54,19 +54,23 @@ export default function AiBuilder({ onGenerated }: AiBuilderProps) {
             <CardContent className="pt-6">
                 <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">AI Strategy Builder</span>
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                        <span className="text-sm font-medium">
+                            AI Strategy Builder
+                        </span>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase">
                             Beta
                         </span>
                     </div>
                     <Textarea
-                        placeholder="Describe your strategy in plain English, e.g. &quot;Buy UP when price drops more than 5% and the spread is tight&quot;"
+                        placeholder='Describe your strategy in plain English, e.g. "Buy UP when price drops more than 5% and the spread is tight"'
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         rows={2}
                         className="resize-none text-sm"
                     />
-                    {error && <p className="text-sm text-destructive">{error}</p>}
+                    {error && (
+                        <p className="text-sm text-destructive">{error}</p>
+                    )}
                     <Button
                         type="button"
                         variant="secondary"
