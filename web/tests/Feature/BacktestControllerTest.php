@@ -86,7 +86,39 @@ it('validates backtest request fields', function () {
 
     $this->actingAs($this->user)
         ->post(route('backtests.run', $strategy), [])
-        ->assertSessionHasErrors(['date_from', 'date_to']);
+        ->assertSessionHasErrors(['date_from'])
+        ->assertSessionDoesntHaveErrors(['date_to']);
+});
+
+it('defaults date_to to today when left blank', function () {
+    Http::fake(['*/internal/backtest/run' => Http::response([
+        'total_trades' => 3,
+        'win_rate' => 0.67,
+        'total_pnl_usdc' => 12.5,
+        'max_drawdown' => 0.03,
+        'sharpe_ratio' => 1.1,
+        'trades' => [],
+    ])]);
+
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $today = now()->toDateString();
+    $expectedDateTo = now()->endOfDay()->toIso8601ZuluString();
+
+    $this->actingAs($this->user)
+        ->post(route('backtests.run', $strategy), [
+            'date_from' => now()->subDays(7)->toDateString(),
+            'date_to' => '',
+        ])
+        ->assertRedirect();
+
+    $result = BacktestResult::where('strategy_id', $strategy->id)->first();
+
+    expect($result)->not->toBeNull()
+        ->and($result->date_to->toDateString())->toBe($today);
+
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/internal/backtest/run')
+        && $request['date_to'] === $expectedDateTo
+    );
 });
 
 it('enforces backtest_days limit for free plan', function () {

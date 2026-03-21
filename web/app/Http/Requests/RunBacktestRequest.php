@@ -7,6 +7,15 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class RunBacktestRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if (blank($this->input('date_to'))) {
+            $this->merge([
+                'date_to' => now()->toDateString(),
+            ]);
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -35,7 +44,7 @@ class RunBacktestRequest extends FormRequest
             'market_filter' => ['nullable', 'array'],
             'market_filter.*' => ['string'],
             'date_from' => $dateFromRules,
-            'date_to' => ['required', 'date', 'after:date_from'],
+            'date_to' => ['required', 'date', 'after_or_equal:date_from'],
         ];
     }
 
