@@ -330,8 +330,8 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                         {recentTrades.map((trade) => (
                                             <TableRow key={trade.id}>
                                                 <TableCell className="text-muted-foreground">
-                                                    {trade.executed_at
-                                                        ? new Date(trade.executed_at).toLocaleDateString()
+                                                    {trade.executed_at || trade.created_at
+                                                        ? new Date(trade.executed_at ?? trade.created_at ?? '').toLocaleDateString()
                                                         : '-'}
                                                 </TableCell>
                                                 <TableCell className="max-w-[200px] truncate font-mono text-xs">
@@ -348,7 +348,9 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                                 </TableCell>
                                                 <TableCell>{trade.outcome ?? '-'}</TableCell>
                                                 <TableCell className="tabular-nums">
-                                                    {trade.price ? `$${parseFloat(trade.price).toFixed(4)}` : '-'}
+                                                    {trade.filled_price || trade.price
+                                                        ? `$${parseFloat(trade.filled_price ?? trade.price ?? '0').toFixed(4)}`
+                                                        : '-'}
                                                 </TableCell>
                                                 <TableCell className="tabular-nums">
                                                     {formatPnl(trade.size_usdc)}

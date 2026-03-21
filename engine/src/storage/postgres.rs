@@ -69,7 +69,7 @@ pub async fn write_trade(
     .bind(side_str)
     .bind(outcome_str)
     .bind(order_type_str)
-    .bind(order.price)
+    .bind(order.price.or(order.reference_price))
     .bind(order.size_usdc)
     .bind(&result.polymarket_order_id)
     .bind(status_str)

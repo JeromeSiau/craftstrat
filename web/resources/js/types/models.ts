@@ -157,10 +157,12 @@ export interface Trade {
     side: string | null;
     outcome: string | null;
     price: string | null;
+    filled_price: string | null;
     size_usdc: string | null;
     status: string;
     is_paper: boolean;
     executed_at: string | null;
+    created_at: string | null;
 }
 
 export interface LiveStatsEntry {

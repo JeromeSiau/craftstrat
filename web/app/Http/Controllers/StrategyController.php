@@ -92,9 +92,9 @@ class StrategyController extends Controller
                 ];
             }, 'liveData'),
             'recentTrades' => Inertia::defer(fn () => $strategy->trades()
-                ->latest('executed_at')
+                ->orderByRaw('COALESCE(executed_at, created_at) DESC')
                 ->limit(20)
-                ->get(['id', 'symbol', 'side', 'outcome', 'price', 'size_usdc', 'status', 'is_paper', 'executed_at']), 'liveData'),
+                ->get(['id', 'symbol', 'side', 'outcome', 'price', 'filled_price', 'size_usdc', 'status', 'is_paper', 'executed_at', 'created_at']), 'liveData'),
         ]);
     }
 

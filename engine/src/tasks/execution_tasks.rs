@@ -108,6 +108,7 @@ async fn signal_to_queue(
                 *outcome,
                 *size_usdc,
                 order_type,
+                output.reference_price,
                 output.is_paper,
             ),
             Signal::Sell {
@@ -122,6 +123,7 @@ async fn signal_to_queue(
                 *outcome,
                 *size_usdc,
                 order_type,
+                output.reference_price,
                 output.is_paper,
             ),
             Signal::Cancel { outcome } => {
@@ -171,6 +173,7 @@ fn build_order_from_signal(
     outcome: Outcome,
     size_usdc: f64,
     order_type: &OrderType,
+    reference_price: Option<f64>,
     is_paper: bool,
 ) -> ExecutionOrder {
     let (priority, price) = match order_type {
@@ -192,6 +195,7 @@ fn build_order_from_signal(
         side,
         outcome,
         price,
+        reference_price,
         size_usdc,
         order_type: order_type.clone(),
         priority,
@@ -199,5 +203,29 @@ fn build_order_from_signal(
         leader_address: String::new(),
         leader_tx_hash: String::new(),
         is_paper,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn market_orders_keep_reference_price_without_turning_into_limits() {
+        let order = build_order_from_signal(
+            1,
+            2,
+            "btc-updown-15m",
+            Side::Buy,
+            Outcome::Up,
+            5.0,
+            &OrderType::Market,
+            Some(0.62),
+            true,
+        );
+
+        assert_eq!(order.price, None);
+        assert_eq!(order.reference_price, Some(0.62));
+        assert_eq!(order.priority, OrderPriority::StrategyMarket);
     }
 }

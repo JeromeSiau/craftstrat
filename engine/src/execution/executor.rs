@@ -143,7 +143,7 @@ fn simulate_paper_fill(order: &ExecutionOrder) -> OrderResult {
     OrderResult {
         polymarket_order_id: format!("paper-{}", order.id),
         status: OrderStatus::Filled,
-        filled_price: order.price,
+        filled_price: order.reference_price.or(order.price),
         fee_bps: Some(0),
     }
 }
@@ -162,7 +162,10 @@ async fn update_position(
         None => return, // copy trades don't update strategy positions
     };
 
-    let filled_price = result.filled_price.unwrap_or(order.price.unwrap_or(0.0));
+    let filled_price = result
+        .filled_price
+        .or(order.reference_price)
+        .unwrap_or(order.price.unwrap_or(0.0));
 
     let reg = registry.read().await;
 
@@ -238,6 +241,7 @@ mod tests {
             side,
             outcome: Outcome::Up,
             price: None,
+            reference_price: None,
             size_usdc,
             order_type: OrderType::Market,
             priority: OrderPriority::StrategyMarket,
@@ -360,12 +364,12 @@ mod tests {
     fn test_simulate_paper_fill_market_order_no_price() {
         let mut order = make_order(1, 100, Side::Buy, 50.0);
         order.is_paper = true;
-        // price is None for market orders
+        order.reference_price = Some(0.62);
 
         let result = simulate_paper_fill(&order);
 
         assert_eq!(result.status, OrderStatus::Filled);
-        assert_eq!(result.filled_price, None);
+        assert_eq!(result.filled_price, Some(0.62));
     }
 
     #[test]

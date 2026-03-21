@@ -67,6 +67,8 @@ pub struct ExecutionOrder {
     pub side: Side,
     pub outcome: Outcome,
     pub price: Option<f64>,
+    /// Reference market price observed when the signal was emitted.
+    pub reference_price: Option<f64>,
     pub size_usdc: f64,
     pub order_type: OrderType,
     pub priority: OrderPriority,

@@ -173,6 +173,7 @@ mod tests {
             side: Side::Buy,
             outcome: Outcome::Up,
             price: None,
+            reference_price: None,
             size_usdc: 10.0,
             order_type: OrderType::Market,
             priority,

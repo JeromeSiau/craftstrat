@@ -219,6 +219,7 @@ fn build_copy_order(
         side,
         outcome,
         price: Some(trade.price),
+        reference_price: Some(trade.price),
         size_usdc: size,
         order_type: OrderType::Market,
         priority: OrderPriority::CopyMarket,

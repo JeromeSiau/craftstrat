@@ -52,6 +52,7 @@ pub struct EngineOutput {
     pub strategy_id: u64,
     pub symbol: String,
     pub signal: Signal,
+    pub reference_price: Option<f64>,
     pub is_paper: bool,
 }
 

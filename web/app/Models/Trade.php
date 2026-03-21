@@ -37,6 +37,7 @@ class Trade extends Model
     {
         return [
             'price' => 'decimal:6',
+            'filled_price' => 'decimal:6',
             'size_usdc' => 'decimal:6',
             'is_paper' => 'boolean',
             'fee_bps' => 'integer',

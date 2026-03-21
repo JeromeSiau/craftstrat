@@ -152,6 +152,29 @@ it('loads deferred live stats and recent trades', function () {
         );
 });
 
+it('includes filled price in recent trades payload', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $wallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'status' => 'filled',
+        'price' => null,
+        'filled_price' => 0.612345,
+        'executed_at' => now(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('strategies.show', $strategy))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
+                ->where('recentTrades.0.filled_price', '0.612345')
+            )
+        );
+});
+
 it('returns empty trades when strategy has no trades', function () {
     $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
 
