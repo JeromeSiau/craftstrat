@@ -24,6 +24,7 @@ struct TradeAnalyticsCandidate {
     id: i64,
     symbol: String,
     side: String,
+    status: String,
     outcome: String,
     filled_price: Option<f64>,
     reference_price: Option<f64>,
@@ -43,6 +44,7 @@ pub async fn run_trade_analytics(ch: Client, db: PgPool) -> Result<()> {
                 id,
                 symbol,
                 side,
+                status,
                 outcome,
                 filled_price::float8,
                 reference_price::float8,
@@ -58,8 +60,14 @@ pub async fn run_trade_analytics(ch: Client, db: PgPool) -> Result<()> {
                     OR (
                         filled_price IS NOT NULL
                         AND reference_price IS NOT NULL
-                        AND resolved_price IS NOT NULL
-                        AND ABS(filled_price::float8 - resolved_price::float8) < 0.000001
+                        AND ABS(
+                            filled_price::float8 - CASE
+                                WHEN resolved_price IS NOT NULL THEN resolved_price::float8
+                                WHEN status = 'won' THEN 1.0
+                                WHEN status = 'lost' THEN 0.0
+                                ELSE NULL
+                            END
+                        ) < 0.000001
                         AND ABS(reference_price::float8 - filled_price::float8) > 0.000001
                     )
                 )
@@ -171,6 +179,7 @@ fn parse_side(value: &str) -> Option<Side> {
 
 fn effective_fill_price(candidate: &TradeAnalyticsCandidate) -> Option<f64> {
     if is_resolution_overwrite(
+        &candidate.status,
         candidate.filled_price,
         candidate.reference_price,
         candidate.resolved_price,
@@ -182,18 +191,29 @@ fn effective_fill_price(candidate: &TradeAnalyticsCandidate) -> Option<f64> {
 }
 
 fn is_resolution_overwrite(
+    status: &str,
     filled_price: Option<f64>,
     reference_price: Option<f64>,
     resolved_price: Option<f64>,
 ) -> bool {
-    let (Some(filled_price), Some(reference_price), Some(resolved_price)) =
-        (filled_price, reference_price, resolved_price)
-    else {
+    let (Some(filled_price), Some(reference_price), Some(resolution_price)) = (
+        filled_price,
+        reference_price,
+        inferred_resolution_price(status, resolved_price),
+    ) else {
         return false;
     };
 
-    (filled_price - resolved_price).abs() < PRICE_EPSILON
+    (filled_price - resolution_price).abs() < PRICE_EPSILON
         && (reference_price - filled_price).abs() > PRICE_EPSILON
+}
+
+fn inferred_resolution_price(status: &str, resolved_price: Option<f64>) -> Option<f64> {
+    resolved_price.or(match status {
+        "won" => Some(1.0),
+        "lost" => Some(0.0),
+        _ => None,
+    })
 }
 
 #[cfg(test)]
@@ -209,8 +229,24 @@ mod tests {
 
     #[test]
     fn detects_resolution_overwrite_when_fill_matches_resolution() {
-        assert!(is_resolution_overwrite(Some(1.0), Some(0.39), Some(1.0)));
-        assert!(!is_resolution_overwrite(Some(0.39), Some(0.39), Some(1.0)));
+        assert!(is_resolution_overwrite(
+            "won",
+            Some(1.0),
+            Some(0.39),
+            Some(1.0)
+        ));
+        assert!(!is_resolution_overwrite(
+            "won",
+            Some(0.39),
+            Some(0.39),
+            Some(1.0)
+        ));
+    }
+
+    #[test]
+    fn detects_legacy_resolution_overwrite_from_terminal_status() {
+        assert!(is_resolution_overwrite("won", Some(1.0), Some(0.39), None));
+        assert!(is_resolution_overwrite("lost", Some(0.0), Some(0.45), None));
     }
 
     #[test]
@@ -219,6 +255,7 @@ mod tests {
             id: 1,
             symbol: "btc-updown-15m".into(),
             side: "buy".into(),
+            status: "won".into(),
             outcome: "UP".into(),
             filled_price: Some(1.0),
             reference_price: Some(0.39),
@@ -235,6 +272,7 @@ mod tests {
             id: 1,
             symbol: "btc-updown-15m".into(),
             side: "buy".into(),
+            status: "won".into(),
             outcome: "UP".into(),
             filled_price: Some(0.41),
             reference_price: Some(0.40),
