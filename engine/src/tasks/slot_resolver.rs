@@ -16,6 +16,11 @@ struct UnresolvedSlot {
     symbol: String,
 }
 
+#[derive(Debug, clickhouse::Row, Deserialize)]
+struct WinnerRow {
+    winner: i8,
+}
+
 #[derive(Debug, Deserialize)]
 struct GammaEvent {
     markets: Option<Vec<GammaMarket>>,
@@ -57,62 +62,62 @@ pub async fn run_slot_resolver(
             }
         };
 
-        if unresolved.is_empty() {
-            continue;
-        }
+        if !unresolved.is_empty() {
+            tracing::info!(count = unresolved.len(), "slot_resolver_checking");
 
-        tracing::info!(count = unresolved.len(), "slot_resolver_checking");
+            for slot in &unresolved {
+                let url = format!("{gamma_url}/events?slug={}", slot.symbol);
+                let resp = match http.proxied().get(&url).send().await {
+                    Ok(r) if r.status().is_success() => r,
+                    Ok(r) => {
+                        tracing::warn!(slug = %slot.symbol, status = %r.status(), "slot_resolver_http_error");
+                        continue;
+                    }
+                    Err(e) => {
+                        tracing::warn!(slug = %slot.symbol, error = %e, "slot_resolver_request_failed");
+                        continue;
+                    }
+                };
 
-        for slot in &unresolved {
-            let url = format!("{gamma_url}/events?slug={}", slot.symbol);
-            let resp = match http.proxied().get(&url).send().await {
-                Ok(r) if r.status().is_success() => r,
-                Ok(r) => {
-                    tracing::warn!(slug = %slot.symbol, status = %r.status(), "slot_resolver_http_error");
+                let events: Vec<GammaEvent> = match resp.json().await {
+                    Ok(e) => e,
+                    Err(e) => {
+                        tracing::warn!(slug = %slot.symbol, error = %e, "slot_resolver_parse_failed");
+                        continue;
+                    }
+                };
+
+                let Some(winner) = extract_winner(&events) else {
+                    continue;
+                };
+
+                // 1. Update ClickHouse analytics
+                if let Err(e) = ch
+                    .query("ALTER TABLE slot_snapshots UPDATE winner = ? WHERE symbol = ?")
+                    .bind(winner)
+                    .bind(slot.symbol.as_str())
+                    .execute()
+                    .await
+                {
+                    tracing::warn!(slug = %slot.symbol, error = %e, "slot_resolver_update_failed");
                     continue;
                 }
-                Err(e) => {
-                    tracing::warn!(slug = %slot.symbol, error = %e, "slot_resolver_request_failed");
-                    continue;
-                }
-            };
 
-            let events: Vec<GammaEvent> = match resp.json().await {
-                Ok(e) => e,
-                Err(e) => {
-                    tracing::warn!(slug = %slot.symbol, error = %e, "slot_resolver_parse_failed");
-                    continue;
-                }
-            };
+                let winning_outcome = if winner == 1 { "UP" } else { "DOWN" };
 
-            let Some(winner) = extract_winner(&events) else {
-                continue;
-            };
+                tracing::info!(
+                    slug = %slot.symbol,
+                    winner = winner,
+                    label = winning_outcome,
+                    "slot_resolved",
+                );
 
-            // 1. Update ClickHouse analytics
-            if let Err(e) = ch
-                .query("ALTER TABLE slot_snapshots UPDATE winner = ? WHERE symbol = ?")
-                .bind(winner)
-                .bind(slot.symbol.as_str())
-                .execute()
-                .await
-            {
-                tracing::warn!(slug = %slot.symbol, error = %e, "slot_resolver_update_failed");
-                continue;
+                // 2. Resolve open trades in PostgreSQL
+                resolve_trades(&db, &registry, &slot.symbol, winning_outcome).await;
             }
-
-            let winning_outcome = if winner == 1 { "UP" } else { "DOWN" };
-
-            tracing::info!(
-                slug = %slot.symbol,
-                winner = winner,
-                label = winning_outcome,
-                "slot_resolved",
-            );
-
-            // 2. Resolve open trades in PostgreSQL
-            resolve_trades(&db, &registry, &slot.symbol, winning_outcome).await;
         }
+
+        reconcile_resolved_trades(&ch, &db, &registry).await;
     }
 }
 
@@ -128,7 +133,7 @@ async fn resolve_trades(
 ) {
     // Find all open trades for this symbol
     let rows: Vec<(i64, i64, Option<i64>, String, Option<f64>, f64)> = match sqlx::query_as(
-        "SELECT id, wallet_id, strategy_id, outcome, price, size_usdc \
+        "SELECT id, wallet_id, strategy_id, outcome, COALESCE(filled_price, price), size_usdc \
          FROM trades WHERE symbol = $1 AND status = 'filled'",
     )
     .bind(symbol)
@@ -193,6 +198,45 @@ async fn resolve_trades(
             )
             .await;
         }
+    }
+}
+
+async fn reconcile_resolved_trades(db_ch: &Client, db: &PgPool, registry: &AssignmentRegistry) {
+    let pending_symbols: Vec<String> = match sqlx::query_scalar(
+        "SELECT DISTINCT symbol FROM trades WHERE status = 'filled' AND symbol IS NOT NULL",
+    )
+    .fetch_all(db)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::warn!(error = %e, "resolve_trade_reconcile_query_failed");
+            return;
+        }
+    };
+
+    for symbol in pending_symbols {
+        let winners: Vec<WinnerRow> = match db_ch
+            .query(
+                "SELECT winner FROM slot_snapshots WHERE symbol = ? AND winner IS NOT NULL LIMIT 1",
+            )
+            .bind(symbol.as_str())
+            .fetch_all()
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::warn!(symbol, error = %e, "resolve_trade_reconcile_lookup_failed");
+                continue;
+            }
+        };
+
+        let Some(winner) = winners.first().map(|row| row.winner) else {
+            continue;
+        };
+
+        let winning_outcome = if winner == 1 { "UP" } else { "DOWN" };
+        resolve_trades(db, registry, &symbol, winning_outcome).await;
     }
 }
 
