@@ -1,6 +1,5 @@
 use clickhouse::Row;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 
 #[derive(Debug, Serialize)]
 pub struct SlotStatsResponse {
@@ -21,8 +20,7 @@ pub struct MlDatasetResponse {
 
 #[derive(Debug, Clone, Row, Serialize, Deserialize)]
 pub struct MlDatasetRow {
-    #[serde(with = "clickhouse::serde::time::datetime64::millis")]
-    pub captured_at: OffsetDateTime,
+    pub captured_at: String,
     pub symbol: String,
     pub slot_ts: u32,
     pub slot_duration: u32,

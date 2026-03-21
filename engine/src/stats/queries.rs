@@ -617,7 +617,7 @@ pub async fn fetch_ml_dataset(
             f_mid_up_vs_ma5
         FROM (
             SELECT
-                captured_at,
+                concat(replaceAll(toString(captured_at), ' ', 'T'), 'Z') AS captured_at,
                 symbol,
                 slot_ts,
                 slot_duration,
