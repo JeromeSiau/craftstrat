@@ -35,6 +35,20 @@ services:
     networks:
       - craftstrat
 
+  ml-inference:
+    build:
+      context: .
+      dockerfile: infra/docker/ml-inference.Dockerfile
+    environment:
+      ML_HOST: 0.0.0.0
+      ML_PORT: 8010
+      ML_MODEL_DIR: /models/${ML_MODEL_NAME:-btc-15m-xgb-policy}
+    volumes:
+      - ./ml/artifacts:/models:ro
+    restart: unless-stopped
+    networks:
+      - craftstrat
+
   postgres:
     image: postgres:17
     environment:

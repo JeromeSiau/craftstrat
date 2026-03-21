@@ -1,0 +1,10 @@
+.git
+.github
+engine/target
+web/node_modules
+web/vendor
+ml/.venv
+ml/__pycache__
+ml/artifacts
+ml/data
+**/__pycache__
