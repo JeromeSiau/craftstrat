@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clickhouse::Client;
+use tokio::io::AsyncBufReadExt;
 
 use super::types::{
     CalibrationPoint, HeatmapCell, MlDatasetRow, StoplossThreshold, Summary, SymbolStats, TimeStats,
@@ -70,7 +71,7 @@ impl MlDatasetParams {
 
 #[cfg(test)]
 mod tests {
-    use super::{MlDatasetParams, StatsParams};
+    use super::{parse_ml_dataset_json_row, MlDatasetParams, StatsParams};
 
     #[test]
     fn stats_symbol_clause_uses_lowercase_prefixes() {
@@ -101,6 +102,18 @@ mod tests {
             params.symbol_clause(),
             "AND lower(splitByChar('-', symbol)[1]) IN ('btc')"
         );
+    }
+
+    #[test]
+    fn ml_dataset_row_parses_from_json_each_row() {
+        let line = r#"{"captured_at":"2026-03-21T00:00:00.000Z","symbol":"btc-updown-15m-1771910100","slot_ts":1771910100,"slot_duration":900,"target_up":1,"f_mid_up":0.61,"f_mid_down":0.39,"f_bid_up":0.6,"f_ask_up":0.62,"f_bid_down":0.38,"f_ask_down":0.4,"f_spread_up_rel":0.0328,"f_spread_down_rel":0.0513,"f_cross_sum_mid":0.0,"f_cross_sum_bid":-0.02,"f_cross_sum_ask":0.02,"f_parity_gap_up":0.0,"f_l1_imbalance_up":0.12,"f_l1_imbalance_down":-0.08,"f_size_ratio_up":1.24,"f_size_ratio_down":0.83,"f_bid_gap_up_12":0.01,"f_bid_gap_up_23":0.01,"f_ask_gap_up_12":0.01,"f_ask_gap_up_23":0.01,"f_bid_gap_down_12":0.01,"f_bid_gap_down_23":0.01,"f_ask_gap_down_12":0.01,"f_ask_gap_down_23":0.01,"f_minutes_into_slot":5.0,"f_pct_into_slot":0.33,"f_pct_into_slot_sq":0.1089,"f_log_volume":7.2,"f_hour_sin":0.0,"f_hour_cos":1.0,"f_dow_sin":0.0,"f_dow_cos":1.0,"f_dir_move_pct":0.14,"f_abs_move_pct":0.14,"f_ref_move_from_start":0.004,"f_d_mid_up_1":0.02,"f_d_spread_up_1":-0.01,"f_d_imbalance_up_1":0.03,"f_d_ref_1":0.0004,"f_mid_up_vs_ma5":0.012}"#;
+
+        let row = parse_ml_dataset_json_row(line).expect("json row should parse");
+
+        assert_eq!(row.symbol, "btc-updown-15m-1771910100");
+        assert_eq!(row.target_up, 1);
+        assert!((row.f_mid_up - 0.61).abs() < f64::EPSILON);
+        assert!((row.f_log_volume - 7.2).abs() < f64::EPSILON);
     }
 }
 
@@ -760,14 +773,23 @@ pub async fn fetch_ml_dataset(
         "#
     );
 
-    let mut cursor = client
+    let mut lines = client
         .query(&sql)
         .bind(params.slot_duration)
-        .fetch::<MlDatasetRow>()?;
+        .fetch_bytes("JSONEachRow")?
+        .lines();
 
     let mut rows = Vec::new();
-    while let Some(row) = cursor.next().await? {
-        rows.push(row);
+    while let Some(line) = lines.next_line().await? {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        rows.push(parse_ml_dataset_json_row(&line)?);
     }
     Ok(rows)
+}
+
+fn parse_ml_dataset_json_row(line: &str) -> Result<MlDatasetRow> {
+    serde_json::from_str(line).with_context(|| format!("failed to parse ml dataset row: {line}"))
 }

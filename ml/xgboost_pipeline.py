@@ -246,53 +246,263 @@ def realized_pnl(side: str, label_up: float, ask_up: float, ask_down: float) -> 
     return (1.0 - ask_down) if label_up == 0.0 else -ask_down
 
 
+@dataclass
+class PolicyInputs:
+    spread_up_rel: np.ndarray
+    spread_down_rel: np.ndarray
+    pct_into_slot: np.ndarray
+    log_volume: np.ndarray
+
+
+def feature_array(
+    rows: list[dict[str, Any]],
+    key: str,
+    default: float = 0.0,
+) -> np.ndarray:
+    return np.asarray([float(row.get(key, default)) for row in rows], dtype=np.float32)
+
+
+def build_policy_inputs(rows: list[dict[str, Any]]) -> PolicyInputs:
+    return PolicyInputs(
+        spread_up_rel=feature_array(rows, "f_spread_up_rel"),
+        spread_down_rel=feature_array(rows, "f_spread_down_rel"),
+        pct_into_slot=feature_array(rows, "f_pct_into_slot"),
+        log_volume=feature_array(rows, "f_log_volume"),
+    )
+
+
+def max_drawdown(pnl: np.ndarray) -> float:
+    if pnl.size == 0:
+        return 0.0
+
+    cumulative = np.cumsum(pnl, dtype=np.float64)
+    peaks = np.maximum.accumulate(cumulative)
+    drawdowns = peaks - cumulative
+    return float(np.max(drawdowns)) if drawdowns.size > 0 else 0.0
+
+
+def sharpe_like(pnl: np.ndarray) -> float:
+    if pnl.size < 2:
+        return float(pnl[0]) if pnl.size == 1 else 0.0
+
+    std = float(np.std(pnl))
+    if std <= 1e-12:
+        return float(np.mean(pnl))
+
+    return float(np.mean(pnl) / std * math.sqrt(pnl.size))
+
+
+def recommended_policy(metadata: dict[str, Any]) -> dict[str, float]:
+    policy = metadata.get("policy", {}).get("recommended")
+    if not isinstance(policy, dict):
+        policy = metadata.get("thresholds", {}).get("validation_best", {})
+
+    return {
+        "min_edge": float(
+            policy.get(
+                "min_edge",
+                metadata.get("thresholds", {}).get("recommended_min_edge", 0.0),
+            )
+        ),
+        "max_spread_rel": float(policy.get("max_spread_rel", 0.25)),
+        "min_pct_into_slot": float(policy.get("min_pct_into_slot", 0.05)),
+        "max_pct_into_slot": float(policy.get("max_pct_into_slot", 0.90)),
+        "min_log_volume": float(policy.get("min_log_volume", 0.0)),
+    }
+
+
+def policy_masks(
+    probs_up: np.ndarray,
+    ask_up: np.ndarray,
+    ask_down: np.ndarray,
+    policy_inputs: PolicyInputs,
+    policy: dict[str, float],
+) -> dict[str, np.ndarray]:
+    probs_down = 1.0 - probs_up
+    edges_up = probs_up - ask_up
+    edges_down = probs_down - ask_down
+
+    min_edge = float(policy.get("min_edge", 0.0))
+    max_spread_rel = float(policy.get("max_spread_rel", 0.25))
+    min_pct_into_slot = float(policy.get("min_pct_into_slot", 0.05))
+    max_pct_into_slot = float(policy.get("max_pct_into_slot", 0.90))
+    min_log_volume = float(policy.get("min_log_volume", 0.0))
+
+    common_mask = (
+        (policy_inputs.pct_into_slot >= min_pct_into_slot)
+        & (policy_inputs.pct_into_slot <= max_pct_into_slot)
+        & (policy_inputs.log_volume >= min_log_volume)
+    )
+    eligible_up = (
+        common_mask
+        & (ask_up > 0.0)
+        & (policy_inputs.spread_up_rel <= max_spread_rel)
+        & (edges_up >= min_edge)
+    )
+    eligible_down = (
+        common_mask
+        & (ask_down > 0.0)
+        & (policy_inputs.spread_down_rel <= max_spread_rel)
+        & (edges_down >= min_edge)
+    )
+    prefer_up = edges_up >= edges_down
+    take_up = eligible_up & (~eligible_down | prefer_up)
+    take_down = eligible_down & (~eligible_up | ~prefer_up)
+
+    return {
+        "probs_down": probs_down,
+        "edges_up": edges_up,
+        "edges_down": edges_down,
+        "take_up": take_up,
+        "take_down": take_down,
+        "take_trade": take_up | take_down,
+    }
+
+
+def evaluate_policy(
+    probs_up: np.ndarray,
+    labels: np.ndarray,
+    ask_up: np.ndarray,
+    ask_down: np.ndarray,
+    policy_inputs: PolicyInputs,
+    policy: dict[str, float],
+) -> dict[str, Any]:
+    masks = policy_masks(probs_up, ask_up, ask_down, policy_inputs, policy)
+    take_up = masks["take_up"]
+    take_down = masks["take_down"]
+    take_trade = masks["take_trade"]
+    trade_count = int(np.sum(take_trade))
+
+    summary = {
+        "min_edge": round(float(policy.get("min_edge", 0.0)), 4),
+        "max_spread_rel": round(float(policy.get("max_spread_rel", 0.25)), 4),
+        "min_pct_into_slot": round(float(policy.get("min_pct_into_slot", 0.05)), 4),
+        "max_pct_into_slot": round(float(policy.get("max_pct_into_slot", 0.90)), 4),
+        "min_log_volume": round(float(policy.get("min_log_volume", 0.0)), 4),
+        "trades": trade_count,
+        "up_trades": int(np.sum(take_up)),
+        "down_trades": int(np.sum(take_down)),
+        "total_pnl_per_1usdc": 0.0,
+        "avg_pnl_per_trade": 0.0,
+        "win_rate": 0.0,
+        "max_drawdown_per_1usdc": 0.0,
+        "pnl_to_drawdown": 0.0,
+        "sharpe_like": 0.0,
+    }
+    if trade_count == 0:
+        return summary
+
+    pnl = np.zeros(labels.shape[0], dtype=np.float64)
+    pnl[take_up] = np.where(labels[take_up] == 1.0, 1.0 - ask_up[take_up], -ask_up[take_up])
+    pnl[take_down] = np.where(
+        labels[take_down] == 0.0,
+        1.0 - ask_down[take_down],
+        -ask_down[take_down],
+    )
+    trade_pnl = pnl[take_trade]
+    total_pnl = float(np.sum(trade_pnl))
+    avg_pnl = float(np.mean(trade_pnl))
+    dd = max_drawdown(trade_pnl)
+
+    summary.update(
+        {
+            "total_pnl_per_1usdc": round(total_pnl, 6),
+            "avg_pnl_per_trade": round(avg_pnl, 6),
+            "win_rate": round(float(np.mean(trade_pnl > 0.0)), 6),
+            "max_drawdown_per_1usdc": round(dd, 6),
+            "pnl_to_drawdown": round(total_pnl / dd, 6) if dd > 1e-9 else round(total_pnl, 6),
+            "sharpe_like": round(sharpe_like(trade_pnl), 6),
+        }
+    )
+    return summary
+
+
 def sweep_edge_thresholds(
     probs_up: np.ndarray,
     labels: np.ndarray,
     ask_up: np.ndarray,
     ask_down: np.ndarray,
+    rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    thresholds = np.arange(0.0, 0.2001, 0.005, dtype=np.float32)
-    min_trades = max(25, labels.shape[0] // 100)
+    thresholds = np.arange(0.0, 0.2001, 0.01, dtype=np.float32)
+    max_spread_thresholds = np.asarray([0.03, 0.05, 0.07, 0.10, 0.15, 0.25], dtype=np.float32)
+    timing_windows = [
+        (0.05, 0.90),
+        (0.10, 0.85),
+        (0.15, 0.80),
+        (0.20, 0.75),
+        (0.25, 0.70),
+    ]
+    policy_inputs = build_policy_inputs(rows)
+    finite_volume = policy_inputs.log_volume[np.isfinite(policy_inputs.log_volume)]
+    if finite_volume.size == 0:
+        volume_thresholds = np.asarray([0.0], dtype=np.float32)
+    else:
+        volume_thresholds = np.unique(
+            np.round(np.quantile(finite_volume, [0.0, 0.25, 0.5, 0.75]), 4)
+        ).astype(np.float32)
+
+    min_trades = max(25, labels.shape[0] // 200)
     best: dict[str, Any] | None = None
 
+    def is_better(candidate: dict[str, Any], incumbent: dict[str, Any] | None) -> bool:
+        if incumbent is None:
+            return True
+
+        candidate_key = (
+            candidate["total_pnl_per_1usdc"],
+            candidate["pnl_to_drawdown"],
+            candidate["avg_pnl_per_trade"],
+            candidate["sharpe_like"],
+            -candidate["trades"],
+        )
+        incumbent_key = (
+            incumbent["total_pnl_per_1usdc"],
+            incumbent["pnl_to_drawdown"],
+            incumbent["avg_pnl_per_trade"],
+            incumbent["sharpe_like"],
+            -incumbent["trades"],
+        )
+        return candidate_key > incumbent_key
+
     for threshold in thresholds:
-        edges_up = probs_up - ask_up
-        probs_down = 1.0 - probs_up
-        edges_down = probs_down - ask_down
-        best_edges = np.maximum(edges_up, edges_down)
-        take_mask = best_edges >= threshold
-        trade_count = int(np.sum(take_mask))
-        if trade_count < min_trades:
-            continue
-
-        pnl = []
-        wins = 0
-        for idx in np.where(take_mask)[0]:
-            side = "UP" if edges_up[idx] >= edges_down[idx] else "DOWN"
-            trade_pnl = realized_pnl(side, labels[idx], ask_up[idx], ask_down[idx])
-            pnl.append(trade_pnl)
-            if trade_pnl > 0:
-                wins += 1
-
-        pnl_array = np.asarray(pnl, dtype=np.float64)
-        candidate = {
-            "min_edge": round(float(threshold), 4),
-            "trades": trade_count,
-            "total_pnl_per_1usdc": round(float(np.sum(pnl_array)), 6),
-            "avg_pnl_per_trade": round(float(np.mean(pnl_array)), 6),
-            "win_rate": round(float(wins / trade_count), 6),
-        }
-
-        if best is None or candidate["total_pnl_per_1usdc"] > best["total_pnl_per_1usdc"]:
-            best = candidate
+        for max_spread_rel in max_spread_thresholds:
+            for min_log_volume in volume_thresholds:
+                for min_pct_into_slot, max_pct_into_slot in timing_windows:
+                    candidate = evaluate_policy(
+                        probs_up=probs_up,
+                        labels=labels,
+                        ask_up=ask_up,
+                        ask_down=ask_down,
+                        policy_inputs=policy_inputs,
+                        policy={
+                            "min_edge": float(threshold),
+                            "max_spread_rel": float(max_spread_rel),
+                            "min_pct_into_slot": float(min_pct_into_slot),
+                            "max_pct_into_slot": float(max_pct_into_slot),
+                            "min_log_volume": float(min_log_volume),
+                        },
+                    )
+                    if candidate["trades"] < min_trades:
+                        continue
+                    if is_better(candidate, best):
+                        best = candidate
 
     return best or {
         "min_edge": 0.0,
+        "max_spread_rel": 0.25,
+        "min_pct_into_slot": 0.05,
+        "max_pct_into_slot": 0.90,
+        "min_log_volume": 0.0,
         "trades": 0,
+        "up_trades": 0,
+        "down_trades": 0,
         "total_pnl_per_1usdc": 0.0,
         "avg_pnl_per_trade": 0.0,
         "win_rate": 0.0,
+        "max_drawdown_per_1usdc": 0.0,
+        "pnl_to_drawdown": 0.0,
+        "sharpe_like": 0.0,
     }
 
 
@@ -347,7 +557,17 @@ def score_rows(
     margins = booster.predict(matrix, output_margin=True)
     platt = metadata.get("platt_scaler", {"a": 1.0, "b": 0.0})
     probs_up = apply_platt_scaler(margins, float(platt["a"]), float(platt["b"]))
-    recommended_min_edge = float(metadata.get("thresholds", {}).get("recommended_min_edge", 0.0))
+    policy = recommended_policy(metadata)
+    ask_up_array = feature_array(rows, "f_ask_up")
+    ask_down_array = feature_array(rows, "f_ask_down")
+    masks = policy_masks(
+        probs_up=probs_up,
+        ask_up=ask_up_array,
+        ask_down=ask_down_array,
+        policy_inputs=build_policy_inputs(rows),
+        policy=policy,
+    )
+    recommended_min_edge = float(policy["min_edge"])
 
     predictions: list[dict[str, Any]] = []
     for idx, row in enumerate(rows):
@@ -375,8 +595,23 @@ def score_rows(
                 "edge_down": round(float(edge_down), 6) if edge_down is not None else None,
                 "signal_side": signal_side,
                 "signal_edge": round(signal_edge, 6),
-                "take_trade": signal_edge >= recommended_min_edge if signal_side else False,
+                "take_trade": bool(masks["take_trade"][idx]),
                 "recommended_min_edge": round(recommended_min_edge, 6),
+                "policy_take_trade": bool(masks["take_trade"][idx]),
+                "policy_take_up": bool(masks["take_up"][idx]),
+                "policy_take_down": bool(masks["take_down"][idx]),
+                "policy_signal": 1 if bool(masks["take_up"][idx]) else (-1 if bool(masks["take_down"][idx]) else 0),
+                "policy_edge": round(
+                    float(masks["edges_up"][idx]) if bool(masks["take_up"][idx]) else (
+                        float(masks["edges_down"][idx]) if bool(masks["take_down"][idx]) else 0.0
+                    ),
+                    6,
+                ),
+                "policy_min_edge": round(float(policy["min_edge"]), 6),
+                "policy_max_spread_rel": round(float(policy["max_spread_rel"]), 6),
+                "policy_min_pct_into_slot": round(float(policy["min_pct_into_slot"]), 6),
+                "policy_max_pct_into_slot": round(float(policy["max_pct_into_slot"]), 6),
+                "policy_min_log_volume": round(float(policy["min_log_volume"]), 6),
                 "kelly_up_full": round(kelly_fraction(proba_up, ask_up, 1.0), 6),
                 "kelly_up_half": round(kelly_fraction(proba_up, ask_up, 0.5), 6),
                 "kelly_down_full": round(kelly_fraction(proba_down, ask_down, 1.0), 6),

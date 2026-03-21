@@ -12,7 +12,7 @@ use crate::strategy::state::{Position, StrategyState};
 use crate::strategy::{OrderType, Outcome, Signal};
 use crate::tasks::model_score_task::{fetch_prediction_batch, ModelScoreCache};
 
-const MODEL_SCORE_BATCH_SIZE: usize = 128;
+const MODEL_SCORE_BATCH_SIZE: usize = 64;
 
 pub struct BacktestEngine {
     graph: Value,

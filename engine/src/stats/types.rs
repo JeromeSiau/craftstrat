@@ -1,4 +1,3 @@
-use clickhouse::Row;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
@@ -18,7 +17,7 @@ pub struct MlDatasetResponse {
     pub rows: Vec<MlDatasetRow>,
 }
 
-#[derive(Debug, Clone, Row, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MlDatasetRow {
     pub captured_at: String,
     pub symbol: String,

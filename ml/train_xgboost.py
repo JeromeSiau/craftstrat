@@ -13,6 +13,8 @@ from xgboost_pipeline import (
     DEFAULT_MODEL_NAME,
     apply_platt_scaler,
     build_matrix,
+    build_policy_inputs,
+    evaluate_policy,
     fit_platt_scaler,
     load_bundle,
     load_ndjson_dataset,
@@ -91,6 +93,15 @@ def train_command(args: argparse.Namespace) -> int:
         labels=split.val.y,
         ask_up=split.val.ask_up,
         ask_down=split.val.ask_down,
+        rows=split.val.rows,
+    )
+    test_policy = evaluate_policy(
+        probs_up=test_calibrated,
+        labels=split.test.y,
+        ask_up=split.test.ask_up,
+        ask_down=split.test.ask_down,
+        policy_inputs=build_policy_inputs(split.test.rows),
+        policy=threshold_summary,
     )
 
     output_dir = Path(args.output_dir)
@@ -111,6 +122,11 @@ def train_command(args: argparse.Namespace) -> int:
         "thresholds": {
             "recommended_min_edge": threshold_summary["min_edge"],
             "validation_best": threshold_summary,
+        },
+        "policy": {
+            "selection_metric": "validation_total_pnl_per_1usdc",
+            "recommended": threshold_summary,
+            "test": test_policy,
         },
         "split_sizes": {
             "train_rows": split.train.size,

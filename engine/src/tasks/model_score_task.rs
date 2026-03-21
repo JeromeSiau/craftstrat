@@ -237,7 +237,9 @@ fn extract_json_path(value: &Value, path: &str) -> Option<f64> {
             current = current.get(segment)?;
         }
     }
-    current.as_f64()
+    current
+        .as_f64()
+        .or_else(|| current.as_bool().map(|flag| if flag { 1.0 } else { 0.0 }))
 }
 
 #[cfg(test)]
@@ -288,6 +290,17 @@ mod tests {
             extract_json_path(&payload, "predictions.1.proba_up"),
             Some(0.63)
         );
+    }
+
+    #[test]
+    fn test_extract_json_path_bool_as_number() {
+        let payload = serde_json::json!({
+            "take_trade": true,
+            "nested": { "take_down": false }
+        });
+
+        assert_eq!(extract_json_path(&payload, "take_trade"), Some(1.0));
+        assert_eq!(extract_json_path(&payload, "nested.take_down"), Some(0.0));
     }
 
     #[test]

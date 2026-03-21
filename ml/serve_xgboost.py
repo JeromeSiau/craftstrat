@@ -36,6 +36,7 @@ def build_handler(model_dir: str):
                             "recommended_min_edge",
                             0.0,
                         ),
+                        "recommended_policy": metadata.get("policy", {}).get("recommended", {}),
                     }
                 )
                 return
