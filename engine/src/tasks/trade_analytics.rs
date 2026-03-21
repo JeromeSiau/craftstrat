@@ -26,6 +26,7 @@ struct TradeAnalyticsCandidate {
     side: String,
     status: String,
     outcome: String,
+    price: Option<f64>,
     filled_price: Option<f64>,
     reference_price: Option<f64>,
     resolved_price: Option<f64>,
@@ -46,20 +47,21 @@ pub async fn run_trade_analytics(ch: Client, db: PgPool) -> Result<()> {
                 side,
                 status,
                 outcome,
+                price::float8,
                 filled_price::float8,
                 reference_price::float8,
                 resolved_price::float8,
                 EXTRACT(EPOCH FROM COALESCE(executed_at, created_at))::bigint AS executed_ts
             FROM trades
             WHERE symbol IS NOT NULL
-                AND COALESCE(filled_price, reference_price) IS NOT NULL
+                AND COALESCE(filled_price, reference_price, price) IS NOT NULL
                 AND COALESCE(executed_at, created_at) <= NOW() - INTERVAL '60 seconds'
                 AND status IN ('filled', 'won', 'lost')
                 AND (
                     markout_bps_60s IS NULL
                     OR (
                         filled_price IS NOT NULL
-                        AND reference_price IS NOT NULL
+                        AND COALESCE(reference_price, price) IS NOT NULL
                         AND ABS(
                             filled_price::float8 - CASE
                                 WHEN resolved_price IS NOT NULL THEN resolved_price::float8
@@ -68,7 +70,7 @@ pub async fn run_trade_analytics(ch: Client, db: PgPool) -> Result<()> {
                                 ELSE NULL
                             END
                         ) < 0.000001
-                        AND ABS(reference_price::float8 - filled_price::float8) > 0.000001
+                        AND ABS(COALESCE(reference_price::float8, price::float8) - filled_price::float8) > 0.000001
                     )
                 )
             ORDER BY
@@ -178,15 +180,17 @@ fn parse_side(value: &str) -> Option<Side> {
 }
 
 fn effective_fill_price(candidate: &TradeAnalyticsCandidate) -> Option<f64> {
+    let reference_like_price = candidate.reference_price.or(candidate.price);
+
     if is_resolution_overwrite(
         &candidate.status,
         candidate.filled_price,
-        candidate.reference_price,
+        reference_like_price,
         candidate.resolved_price,
     ) {
-        candidate.reference_price.or(candidate.filled_price)
+        reference_like_price.or(candidate.filled_price)
     } else {
-        candidate.filled_price.or(candidate.reference_price)
+        candidate.filled_price.or(reference_like_price)
     }
 }
 
@@ -257,9 +261,28 @@ mod tests {
             side: "buy".into(),
             status: "won".into(),
             outcome: "UP".into(),
+            price: None,
             filled_price: Some(1.0),
             reference_price: Some(0.39),
             resolved_price: Some(1.0),
+            executed_ts: 0,
+        };
+
+        assert_eq!(effective_fill_price(&candidate), Some(0.39));
+    }
+
+    #[test]
+    fn uses_price_fallback_for_legacy_backfill_when_reference_is_missing() {
+        let candidate = TradeAnalyticsCandidate {
+            id: 1,
+            symbol: "btc-updown-15m".into(),
+            side: "buy".into(),
+            status: "won".into(),
+            outcome: "UP".into(),
+            price: Some(0.39),
+            filled_price: Some(1.0),
+            reference_price: None,
+            resolved_price: None,
             executed_ts: 0,
         };
 
@@ -274,6 +297,7 @@ mod tests {
             side: "buy".into(),
             status: "won".into(),
             outcome: "UP".into(),
+            price: None,
             filled_price: Some(0.41),
             reference_price: Some(0.40),
             resolved_price: Some(1.0),
