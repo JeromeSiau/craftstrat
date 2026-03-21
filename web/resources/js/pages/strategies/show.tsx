@@ -2,6 +2,7 @@ import { Deferred, Head, Link, router, useForm } from '@inertiajs/react';
 import {
     Activity,
     ArrowLeftRight,
+    CircleHelp,
     FlaskConical,
     LineChart,
     OctagonX,
@@ -45,6 +46,11 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { MARKET_OPTIONS, MARKET_LABEL_MAP } from '@/lib/constants';
 import { formatBps, formatPnl, formatWinRate } from '@/lib/formatters';
@@ -89,6 +95,9 @@ interface Props {
     recentTrades?: Trade[];
 }
 
+const markoutTooltipText =
+    'Side-adjusted post-fill drift measured against the first mid price at least 60 seconds after execution. Positive means the market moved in your favor after the fill.';
+
 function formatPrice(value: string | null): string {
     if (!value) return '-';
 
@@ -113,6 +122,34 @@ function bpsColorClass(value: string | null, positiveIsGood: boolean): string {
     return parsed > 0
         ? 'text-red-500 dark:text-red-400'
         : 'text-emerald-600 dark:text-emerald-400';
+}
+
+function LabelWithTooltip({
+    label,
+    tooltip,
+}: {
+    label: string;
+    tooltip: string;
+}) {
+    return (
+        <span className="inline-flex items-center gap-1">
+            <span>{label}</span>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <button
+                        type="button"
+                        className="rounded-sm text-muted-foreground/70 outline-none transition-colors hover:text-foreground"
+                        aria-label={`${label} help`}
+                    >
+                        <CircleHelp className="size-3.5" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs leading-relaxed">
+                    {tooltip}
+                </TooltipContent>
+            </Tooltip>
+        </span>
+    );
 }
 
 export default function StrategiesShow({
@@ -439,7 +476,12 @@ export default function StrategiesShow({
                                     }
                                 />
                                 <MetricCard
-                                    label="60s Markout"
+                                    label={
+                                        <LabelWithTooltip
+                                            label="1m Markout"
+                                            tooltip={markoutTooltipText}
+                                        />
+                                    }
                                     value={formatBps(
                                         currentStats?.avg_markout_bps_60s ??
                                             null,
@@ -509,7 +551,12 @@ export default function StrategiesShow({
                                     }
                                 />
                                 <MetricCard
-                                    label="60s Markout"
+                                    label={
+                                        <LabelWithTooltip
+                                            label="1m Markout"
+                                            tooltip={markoutTooltipText}
+                                        />
+                                    }
                                     value={formatBps(
                                         paperStats?.avg_markout_bps_60s ?? null,
                                     )}
@@ -557,7 +604,12 @@ export default function StrategiesShow({
                                             <TableHead>Ref</TableHead>
                                             <TableHead>Fill</TableHead>
                                             <TableHead>Slip</TableHead>
-                                            <TableHead>60s</TableHead>
+                                            <TableHead>
+                                                <LabelWithTooltip
+                                                    label="1m"
+                                                    tooltip={markoutTooltipText}
+                                                />
+                                            </TableHead>
                                             <TableHead>Size</TableHead>
                                             <TableHead>Type</TableHead>
                                             <TableHead>Status</TableHead>

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 
 type AccentColor = 'blue' | 'emerald' | 'amber' | 'violet' | 'red';
@@ -26,7 +27,7 @@ const accentStyles: Record<AccentColor, { icon: string; bg: string }> = {
 };
 
 interface MetricCardProps {
-    label: string;
+    label: ReactNode;
     value: string | number;
     icon?: React.ComponentType<{ className?: string }>;
     trend?: 'up' | 'down' | 'neutral';
