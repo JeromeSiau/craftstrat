@@ -10,6 +10,7 @@ use super::state::StrategyState;
 use super::{OrderType, Outcome, Signal};
 use crate::fetcher::models::Tick;
 use crate::tasks::api_fetch_task::ApiFetchCache;
+use crate::tasks::model_score_task::ModelScoreCache;
 
 use form_mode::evaluate_form_conditions;
 use node_mode::evaluate_node;
@@ -18,7 +19,7 @@ use risk::{check_cooldown, check_daily_loss, check_duplicate, check_risk};
 /// Main entry point — dispatches to form or node mode.
 /// Risk management and trade counting apply uniformly to both modes.
 pub fn evaluate(graph: &Value, tick: &Tick, state: &mut StrategyState) -> Signal {
-    evaluate_with_cache(graph, tick, state, None)
+    evaluate_with_caches(graph, tick, state, None, None)
 }
 
 /// Evaluate with an optional API fetch cache (used by the live engine).
@@ -27,6 +28,16 @@ pub fn evaluate_with_cache(
     tick: &Tick,
     state: &mut StrategyState,
     api_cache: Option<&ApiFetchCache>,
+) -> Signal {
+    evaluate_with_caches(graph, tick, state, api_cache, None)
+}
+
+pub fn evaluate_with_caches(
+    graph: &Value,
+    tick: &Tick,
+    state: &mut StrategyState,
+    api_cache: Option<&ApiFetchCache>,
+    model_score_cache: Option<&ModelScoreCache>,
 ) -> Signal {
     state.push_tick(tick.clone());
 
@@ -56,7 +67,9 @@ pub fn evaluate_with_cache(
     }
 
     // Universal max trades per slot guard
-    let max_trades = graph["risk"]["max_trades_per_slot"].as_u64().unwrap_or(u64::MAX) as u32;
+    let max_trades = graph["risk"]["max_trades_per_slot"]
+        .as_u64()
+        .unwrap_or(u64::MAX) as u32;
     if state.trades_this_slot >= max_trades {
         return Signal::Hold;
     }
@@ -64,7 +77,7 @@ pub fn evaluate_with_cache(
     let mode = graph["mode"].as_str().unwrap_or("form");
     let signal = match mode {
         "form" => evaluate_form_conditions(graph, tick, state),
-        "node" => evaluate_node(graph, tick, state, api_cache),
+        "node" => evaluate_node(graph, tick, state, api_cache, model_score_cache),
         _ => Signal::Hold,
     };
 
@@ -94,7 +107,10 @@ pub(super) fn resolve_indicator(
     // Object → stateful indicator function
     let obj = indicator.as_object()?;
     let func = obj.get("fn")?.as_str()?;
-    let field = obj.get("field").and_then(|v| v.as_str()).unwrap_or("mid_up");
+    let field = obj
+        .get("field")
+        .and_then(|v| v.as_str())
+        .unwrap_or("mid_up");
 
     let values: Vec<f64> = state
         .window
@@ -132,7 +148,10 @@ fn compute_scalar(spec: &Value, window: &[Tick]) -> Option<f64> {
     }
     let obj = spec.as_object()?;
     let func = obj.get("fn")?.as_str()?;
-    let field = obj.get("field").and_then(|v| v.as_str()).unwrap_or("mid_up");
+    let field = obj
+        .get("field")
+        .and_then(|v| v.as_str())
+        .unwrap_or("mid_up");
     let values: Vec<f64> = window.iter().filter_map(|t| get_field(t, field)).collect();
     match func {
         "EMA" => {

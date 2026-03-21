@@ -44,7 +44,12 @@ pub async fn discover_markets(
     let mut markets = Vec::new();
 
     for source in sources {
-        let MarketSource::CryptoUpDown { binance_symbol, slug_prefix, slot_durations } = source else {
+        let MarketSource::CryptoUpDown {
+            binance_symbol,
+            slug_prefix,
+            slot_durations,
+        } = source
+        else {
             continue;
         };
 
@@ -72,7 +77,9 @@ pub async fn discover_markets(
                 for event in &events {
                     let Some(mkts) = &event.markets else { continue };
                     for mkt in mkts {
-                        let Some(ref cid) = mkt.condition_id else { continue };
+                        let Some(ref cid) = mkt.condition_id else {
+                            continue;
+                        };
                         let tokens = parse_json_str_array(mkt.clob_token_ids.as_deref());
                         let outcomes = parse_json_str_array(mkt.outcomes.as_deref());
                         if tokens.len() < 2 || outcomes.len() < 2 {
@@ -94,7 +101,11 @@ pub async fn discover_markets(
                             end_time,
                             token_up: tokens[0].clone(),
                             token_down: tokens[1].clone(),
-                            ref_price_start: if ref_price > 0.0 { Some(ref_price) } else { None },
+                            ref_price_start: if ref_price > 0.0 {
+                                Some(ref_price)
+                            } else {
+                                None
+                            },
                         });
                         break;
                     }

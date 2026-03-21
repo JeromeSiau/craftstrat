@@ -1,7 +1,7 @@
 use anyhow::Result;
 use metrics::{counter, gauge, histogram};
-use rdkafka::Message;
 use rayon::prelude::*;
+use rdkafka::Message;
 use tokio::sync::mpsc;
 
 use super::interpreter;
@@ -11,11 +11,13 @@ use crate::fetcher::models::Tick;
 use crate::kafka;
 use crate::metrics as m;
 use crate::tasks::api_fetch_task::ApiFetchCache;
+use crate::tasks::model_score_task::ModelScoreCache;
 
 pub async fn run(
     brokers: &str,
     registry: AssignmentRegistry,
     api_cache: ApiFetchCache,
+    model_score_cache: ModelScoreCache,
     signal_tx: mpsc::Sender<EngineOutput>,
 ) -> Result<()> {
     let consumer = kafka::consumer::create_consumer(brokers, "strategy-engine", &["ticks"])?;
@@ -90,8 +92,13 @@ pub async fn run(
                         poisoned.into_inner()
                     }
                 };
-                let signal =
-                    interpreter::evaluate_with_cache(&a.graph, &tick, &mut state, Some(&api_cache));
+                let signal = interpreter::evaluate_with_caches(
+                    &a.graph,
+                    &tick,
+                    &mut state,
+                    Some(&api_cache),
+                    Some(&model_score_cache),
+                );
                 match signal {
                     Signal::Hold => None,
                     s => Some(EngineOutput {

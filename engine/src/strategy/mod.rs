@@ -2,6 +2,7 @@ pub mod engine;
 pub mod eval;
 pub mod indicators;
 pub mod interpreter;
+pub mod ml_features;
 pub mod registry;
 pub mod state;
 
@@ -69,9 +70,7 @@ mod tests {
         let deserialized: Signal = serde_json::from_str(&json).unwrap();
         match deserialized {
             Signal::Buy {
-                outcome,
-                size_usdc,
-                ..
+                outcome, size_usdc, ..
             } => {
                 assert_eq!(outcome, Outcome::Up);
                 assert!((size_usdc - 50.0).abs() < f64::EPSILON);

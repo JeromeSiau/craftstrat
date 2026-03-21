@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use clickhouse::Client;
 use serde_json::Value;
@@ -6,15 +6,18 @@ use serde_json::Value;
 use super::metrics;
 use super::{compute_pnl, BacktestRequest, BacktestResult, BacktestTrade, ExitReason, Side};
 use crate::fetcher::models::Tick;
-use crate::strategy::interpreter::evaluate;
+use crate::strategy::interpreter::{evaluate, evaluate_with_caches};
+use crate::strategy::ml_features::{build_live_feature_row, LIVE_FEATURE_WINDOW};
 use crate::strategy::state::{Position, StrategyState};
 use crate::strategy::{OrderType, Outcome, Signal};
+use crate::tasks::model_score_task::{fetch_prediction_batch, ModelScoreCache};
 
 pub struct BacktestEngine {
     graph: Value,
     window_size: usize,
     markets: HashMap<String, MarketContext>,
     trades: Vec<BacktestTrade>,
+    model_scores: Option<BacktestModelScores>,
 }
 
 struct MarketContext {
@@ -22,17 +25,34 @@ struct MarketContext {
     open_trade: Option<BacktestTrade>,
 }
 
+struct BacktestModelScores {
+    urls: Vec<String>,
+    lookup: HashMap<String, Value>,
+    cache: ModelScoreCache,
+}
+
 impl BacktestEngine {
     pub fn new(graph: Value, window_size: usize) -> Self {
+        Self::with_model_scores(graph, window_size, None)
+    }
+
+    fn with_model_scores(
+        graph: Value,
+        window_size: usize,
+        model_scores: Option<BacktestModelScores>,
+    ) -> Self {
         Self {
             graph,
             window_size,
             markets: HashMap::new(),
             trades: Vec::new(),
+            model_scores,
         }
     }
 
     pub fn process_tick(&mut self, tick: &Tick) {
+        self.seed_model_scores_for_tick(tick);
+
         let window_size = self.window_size;
         let ctx = self
             .markets
@@ -66,13 +86,21 @@ impl BacktestEngine {
             }
         }
 
-        let signal = evaluate(&self.graph, tick, &mut ctx.state);
+        let signal = if let Some(model_scores) = &self.model_scores {
+            evaluate_with_caches(
+                &self.graph,
+                tick,
+                &mut ctx.state,
+                None,
+                Some(&model_scores.cache),
+            )
+        } else {
+            evaluate(&self.graph, tick, &mut ctx.state)
+        };
 
         match signal {
             Signal::Buy {
-                outcome,
-                size_usdc,
-                ..
+                outcome, size_usdc, ..
             } => {
                 let entry_price = ask_price(outcome, tick);
                 if entry_price <= 0.0 {
@@ -115,6 +143,22 @@ impl BacktestEngine {
                 }
             }
             Signal::Cancel { .. } | Signal::Notify { .. } | Signal::Hold => {}
+        }
+    }
+
+    fn seed_model_scores_for_tick(&self, tick: &Tick) {
+        let Some(model_scores) = &self.model_scores else {
+            return;
+        };
+
+        for url in &model_scores.urls {
+            let live_key = format!("{}#{}", url, tick.symbol);
+            let lookup_key = prediction_lookup_key(url, &tick.symbol, tick);
+            if let Some(payload) = model_scores.lookup.get(&lookup_key) {
+                model_scores.cache.set(live_key, payload.clone());
+            } else {
+                model_scores.cache.remove(&live_key);
+            }
         }
     }
 
@@ -177,6 +221,7 @@ fn map_exit_reason(order_type: &OrderType) -> ExitReason {
 pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<BacktestResult> {
     req.validate().map_err(anyhow::Error::msg)?;
 
+    let model_urls = collect_model_score_urls(&req.strategy_graph);
     let mut cursor = crate::storage::clickhouse::fetch_ticks(
         ch_client,
         &req.market_filter,
@@ -184,13 +229,135 @@ pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<Ba
         req.date_to,
     )?;
 
-    let mut engine = BacktestEngine::new(req.strategy_graph.clone(), req.window_size);
+    if model_urls.is_empty() {
+        let mut engine = BacktestEngine::new(req.strategy_graph.clone(), req.window_size);
 
+        while let Some(tick) = cursor.next().await? {
+            engine.process_tick(&tick);
+        }
+
+        return Ok(engine.finish());
+    }
+
+    let mut ticks = Vec::new();
     while let Some(tick) = cursor.next().await? {
-        engine.process_tick(&tick);
+        ticks.push(tick);
+    }
+
+    let model_scores = precompute_model_scores(&model_urls, &ticks).await?;
+    let mut engine = BacktestEngine::with_model_scores(
+        req.strategy_graph.clone(),
+        req.window_size,
+        Some(model_scores),
+    );
+
+    for tick in &ticks {
+        engine.process_tick(tick);
     }
 
     Ok(engine.finish())
+}
+
+fn collect_model_score_urls(graph: &Value) -> Vec<String> {
+    let Some(nodes) = graph["nodes"].as_array() else {
+        return Vec::new();
+    };
+
+    let mut urls = Vec::new();
+    for node in nodes {
+        if node["type"].as_str() != Some("model_score") {
+            continue;
+        }
+
+        let url = node["data"]["url"].as_str().unwrap_or("").trim();
+        if url.is_empty() || urls.iter().any(|existing| existing == url) {
+            continue;
+        }
+
+        urls.push(url.to_string());
+    }
+
+    urls
+}
+
+async fn precompute_model_scores(
+    model_urls: &[String],
+    ticks: &[Tick],
+) -> anyhow::Result<BacktestModelScores> {
+    let mut windows: HashMap<String, VecDeque<Tick>> = HashMap::new();
+    let mut rows_by_url: HashMap<String, Vec<Value>> = model_urls
+        .iter()
+        .cloned()
+        .map(|url| (url, Vec::new()))
+        .collect();
+    let mut keys_by_url: HashMap<String, Vec<String>> = model_urls
+        .iter()
+        .cloned()
+        .map(|url| (url, Vec::new()))
+        .collect();
+
+    for tick in ticks {
+        let window = windows
+            .entry(tick.symbol.clone())
+            .or_insert_with(|| VecDeque::with_capacity(LIVE_FEATURE_WINDOW));
+        if window.len() >= LIVE_FEATURE_WINDOW {
+            window.pop_front();
+        }
+        window.push_back(tick.clone());
+
+        let Some(feature_row) = build_live_feature_row(window) else {
+            continue;
+        };
+
+        for url in model_urls {
+            if let Some(rows) = rows_by_url.get_mut(url) {
+                rows.push(feature_row.clone());
+            }
+            if let Some(keys) = keys_by_url.get_mut(url) {
+                keys.push(prediction_lookup_key(url, &tick.symbol, tick));
+            }
+        }
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let mut lookup = HashMap::new();
+
+    for url in model_urls {
+        let Some(rows) = rows_by_url.get(url) else {
+            continue;
+        };
+        let Some(keys) = keys_by_url.get(url) else {
+            continue;
+        };
+
+        if rows.is_empty() {
+            continue;
+        }
+
+        for (row_chunk, key_chunk) in rows.chunks(256).zip(keys.chunks(256)) {
+            let predictions = fetch_prediction_batch(&client, url, row_chunk).await?;
+            for (key, payload) in key_chunk.iter().zip(predictions.into_iter()) {
+                lookup.insert(key.clone(), payload);
+            }
+        }
+    }
+
+    Ok(BacktestModelScores {
+        urls: model_urls.to_vec(),
+        lookup,
+        cache: ModelScoreCache::new(),
+    })
+}
+
+fn prediction_lookup_key(url: &str, symbol: &str, tick: &Tick) -> String {
+    format!(
+        "{}#{}#{}",
+        url,
+        symbol,
+        tick.captured_at.unix_timestamp_nanos()
+    )
 }
 
 #[cfg(test)]
@@ -198,7 +365,9 @@ mod tests {
     use super::*;
     use crate::backtest::DEFAULT_WINDOW_SIZE;
     use crate::strategy::test_utils::test_tick;
+    use axum::{routing::post, Json, Router};
     use time::OffsetDateTime;
+    use tokio::net::TcpListener;
 
     fn simple_buy_up_strategy() -> Value {
         serde_json::json!({
@@ -404,7 +573,7 @@ mod tests {
         // Trade 2 PnL: (0.57 - 0.50) / 0.50 * 50 = 7.0
         // Total: ~ -0.26
         assert!(result.total_pnl_usdc < 0.0); // slight net loss
-        // Equity curve: [0, -7.26, -0.26] — peak never positive, so percentage drawdown = 0
+                                              // Equity curve: [0, -7.26, -0.26] — peak never positive, so percentage drawdown = 0
         assert!((result.max_drawdown).abs() < f64::EPSILON);
         assert_eq!(result.trades[0].exit_reason, Some(ExitReason::Stoploss));
         assert_eq!(result.trades[1].exit_reason, Some(ExitReason::TakeProfit));
@@ -422,7 +591,9 @@ mod tests {
         engine.process_tick(&t1);
 
         // Position opened
-        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_some());
+        assert!(engine.markets["btc-updown-15m-1700000000"]
+            .open_trade
+            .is_some());
 
         // Tick 2: next tick with winner=UP → slot resolves, position wins
         let mut t2 = test_tick();
@@ -432,7 +603,9 @@ mod tests {
         engine.process_tick(&t2);
 
         // Position should be resolved
-        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_none());
+        assert!(engine.markets["btc-updown-15m-1700000000"]
+            .open_trade
+            .is_none());
         assert_eq!(engine.trades.len(), 1);
 
         let trade = &engine.trades[0];
@@ -463,7 +636,7 @@ mod tests {
         assert_eq!(engine.trades.len(), 1);
         let trade = &engine.trades[0];
         assert!((trade.exit_price.unwrap()).abs() < f64::EPSILON); // 0.0
-        // PnL = (0.0 - 0.62) / 0.62 * 50 = -50.0
+                                                                   // PnL = (0.0 - 0.62) / 0.62 * 50 = -50.0
         assert!((trade.pnl_usdc - (-50.0)).abs() < 0.001);
         assert_eq!(trade.exit_reason, Some(ExitReason::SlotResolved));
     }
@@ -480,7 +653,9 @@ mod tests {
         engine.process_tick(&t1);
 
         // Position should still be open (not resolved on same tick as entry)
-        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_some());
+        assert!(engine.markets["btc-updown-15m-1700000000"]
+            .open_trade
+            .is_some());
         assert_eq!(engine.trades.len(), 0);
 
         // finish() should resolve using winner
@@ -511,7 +686,9 @@ mod tests {
         engine.process_tick(&t2);
 
         // Position stays open
-        assert!(engine.markets["btc-updown-15m-1700000000"].open_trade.is_some());
+        assert!(engine.markets["btc-updown-15m-1700000000"]
+            .open_trade
+            .is_some());
         assert_eq!(engine.trades.len(), 0);
 
         // finish() uses mid_price fallback (no winner)
@@ -550,5 +727,83 @@ mod tests {
         // Since slot resolution fires first and clears the position, the trade is
         // closed at slot resolution price (0.0 for a loss).
         assert_eq!(trade.exit_reason, Some(ExitReason::SlotResolved));
+    }
+
+    #[tokio::test]
+    async fn test_model_score_backtest_uses_http_predictions() {
+        let app = Router::new().route(
+            "/predict",
+            post(|Json(payload): Json<Value>| async move {
+                let rows = payload["rows"].as_array().cloned().unwrap_or_default();
+                let predictions: Vec<Value> = rows
+                    .into_iter()
+                    .map(|row| {
+                        let proba_up = if row["f_mid_up"].as_f64().unwrap_or(0.0) > 0.6 {
+                            0.91
+                        } else {
+                            0.09
+                        };
+                        serde_json::json!({
+                            "proba_up": proba_up,
+                            "edge_up": proba_up - row["f_ask_up"].as_f64().unwrap_or(0.0),
+                        })
+                    })
+                    .collect();
+
+                Json(serde_json::json!({
+                    "count": predictions.len(),
+                    "predictions": predictions,
+                }))
+            }),
+        );
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let url = format!("http://{addr}/predict");
+        let graph = serde_json::json!({
+            "mode": "node",
+            "nodes": [
+                { "id": "n1", "type": "model_score", "data": {
+                    "url": url,
+                    "json_path": "proba_up",
+                    "interval_ms": 1000
+                }},
+                { "id": "n2", "type": "comparator", "data": { "operator": ">", "value": 0.8 } },
+                { "id": "n3", "type": "action", "data": { "signal": "buy", "outcome": "UP", "size_usdc": 50 } }
+            ],
+            "edges": [
+                { "source": "n1", "target": "n2" },
+                { "source": "n2", "target": "n3" }
+            ]
+        });
+
+        let mut t1 = test_tick();
+        t1.winner = Some(1);
+
+        let mut t2 = test_tick();
+        t2.captured_at = OffsetDateTime::from_unix_timestamp(1700000451).unwrap();
+        t2.pct_into_slot = 0.95;
+        t2.winner = Some(1);
+
+        let ticks = vec![t1.clone(), t2.clone()];
+        let model_scores = precompute_model_scores(&collect_model_score_urls(&graph), &ticks)
+            .await
+            .unwrap();
+        let mut engine =
+            BacktestEngine::with_model_scores(graph, DEFAULT_WINDOW_SIZE, Some(model_scores));
+
+        engine.process_tick(&t1);
+        engine.process_tick(&t2);
+        let result = engine.finish();
+
+        server.abort();
+
+        assert_eq!(result.total_trades, 1);
+        assert_eq!(result.trades[0].exit_reason, Some(ExitReason::SlotResolved));
+        assert!(result.trades[0].pnl_usdc > 0.0);
     }
 }

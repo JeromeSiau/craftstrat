@@ -158,7 +158,11 @@ mod tests {
         make_order_for_wallet(1, priority, created_at)
     }
 
-    fn make_order_for_wallet(wallet_id: u64, priority: OrderPriority, created_at: i64) -> ExecutionOrder {
+    fn make_order_for_wallet(
+        wallet_id: u64,
+        priority: OrderPriority,
+        created_at: i64,
+    ) -> ExecutionOrder {
         ExecutionOrder {
             id: Uuid::new_v4(),
             wallet_id,
@@ -203,7 +207,10 @@ mod tests {
         q.push(make_order(OrderPriority::StrategyMarket, 50));
 
         let first = q.pop().unwrap();
-        assert_eq!(first.created_at, 50, "older order (created_at=50) should come first");
+        assert_eq!(
+            first.created_at, 50,
+            "older order (created_at=50) should come first"
+        );
 
         let second = q.pop().unwrap();
         assert_eq!(second.created_at, 100);
@@ -223,7 +230,10 @@ mod tests {
 
         assert!(bucket.try_consume(), "first consume should succeed");
         assert!(bucket.try_consume(), "second consume should succeed");
-        assert!(!bucket.try_consume(), "third consume should fail — bucket exhausted");
+        assert!(
+            !bucket.try_consume(),
+            "third consume should fail — bucket exhausted"
+        );
     }
 
     #[test]

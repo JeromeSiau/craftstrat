@@ -2,7 +2,7 @@ use anyhow::Result;
 use clickhouse::Client;
 
 use super::types::{
-    CalibrationPoint, HeatmapCell, StoplossThreshold, Summary, SymbolStats, TimeStats,
+    CalibrationPoint, HeatmapCell, MlDatasetRow, StoplossThreshold, Summary, SymbolStats, TimeStats,
 };
 
 pub struct StatsParams {
@@ -23,6 +23,36 @@ impl StatsParams {
     /// Matches on the short symbol prefix extracted from the full slug
     /// (e.g. 'BTC' matches 'btc-updown-15m-1771910100').
     /// Returns empty string if no symbols are specified.
+    fn symbol_clause(&self) -> String {
+        if self.symbols.is_empty() {
+            String::new()
+        } else {
+            let list = self
+                .symbols
+                .iter()
+                .map(|s| format!("'{}'", s.replace('\'', "")))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("AND upper(splitByChar('-', symbol)[1]) IN ({list})")
+        }
+    }
+}
+
+pub struct MlDatasetParams {
+    pub slot_duration: u32,
+    pub symbols: Vec<String>,
+    pub hours: f64,
+    pub sample_every: u32,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+impl MlDatasetParams {
+    fn cutoff_clause(&self) -> String {
+        let seconds = (self.hours * 3600.0) as u64;
+        format!("AND captured_at >= now64(3) - INTERVAL {seconds} SECOND")
+    }
+
     fn symbol_clause(&self) -> String {
         if self.symbols.is_empty() {
             String::new()
@@ -87,7 +117,9 @@ pub async fn fetch_summary(client: &Client, params: &StatsParams) -> Result<Summ
         .fetch::<Row>()?;
 
     if let Some(row) = cursor.next().await? {
-        let last = if row.last_snapshot_at.is_empty() || row.last_snapshot_at == "1970-01-01 00:00:00.000" {
+        let last = if row.last_snapshot_at.is_empty()
+            || row.last_snapshot_at == "1970-01-01 00:00:00.000"
+        {
             None
         } else {
             Some(row.last_snapshot_at)
@@ -128,12 +160,12 @@ pub async fn fetch_heatmap(client: &Client, params: &StatsParams) -> Result<Vec<
 
     // Timing bin size depends on slot_duration (in seconds)
     let time_bin_minutes: f64 = match params.slot_duration {
-        300 => 1.0,      // 5m slots → 1 min bins
-        900 => 2.0,      // 15m slots → 2 min bins
-        3600 => 10.0,    // 1h slots → 10 min bins
-        14400 => 30.0,   // 4h slots → 30 min bins
-        86400 => 240.0,  // 1d slots → 4h bins
-        _ => 2.0,        // default
+        300 => 1.0,     // 5m slots → 1 min bins
+        900 => 2.0,     // 15m slots → 2 min bins
+        3600 => 10.0,   // 1h slots → 10 min bins
+        14400 => 30.0,  // 4h slots → 30 min bins
+        86400 => 240.0, // 1d slots → 4h bins
+        _ => 2.0,       // default
     };
 
     let sql = format!(
@@ -519,4 +551,176 @@ pub async fn fetch_by_day(client: &Client, params: &StatsParams) -> Result<Vec<T
         });
     }
     Ok(stats)
+}
+
+// ---------------------------------------------------------------------------
+// 8. ML Dataset
+// ---------------------------------------------------------------------------
+
+pub async fn fetch_ml_dataset(
+    client: &Client,
+    params: &MlDatasetParams,
+) -> Result<Vec<MlDatasetRow>> {
+    let cutoff = params.cutoff_clause();
+    let sym = params.symbol_clause();
+    let sample_every = params.sample_every;
+    let limit = params.limit;
+    let offset = params.offset;
+
+    let sql = format!(
+        r#"
+        SELECT
+            captured_at,
+            symbol,
+            slot_ts,
+            slot_duration,
+            target_up,
+            f_mid_up,
+            f_mid_down,
+            f_bid_up,
+            f_ask_up,
+            f_bid_down,
+            f_ask_down,
+            f_spread_up_rel,
+            f_spread_down_rel,
+            f_cross_sum_mid,
+            f_cross_sum_bid,
+            f_cross_sum_ask,
+            f_parity_gap_up,
+            f_l1_imbalance_up,
+            f_l1_imbalance_down,
+            f_size_ratio_up,
+            f_size_ratio_down,
+            f_bid_gap_up_12,
+            f_bid_gap_up_23,
+            f_ask_gap_up_12,
+            f_ask_gap_up_23,
+            f_bid_gap_down_12,
+            f_bid_gap_down_23,
+            f_ask_gap_down_12,
+            f_ask_gap_down_23,
+            f_minutes_into_slot,
+            f_pct_into_slot,
+            f_pct_into_slot_sq,
+            f_log_volume,
+            f_hour_sin,
+            f_hour_cos,
+            f_dow_sin,
+            f_dow_cos,
+            f_dir_move_pct,
+            f_abs_move_pct,
+            f_ref_move_from_start,
+            f_d_mid_up_1,
+            f_d_spread_up_1,
+            f_d_imbalance_up_1,
+            f_d_ref_1,
+            f_mid_up_vs_ma5
+        FROM (
+            SELECT
+                captured_at,
+                symbol,
+                slot_ts,
+                slot_duration,
+                toUInt8(winner = 'UP') AS target_up,
+                toFloat64(mid_up) AS f_mid_up,
+                toFloat64(mid_down) AS f_mid_down,
+                toFloat64(bid_up) AS f_bid_up,
+                toFloat64(ask_up) AS f_ask_up,
+                toFloat64(bid_down) AS f_bid_down,
+                toFloat64(ask_down) AS f_ask_down,
+                if(mid_up > 0, toFloat64(spread_up) / toFloat64(mid_up), 0.0) AS f_spread_up_rel,
+                if(mid_down > 0, toFloat64(spread_down) / toFloat64(mid_down), 0.0) AS f_spread_down_rel,
+                toFloat64(mid_up + mid_down - 1) AS f_cross_sum_mid,
+                toFloat64(bid_up + bid_down - 1) AS f_cross_sum_bid,
+                toFloat64(ask_up + ask_down - 1) AS f_cross_sum_ask,
+                toFloat64(mid_up - (1 - mid_down)) AS f_parity_gap_up,
+                imbalance_up AS f_l1_imbalance_up,
+                imbalance_down AS f_l1_imbalance_down,
+                toFloat64(size_ratio_up) AS f_size_ratio_up,
+                toFloat64(size_ratio_down) AS f_size_ratio_down,
+                toFloat64(bid_up - bid_up_l2) AS f_bid_gap_up_12,
+                toFloat64(bid_up_l2 - bid_up_l3) AS f_bid_gap_up_23,
+                toFloat64(ask_up_l2 - ask_up) AS f_ask_gap_up_12,
+                toFloat64(ask_up_l3 - ask_up_l2) AS f_ask_gap_up_23,
+                toFloat64(bid_down - bid_down_l2) AS f_bid_gap_down_12,
+                toFloat64(bid_down_l2 - bid_down_l3) AS f_bid_gap_down_23,
+                toFloat64(ask_down_l2 - ask_down) AS f_ask_gap_down_12,
+                toFloat64(ask_down_l3 - ask_down_l2) AS f_ask_gap_down_23,
+                toFloat64(minutes_into_slot) AS f_minutes_into_slot,
+                toFloat64(pct_into_slot) AS f_pct_into_slot,
+                toFloat64(pct_into_slot * pct_into_slot) AS f_pct_into_slot_sq,
+                log1p(toFloat64(market_volume_usd)) AS f_log_volume,
+                sin(2 * pi() * toFloat64(hour_utc) / 24.0) AS f_hour_sin,
+                cos(2 * pi() * toFloat64(hour_utc) / 24.0) AS f_hour_cos,
+                sin(2 * pi() * toFloat64(day_of_week) / 7.0) AS f_dow_sin,
+                cos(2 * pi() * toFloat64(day_of_week) / 7.0) AS f_dow_cos,
+                toFloat64(dir_move_pct) AS f_dir_move_pct,
+                toFloat64(abs_move_pct) AS f_abs_move_pct,
+                if(ref_price_start > 0, toFloat64(ref_price / ref_price_start - 1), 0.0) AS f_ref_move_from_start,
+                toFloat64(mid_up - lagInFrame(mid_up, 1, mid_up) OVER slot_order) AS f_d_mid_up_1,
+                toFloat64(spread_up - lagInFrame(spread_up, 1, spread_up) OVER slot_order) AS f_d_spread_up_1,
+                imbalance_up - lagInFrame(imbalance_up, 1, imbalance_up) OVER slot_order AS f_d_imbalance_up_1,
+                if(ref_price > 0 AND lagInFrame(ref_price, 1, ref_price) OVER slot_order > 0,
+                    log(toFloat64(ref_price) / toFloat64(lagInFrame(ref_price, 1, ref_price) OVER slot_order)),
+                    0.0
+                ) AS f_d_ref_1,
+                toFloat64(mid_up - avg(mid_up) OVER slot_ma5) AS f_mid_up_vs_ma5,
+                row_number() OVER slot_order AS rn
+            FROM (
+                SELECT
+                    *,
+                    if(
+                        bid_size_up + ask_size_up > 0,
+                        toFloat64((bid_size_up - ask_size_up) / (bid_size_up + ask_size_up)),
+                        0.0
+                    ) AS imbalance_up,
+                    if(
+                        bid_size_down + ask_size_down > 0,
+                        toFloat64((bid_size_down - ask_size_down) / (bid_size_down + ask_size_down)),
+                        0.0
+                    ) AS imbalance_down
+                FROM slot_snapshots
+                WHERE slot_duration = ?
+                    AND winner IS NOT NULL
+                    {cutoff}
+                    {sym}
+            )
+            WINDOW
+                slot_order AS (
+                    PARTITION BY symbol, slot_ts, slot_duration
+                    ORDER BY captured_at
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ),
+                slot_ma5 AS (
+                    PARTITION BY symbol, slot_ts, slot_duration
+                    ORDER BY captured_at
+                    ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+                )
+        )
+        WHERE
+            f_pct_into_slot BETWEEN 0.05 AND 0.90
+            AND f_bid_up > 0
+            AND f_ask_up > 0
+            AND f_bid_down > 0
+            AND f_ask_down > 0
+            AND f_spread_up_rel >= 0
+            AND f_spread_down_rel >= 0
+            AND f_spread_up_rel <= 0.25
+            AND f_spread_down_rel <= 0.25
+            AND modulo(rn - 1, {sample_every}) = 0
+        ORDER BY captured_at ASC, symbol ASC, slot_ts ASC
+        LIMIT {limit} OFFSET {offset}
+        "#
+    );
+
+    let mut cursor = client
+        .query(&sql)
+        .bind(params.slot_duration)
+        .fetch::<MlDatasetRow>()?;
+
+    let mut rows = Vec::new();
+    while let Some(row) = cursor.next().await? {
+        rows.push(row);
+    }
+    Ok(rows)
 }

@@ -109,7 +109,21 @@ export interface FormModeGraph {
 // Strategy graph types for node mode
 export interface GraphNode {
     id: string;
-    type: 'input' | 'indicator' | 'comparator' | 'logic' | 'action' | 'not' | 'if_else' | 'math' | 'ev_calculator' | 'kelly' | 'cancel' | 'notify' | 'api_fetch';
+    type:
+        | 'input'
+        | 'indicator'
+        | 'comparator'
+        | 'logic'
+        | 'action'
+        | 'not'
+        | 'if_else'
+        | 'math'
+        | 'ev_calculator'
+        | 'kelly'
+        | 'cancel'
+        | 'notify'
+        | 'api_fetch'
+        | 'model_score';
     data: Record<string, unknown>;
     position?: { x: number; y: number };
 }

@@ -54,10 +54,8 @@ pub async fn run_ws_feed(
             Err(e) => {
                 let error_type = classify_ws_error(&e);
                 tracing::warn!(error = %e, error_type, "clob_ws_error");
-                counter!(crate::metrics::WS_ERRORS_TOTAL, "error_type" => error_type)
-                    .increment(1);
-                counter!(crate::metrics::WS_RECONNECTIONS_TOTAL, "reason" => "error")
-                    .increment(1);
+                counter!(crate::metrics::WS_ERRORS_TOTAL, "error_type" => error_type).increment(1);
+                counter!(crate::metrics::WS_RECONNECTIONS_TOTAL, "reason" => "error").increment(1);
             }
         }
 
@@ -247,7 +245,11 @@ fn parse_levels(val: Option<&serde_json::Value>, descending: bool) -> Vec<Level>
         .filter_map(|item| {
             let price = parse_f32(item.get("price"));
             let size = parse_f32(item.get("size"));
-            if size > 0.0 { Some(Level { price, size }) } else { None }
+            if size > 0.0 {
+                Some(Level { price, size })
+            } else {
+                None
+            }
         })
         .collect();
     if descending {

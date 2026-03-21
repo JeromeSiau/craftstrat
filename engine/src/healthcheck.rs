@@ -54,9 +54,7 @@ async fn wait_for_redis(url: &str) -> Result<()> {
         let check = async {
             let client = redis::Client::open(url)?;
             let mut conn = client.get_multiplexed_tokio_connection().await?;
-            redis::cmd("PING")
-                .query_async::<String>(&mut conn)
-                .await?;
+            redis::cmd("PING").query_async::<String>(&mut conn).await?;
             Ok::<(), anyhow::Error>(())
         };
 

@@ -154,11 +154,7 @@ async fn collect_targets(registry: &AssignmentRegistry) -> Vec<FetchTarget> {
 // fetch_value — HTTP GET + JSONPath extraction
 // ---------------------------------------------------------------------------
 
-async fn fetch_value(
-    client: &reqwest::Client,
-    url: &str,
-    json_path: &str,
-) -> anyhow::Result<f64> {
+async fn fetch_value(client: &reqwest::Client, url: &str, json_path: &str) -> anyhow::Result<f64> {
     let resp = client
         .get(url)
         .timeout(std::time::Duration::from_secs(5))
@@ -247,9 +243,6 @@ mod tests {
             json_path: "main.temp".into(),
             interval_secs: 60,
         };
-        assert_eq!(
-            target.cache_key(),
-            "https://api.example.com/data#main.temp"
-        );
+        assert_eq!(target.cache_key(), "https://api.example.com/data#main.temp");
     }
 }

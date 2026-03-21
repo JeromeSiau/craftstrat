@@ -8,6 +8,7 @@ use crate::strategy::eval::{evaluate_op, get_field};
 use crate::strategy::state::StrategyState;
 use crate::strategy::{Outcome, Signal};
 use crate::tasks::api_fetch_task::ApiFetchCache;
+use crate::tasks::model_score_task::ModelScoreCache;
 
 #[derive(Debug, Clone)]
 enum NodeValue {
@@ -66,6 +67,7 @@ pub(super) fn evaluate_node(
     tick: &Tick,
     state: &mut StrategyState,
     api_cache: Option<&ApiFetchCache>,
+    model_score_cache: Option<&ModelScoreCache>,
 ) -> Signal {
     let Some(nodes) = graph["nodes"].as_array() else {
         return Signal::Hold;
@@ -234,10 +236,7 @@ pub(super) fn evaluate_node(
                         .iter()
                         .any(|e| is_edge_active(e, &values, &node_map))
                 {
-                    let channel = data["channel"]
-                        .as_str()
-                        .unwrap_or("database")
-                        .to_string();
+                    let channel = data["channel"].as_str().unwrap_or("database").to_string();
                     let message = data["message"]
                         .as_str()
                         .unwrap_or("Strategy alert")
@@ -327,8 +326,17 @@ pub(super) fn evaluate_node(
                 let interval_secs = data["interval_secs"].as_u64().unwrap_or(60).max(30);
                 let max_age = interval_secs * 3;
                 let cache_key = format!("{}#{}", url, json_path);
-                let value = api_cache
-                    .map(|c| c.get(&cache_key, max_age))
+                let value = api_cache.map(|c| c.get(&cache_key, max_age)).unwrap_or(0.0);
+                NodeValue::Number(value)
+            }
+            "model_score" => {
+                let url = data["url"].as_str().unwrap_or("");
+                let json_path = data["json_path"].as_str().unwrap_or("proba_up");
+                let interval_ms = data["interval_ms"].as_u64().unwrap_or(2_000).max(1_000);
+                let max_age_ms = interval_ms * 3;
+                let cache_key = format!("{}#{}", url, tick.symbol);
+                let value = model_score_cache
+                    .map(|c| c.get_number(&cache_key, max_age_ms, json_path))
                     .unwrap_or(0.0);
                 NodeValue::Number(value)
             }
@@ -392,10 +400,7 @@ mod tests {
         });
         let tick = test_tick();
         let mut state = StrategyState::new(100);
-        assert!(matches!(
-            evaluate(&graph, &tick, &mut state),
-            Signal::Hold
-        ));
+        assert!(matches!(evaluate(&graph, &tick, &mut state), Signal::Hold));
     }
 
     #[test]
@@ -624,8 +629,8 @@ mod tests {
             ]
         });
         let mut tick = test_tick();
-        tick.mid_up = 0.4;         // price
-        tick.pct_into_slot = 0.7;  // prob (repurposed for test)
+        tick.mid_up = 0.4; // price
+        tick.pct_into_slot = 0.7; // prob (repurposed for test)
         let mut state = StrategyState::new(100);
         assert!(matches!(
             evaluate(&graph, &tick, &mut state),
@@ -653,8 +658,8 @@ mod tests {
             ]
         });
         let mut tick = test_tick();
-        tick.mid_up = 0.6;         // price
-        tick.pct_into_slot = 0.3;  // prob
+        tick.mid_up = 0.6; // price
+        tick.pct_into_slot = 0.3; // prob
         let mut state = StrategyState::new(100);
         assert!(matches!(evaluate(&graph, &tick, &mut state), Signal::Hold));
     }
@@ -680,8 +685,8 @@ mod tests {
             ]
         });
         let mut tick = test_tick();
-        tick.pct_into_slot = 0.7;  // prob
-        tick.mid_up = 0.4;         // price
+        tick.pct_into_slot = 0.7; // prob
+        tick.mid_up = 0.4; // price
         let mut state = StrategyState::new(100);
         assert!(matches!(
             evaluate(&graph, &tick, &mut state),
@@ -710,8 +715,8 @@ mod tests {
             ]
         });
         let mut tick = test_tick();
-        tick.pct_into_slot = 0.3;  // prob
-        tick.mid_up = 0.6;         // price
+        tick.pct_into_slot = 0.3; // prob
+        tick.mid_up = 0.6; // price
         let mut state = StrategyState::new(100);
         assert!(matches!(evaluate(&graph, &tick, &mut state), Signal::Hold));
     }
@@ -734,7 +739,12 @@ mod tests {
         let mut state = StrategyState::new(100);
         let signal = evaluate(&graph, &tick, &mut state);
         assert!(
-            matches!(signal, Signal::Cancel { outcome: Outcome::Up }),
+            matches!(
+                signal,
+                Signal::Cancel {
+                    outcome: Outcome::Up
+                }
+            ),
             "expected Cancel(Up), got {:?}",
             signal
         );
@@ -898,6 +908,75 @@ mod tests {
         assert!(
             matches!(signal, Signal::Hold),
             "expected Hold when no cache (0.0 is not > 0.0), got {:?}",
+            signal
+        );
+    }
+
+    #[test]
+    fn test_model_score_node_with_cache_hit() {
+        use crate::strategy::interpreter::evaluate_with_caches;
+        use crate::tasks::model_score_task::ModelScoreCache;
+
+        let cache = ModelScoreCache::new();
+        cache.set(
+            "https://ml.example.com/predict#btc-updown-15m-1700000000".into(),
+            serde_json::json!({
+                "proba_up": 0.89
+            }),
+        );
+
+        let graph = serde_json::json!({
+            "mode": "node",
+            "nodes": [
+                { "id": "n1", "type": "model_score", "data": {
+                    "url": "https://ml.example.com/predict",
+                    "json_path": "proba_up",
+                    "interval_ms": 2000
+                }},
+                { "id": "n2", "type": "comparator", "data": { "operator": ">", "value": 0.8 } },
+                { "id": "n3", "type": "action", "data": { "signal": "buy", "outcome": "UP", "size_usdc": 10 } }
+            ],
+            "edges": [
+                { "source": "n1", "target": "n2" },
+                { "source": "n2", "target": "n3" }
+            ]
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        let signal = evaluate_with_caches(&graph, &tick, &mut state, None, Some(&cache));
+        assert!(
+            matches!(signal, Signal::Buy { .. }),
+            "expected Buy when model score 0.89 > 0.8, got {:?}",
+            signal
+        );
+    }
+
+    #[test]
+    fn test_model_score_node_without_cache() {
+        use crate::strategy::interpreter::evaluate_with_caches;
+
+        let graph = serde_json::json!({
+            "mode": "node",
+            "nodes": [
+                { "id": "n1", "type": "model_score", "data": {
+                    "url": "https://ml.example.com/predict",
+                    "json_path": "proba_up",
+                    "interval_ms": 2000
+                }},
+                { "id": "n2", "type": "comparator", "data": { "operator": ">", "value": 0.0 } },
+                { "id": "n3", "type": "action", "data": { "signal": "buy", "outcome": "UP", "size_usdc": 10 } }
+            ],
+            "edges": [
+                { "source": "n1", "target": "n2" },
+                { "source": "n2", "target": "n3" }
+            ]
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        let signal = evaluate_with_caches(&graph, &tick, &mut state, None, None);
+        assert!(
+            matches!(signal, Signal::Hold),
+            "expected Hold when no model cache is available, got {:?}",
             signal
         );
     }

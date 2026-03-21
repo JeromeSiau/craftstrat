@@ -240,3 +240,40 @@ async fn test_activate_empty_markets_returns_validation_error() {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert!(json["error"].as_str().unwrap().contains("markets"));
 }
+
+#[tokio::test]
+async fn test_ml_dataset_rejects_zero_sample_every() {
+    let state = test_state();
+    let app = super::router(state);
+
+    let req = Request::builder()
+        .uri("/internal/stats/slots/ml-dataset?slot_duration=900&sample_every=0")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["error"], "sample_every must be >= 1");
+}
+
+#[tokio::test]
+async fn test_ml_dataset_rejects_invalid_slot_duration() {
+    let state = test_state();
+    let app = super::router(state);
+
+    let req = Request::builder()
+        .uri("/internal/stats/slots/ml-dataset?slot_duration=123")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(json["error"]
+        .as_str()
+        .unwrap()
+        .contains("slot_duration must be one of"));
+}

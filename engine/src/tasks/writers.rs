@@ -2,10 +2,7 @@ use tokio::task::JoinSet;
 
 use super::SharedState;
 
-pub fn spawn_clickhouse_writer(
-    state: &SharedState,
-    tasks: &mut JoinSet<anyhow::Result<()>>,
-) {
+pub fn spawn_clickhouse_writer(state: &SharedState, tasks: &mut JoinSet<anyhow::Result<()>>) {
     let ch_url = state.config.clickhouse_url.clone();
     let tick_tx = state.tick_tx.clone();
 

@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
-use alloy::primitives::{Address, Bytes, FixedBytes, U256, keccak256};
+use alloy::primitives::{keccak256, Address, Bytes, FixedBytes, U256};
 use alloy::signers::SignerSync;
 use alloy::sol;
-use alloy::sol_types::{SolStruct, eip712_domain};
+use alloy::sol_types::{eip712_domain, SolStruct};
 use anyhow::{Context, Result};
-use base64::engine::general_purpose::{STANDARD as BASE64, URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD};
+use base64::engine::general_purpose::{
+    STANDARD as BASE64, URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD,
+};
 use base64::Engine as _;
 use hmac::{Hmac, Mac};
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -32,9 +34,9 @@ const CHAIN_ID: u64 = 137;
 const SAFE_INIT_CODE_HASH: [u8; 32] = {
     // 0x2bce2127ff07fb632d16c8347c4ebf501f4841168bed00d9e6ef715ddb6fcecf
     [
-        0x2b, 0xce, 0x21, 0x27, 0xff, 0x07, 0xfb, 0x63, 0x2d, 0x16, 0xc8, 0x34, 0x7c, 0x4e,
-        0xbf, 0x50, 0x1f, 0x48, 0x41, 0x16, 0x8b, 0xed, 0x00, 0xd9, 0xe6, 0xef, 0x71, 0x5d,
-        0xdb, 0x6f, 0xce, 0xcf,
+        0x2b, 0xce, 0x21, 0x27, 0xff, 0x07, 0xfb, 0x63, 0x2d, 0x16, 0xc8, 0x34, 0x7c, 0x4e, 0xbf,
+        0x50, 0x1f, 0x48, 0x41, 0x16, 0x8b, 0xed, 0x00, 0xd9, 0xe6, 0xef, 0x71, 0x5d, 0xdb, 0x6f,
+        0xce, 0xcf,
     ]
 };
 
@@ -135,7 +137,8 @@ impl RelayerClient {
         // 2. Check if already deployed (using derived Safe address)
         if self.is_deployed(&proxy_wallet).await? {
             debug!(%wallet_id, ?proxy_wallet, "safe_already_deployed");
-            self.wallet_keys.store_safe_address(wallet_id, proxy_wallet)?;
+            self.wallet_keys
+                .store_safe_address(wallet_id, proxy_wallet)?;
             return Ok(SafeDeployResult {
                 safe_address: format!("{:?}", proxy_wallet),
                 transaction_hash: String::new(),
@@ -184,14 +187,14 @@ impl RelayerClient {
             .proxy_address
             .unwrap_or_else(|| format!("{:?}", proxy_wallet));
 
-        let tx_hash = tx
-            .transaction_hash
-            .unwrap_or_default();
+        let tx_hash = tx.transaction_hash.unwrap_or_default();
 
         debug!(%wallet_id, %safe_address, %tx_hash, "safe_deployed");
 
         // 5. Store Safe address in wallet key store
-        let addr: Address = safe_address.parse().context("invalid safe address from relayer")?;
+        let addr: Address = safe_address
+            .parse()
+            .context("invalid safe address from relayer")?;
         self.wallet_keys.store_safe_address(wallet_id, addr)?;
 
         // 6. Approve USDC on both CTF and NegRisk exchanges
@@ -260,31 +263,14 @@ impl RelayerClient {
 
     async fn is_deployed(&self, address: &Address) -> Result<bool> {
         let url = format!("{}/deployed?address={:?}", self.relayer_url, address);
-        let resp: DeployedResponse = self
-            .http
-            .proxied()
-            .get(&url)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let resp: DeployedResponse = self.http.proxied().get(&url).send().await?.json().await?;
         Ok(resp.deployed)
     }
 
     #[allow(dead_code)]
     async fn get_nonce(&self, address: &Address) -> Result<String> {
-        let url = format!(
-            "{}/nonce?address={:?}&type=SAFE",
-            self.relayer_url, address
-        );
-        let resp: NoncePayload = self
-            .http
-            .proxied()
-            .get(&url)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let url = format!("{}/nonce?address={:?}&type=SAFE", self.relayer_url, address);
+        let resp: NoncePayload = self.http.proxied().get(&url).send().await?.json().await?;
         Ok(resp.nonce)
     }
 
@@ -293,14 +279,7 @@ impl RelayerClient {
             "{}/relay-payload?address={:?}&type=SAFE",
             self.relayer_url, address
         );
-        let resp: RelayPayload = self
-            .http
-            .proxied()
-            .get(&url)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let resp: RelayPayload = self.http.proxied().get(&url).send().await?.json().await?;
         Ok(resp)
     }
 
@@ -315,14 +294,8 @@ impl RelayerClient {
             "POLY_BUILDER_API_KEY",
             HeaderValue::from_str(&self.credentials.api_key)?,
         );
-        headers.insert(
-            "POLY_BUILDER_SIGNATURE",
-            HeaderValue::from_str(&hmac_sig)?,
-        );
-        headers.insert(
-            "POLY_BUILDER_TIMESTAMP",
-            HeaderValue::from_str(&timestamp)?,
-        );
+        headers.insert("POLY_BUILDER_SIGNATURE", HeaderValue::from_str(&hmac_sig)?);
+        headers.insert("POLY_BUILDER_TIMESTAMP", HeaderValue::from_str(&timestamp)?);
         headers.insert(
             "POLY_BUILDER_PASSPHRASE",
             HeaderValue::from_str(&self.credentials.passphrase)?,
@@ -377,7 +350,10 @@ impl RelayerClient {
                         return Ok(tx.clone());
                     }
                     "STATE_FAILED" | "STATE_INVALID" => {
-                        anyhow::bail!("relayer transaction {tx_id} failed with state: {}", tx.state);
+                        anyhow::bail!(
+                            "relayer transaction {tx_id} failed with state: {}",
+                            tx.state
+                        );
                     }
                     _ => {
                         debug!(attempt, %tx_id, state = %tx.state, "relayer_tx_pending");
@@ -402,8 +378,8 @@ impl RelayerClient {
             .or_else(|_| BASE64_URL_NOPAD.decode(&self.credentials.secret))
             .context("builder_secret is not valid base64 (url-safe)")?;
 
-        let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
-            .context("HMAC key creation failed")?;
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(&secret_bytes).context("HMAC key creation failed")?;
 
         let message = format!("{timestamp}{method}{path}{body}");
         mac.update(message.as_bytes());

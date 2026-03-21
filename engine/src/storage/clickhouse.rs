@@ -30,7 +30,10 @@ pub fn create_client(url: &str) -> Client {
         .with_option("send_timeout", "10")
 }
 
-pub async fn run_writer(client: Client, mut tick_rx: tokio::sync::broadcast::Receiver<Tick>) -> Result<()> {
+pub async fn run_writer(
+    client: Client,
+    mut tick_rx: tokio::sync::broadcast::Receiver<Tick>,
+) -> Result<()> {
     let mut inserter = client
         .inserter("slot_snapshots")?
         .with_max_rows(100)

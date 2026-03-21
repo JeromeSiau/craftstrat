@@ -120,5 +120,4 @@ mod tests {
         assert!(evaluate_op(3.0, "==", &serde_json::json!(3.0)));
         assert!(evaluate_op(3.0, "!=", &serde_json::json!(5.0)));
     }
-
 }

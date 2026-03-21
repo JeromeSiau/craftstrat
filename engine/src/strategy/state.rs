@@ -96,5 +96,4 @@ mod tests {
         assert!((restored.pnl - 42.5).abs() < f64::EPSILON);
         assert!((restored.indicator_cache["ema_20"] - 0.55).abs() < f64::EPSILON);
     }
-
 }

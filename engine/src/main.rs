@@ -1,18 +1,18 @@
+mod api;
+mod backtest;
 mod config;
 mod execution;
 mod fetcher;
+mod healthcheck;
 mod kafka;
+mod metrics;
 mod proxy;
+mod stats;
 mod storage;
 mod strategy;
+mod supervisor;
 mod tasks;
 mod watcher;
-mod backtest;
-mod stats;
-mod api;
-mod healthcheck;
-mod supervisor;
-mod metrics;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -34,12 +34,7 @@ async fn main() -> anyhow::Result<()> {
     let cfg = Config::from_env()?;
     tracing::info!(sources = cfg.sources.len(), "craftstrat_engine_starting");
 
-    healthcheck::wait_for_services(
-        &cfg.clickhouse_url,
-        &cfg.redis_url,
-        &cfg.database_url,
-    )
-    .await?;
+    healthcheck::wait_for_services(&cfg.clickhouse_url, &cfg.redis_url, &cfg.database_url).await?;
 
     let (ws_cmd_tx, ws_cmd_rx) = mpsc::channel::<WsCommand>(64);
     let (tick_tx, _) = broadcast::channel::<fetcher::models::Tick>(1024);
@@ -89,9 +84,7 @@ async fn main() -> anyhow::Result<()> {
         relayer: relayer_client,
     });
     let api_port = state.config.api_port;
-    tasks.spawn(async move {
-        api::serve(api_state, api_port).await
-    });
+    tasks.spawn(async move { api::serve(api_state, api_port).await });
 
     tracing::info!("craftstrat_engine_running");
 

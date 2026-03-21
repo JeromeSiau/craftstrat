@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
-use aes_gcm::{Aes256Gcm, AeadCore, Nonce};
+use aes_gcm::{AeadCore, Aes256Gcm, Nonce};
 use alloy::primitives::Address;
 use alloy::signers::local::PrivateKeySigner;
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
 /// Stores AES-256-GCM encrypted wallet private keys, decrypting only at signing time.
@@ -37,8 +37,8 @@ impl WalletKeyStore {
 
         let key_bytes = Sha256::digest(encryption_key.as_bytes());
 
-        let cipher = Aes256Gcm::new_from_slice(&key_bytes)
-            .context("failed to create AES-256-GCM cipher")?;
+        let cipher =
+            Aes256Gcm::new_from_slice(&key_bytes).context("failed to create AES-256-GCM cipher")?;
 
         Ok(Self {
             keys: RwLock::new(HashMap::new()),
@@ -108,8 +108,7 @@ impl WalletKeyStore {
         // Convert from hex string to 32-byte raw key for the signer.
         let hex_str = std::str::from_utf8(&decrypted)
             .context("decrypted key is not valid UTF-8 (expected hex string)")?;
-        let mut key_bytes = hex::decode(hex_str)
-            .context("decrypted key is not valid hex")?;
+        let mut key_bytes = hex::decode(hex_str).context("decrypted key is not valid hex")?;
 
         let signer = PrivateKeySigner::from_slice(&key_bytes)
             .context("failed to create signer from decrypted key")?;
@@ -168,7 +167,9 @@ impl WalletKeyStore {
     #[allow(dead_code)]
     pub fn remove_key(&self, wallet_id: u64) {
         match self.keys.write() {
-            Ok(mut keys) => { keys.remove(&wallet_id); }
+            Ok(mut keys) => {
+                keys.remove(&wallet_id);
+            }
             Err(e) => tracing::warn!(wallet_id, error = %e, "remove_key_lock_poisoned"),
         }
     }

@@ -6,7 +6,9 @@ use alloy::signers::SignerSync;
 use alloy::sol;
 use alloy::sol_types::{eip712_domain, SolStruct};
 use anyhow::{Context, Result};
-use base64::engine::general_purpose::{STANDARD as BASE64, URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD};
+use base64::engine::general_purpose::{
+    STANDARD as BASE64, URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD,
+};
 use base64::Engine as _;
 use hmac::{Hmac, Mac};
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -189,9 +191,13 @@ impl OrderSubmitter {
 
         // 7. Build EIP-712 domain
         let exchange_address: Address = if self.neg_risk {
-            NEG_RISK_EXCHANGE.parse().context("invalid neg risk exchange address")?
+            NEG_RISK_EXCHANGE
+                .parse()
+                .context("invalid neg risk exchange address")?
         } else {
-            CTF_EXCHANGE.parse().context("invalid CTF exchange address")?
+            CTF_EXCHANGE
+                .parse()
+                .context("invalid CTF exchange address")?
         };
 
         let domain = eip712_domain! {
@@ -245,8 +251,7 @@ impl OrderSubmitter {
         // 10. Sign builder request (HMAC-SHA256)
         let timestamp = now_secs().to_string();
         let path = "/order";
-        let hmac_sig =
-            self.sign_builder_request("POST", path, &timestamp, &body)?;
+        let hmac_sig = self.sign_builder_request("POST", path, &timestamp, &body)?;
 
         // 11. Build headers
         let mut headers = HeaderMap::new();
@@ -265,8 +270,7 @@ impl OrderSubmitter {
         );
         headers.insert(
             "POLY_API_KEY",
-            HeaderValue::from_str(&self.credentials.api_key)
-                .context("invalid api key header")?,
+            HeaderValue::from_str(&self.credentials.api_key).context("invalid api key header")?,
         );
         headers.insert(
             "POLY_PASSPHRASE",
@@ -292,9 +296,7 @@ impl OrderSubmitter {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            anyhow::bail!(
-                "order submission failed with status {status}: {body}"
-            );
+            anyhow::bail!("order submission failed with status {status}: {body}");
         }
 
         let submit_resp: SubmitOrderResponse = resp
@@ -331,8 +333,8 @@ impl OrderSubmitter {
             .or_else(|_| BASE64_URL_NOPAD.decode(&self.credentials.secret))
             .context("builder_secret is not valid base64 (url-safe)")?;
 
-        let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
-            .context("HMAC key creation failed")?;
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(&secret_bytes).context("HMAC key creation failed")?;
 
         let message = format!("{timestamp}{method}{path}{body}");
         mac.update(message.as_bytes());
@@ -414,16 +416,11 @@ mod tests {
 
     fn make_submitter() -> OrderSubmitter {
         let wallet_keys = Arc::new(
-            WalletKeyStore::new(
-                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-            )
-            .unwrap(),
+            WalletKeyStore::new("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap(),
         );
         let pool = HttpPool::new(&[], std::time::Duration::from_secs(10)).unwrap();
-        let fee_cache = Arc::new(FeeCache::new(
-            pool.clone(),
-            "http://localhost",
-        ));
+        let fee_cache = Arc::new(FeeCache::new(pool.clone(), "http://localhost"));
 
         // Use a base64-encoded secret for HMAC
         let secret = BASE64.encode(b"test-secret-key-for-hmac-signing");
@@ -470,7 +467,10 @@ mod tests {
         let result3 = submitter
             .sign_builder_request("GET", "/order", "1700000000000", r#"{"test":"body"}"#)
             .unwrap();
-        assert_ne!(result, result3, "different method should produce different signature");
+        assert_ne!(
+            result, result3,
+            "different method should produce different signature"
+        );
     }
 
     #[test]

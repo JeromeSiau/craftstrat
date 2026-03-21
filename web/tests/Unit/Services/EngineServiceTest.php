@@ -80,6 +80,35 @@ it('fetches engine status', function () {
     expect($result)->toHaveKey('active_wallets', 3);
 });
 
+it('fetches slot ml dataset', function () {
+    Http::fake(['engine:8080/internal/stats/slots/ml-dataset*' => Http::response([
+        'row_count' => 1,
+        'rows' => [[
+            'captured_at' => '2026-03-20T00:00:00Z',
+            'symbol' => 'btc-updown-15m-1700000000',
+            'slot_ts' => 1700000000,
+            'slot_duration' => 900,
+            'target_up' => 1,
+            'f_mid_up' => 0.61,
+        ]],
+    ])]);
+
+    $result = $this->service->slotMlDataset(900, ['BTC'], 720.0, 5, 500, 1000);
+
+    expect($result)
+        ->toHaveKey('row_count', 1)
+        ->and($result['rows'])->toHaveCount(1);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/internal/stats/slots/ml-dataset')
+        && str_contains($request->url(), 'slot_duration=900')
+        && str_contains($request->url(), 'symbols=BTC')
+        && str_contains($request->url(), 'hours=720')
+        && str_contains($request->url(), 'sample_every=5')
+        && str_contains($request->url(), 'limit=500')
+        && str_contains($request->url(), 'offset=1000')
+    );
+});
+
 it('sends watch leader request', function () {
     Http::fake(['engine:8080/internal/copy/watch' => Http::response(null, 200)]);
 

@@ -32,6 +32,12 @@ yarn-error.log
 # Rust (engine/)
 engine/target/
 
+# Python ML
+ml/.venv/
+ml/artifacts/
+ml/data/
+__pycache__/
+
 # Docker
 supervisord.log
 supervisord.pid

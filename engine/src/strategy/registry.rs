@@ -109,7 +109,12 @@ async fn set_killed(
         }
     }
     if found {
-        tracing::info!(wallet_id, strategy_id, killed, "assignment_kill_switch_toggled");
+        tracing::info!(
+            wallet_id,
+            strategy_id,
+            killed,
+            "assignment_kill_switch_toggled"
+        );
     }
     found
 }

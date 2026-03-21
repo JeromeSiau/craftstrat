@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use clickhouse::Client as ChClient;
 use metrics_exporter_prometheus::PrometheusHandle;

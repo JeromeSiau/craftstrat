@@ -19,10 +19,7 @@ pub fn spawn_ws_feed(
     });
 }
 
-pub fn spawn_price_poller(
-    state: &SharedState,
-    tasks: &mut JoinSet<anyhow::Result<()>>,
-) {
+pub fn spawn_price_poller(state: &SharedState, tasks: &mut JoinSet<anyhow::Result<()>>) {
     let price_url = state.config.binance_api_url.clone();
     let price_http = state.http.direct().clone();
     let price_cache = state.prices.clone();
@@ -69,10 +66,7 @@ pub fn spawn_price_poller(
     });
 }
 
-pub fn spawn_market_discovery(
-    state: &SharedState,
-    tasks: &mut JoinSet<anyhow::Result<()>>,
-) {
+pub fn spawn_market_discovery(state: &SharedState, tasks: &mut JoinSet<anyhow::Result<()>>) {
     let disc_markets = state.markets.clone();
     let disc_http = state.http.clone();
     let disc_cfg = state.config.clone();
@@ -80,7 +74,8 @@ pub fn spawn_market_discovery(
     let ws_cmd_tx = state.ws_cmd_tx.clone();
     tasks.spawn(async move {
         tokio::time::sleep(Duration::from_secs(3)).await;
-        let mut interval = tokio::time::interval(Duration::from_secs(disc_cfg.discovery_interval_secs));
+        let mut interval =
+            tokio::time::interval(Duration::from_secs(disc_cfg.discovery_interval_secs));
         loop {
             interval.tick().await;
             let current_prices = disc_prices.read().await.clone();
@@ -104,7 +99,11 @@ pub fn spawn_market_discovery(
                         active.insert(m.condition_id.clone(), m);
                     }
                     if !new_tokens.is_empty() {
-                        let _ = ws_cmd_tx.send(WsCommand::Subscribe { token_ids: new_tokens }).await;
+                        let _ = ws_cmd_tx
+                            .send(WsCommand::Subscribe {
+                                token_ids: new_tokens,
+                            })
+                            .await;
                     }
                     let now = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
@@ -131,10 +130,7 @@ pub fn spawn_market_discovery(
     });
 }
 
-pub fn spawn_tick_builder(
-    state: &SharedState,
-    tasks: &mut JoinSet<anyhow::Result<()>>,
-) {
+pub fn spawn_tick_builder(state: &SharedState, tasks: &mut JoinSet<anyhow::Result<()>>) {
     let tb_books = state.books.clone();
     let tb_markets = state.markets.clone();
     let tb_prices = state.prices.clone();

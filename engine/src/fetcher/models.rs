@@ -43,7 +43,10 @@ impl OrderBook {
         };
         if size == 0.0 {
             levels.retain(|l| (l.price - price).abs() > f32::EPSILON);
-        } else if let Some(existing) = levels.iter_mut().find(|l| (l.price - price).abs() < f32::EPSILON) {
+        } else if let Some(existing) = levels
+            .iter_mut()
+            .find(|l| (l.price - price).abs() < f32::EPSILON)
+        {
             existing.size = size;
         } else {
             levels.push(Level { price, size });

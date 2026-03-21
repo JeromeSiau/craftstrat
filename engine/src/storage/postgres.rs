@@ -175,16 +175,18 @@ pub async fn get_active_followers(
 
     let followers = rows
         .into_iter()
-        .map(|(id, follower_wallet_id, size_mode, size_value, max_position_usdc, markets_filter)| {
-            CopyRelationship {
-                id,
-                follower_wallet_id,
-                size_mode,
-                size_value,
-                max_position_usdc,
-                markets_filter,
-            }
-        })
+        .map(
+            |(id, follower_wallet_id, size_mode, size_value, max_position_usdc, markets_filter)| {
+                CopyRelationship {
+                    id,
+                    follower_wallet_id,
+                    size_mode,
+                    size_value,
+                    max_position_usdc,
+                    markets_filter,
+                }
+            },
+        )
         .collect();
 
     Ok(followers)

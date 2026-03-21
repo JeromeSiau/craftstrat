@@ -119,6 +119,27 @@ class EngineService
             ->json();
     }
 
+    public function slotMlDataset(
+        int $slotDuration,
+        array $symbols = [],
+        float $hours = 720.0,
+        int $sampleEvery = 1,
+        int $limit = 10000,
+        int $offset = 0,
+    ): array {
+        return $this->client()
+            ->get('/internal/stats/slots/ml-dataset', array_filter([
+                'slot_duration' => $slotDuration,
+                'symbols' => ! empty($symbols) ? implode(',', $symbols) : null,
+                'hours' => $hours,
+                'sample_every' => $sampleEvery,
+                'limit' => $limit,
+                'offset' => $offset,
+            ]))
+            ->throw()
+            ->json();
+    }
+
     public function watchLeader(string $leaderAddress): void
     {
         $this->client()->post('/internal/copy/watch', [

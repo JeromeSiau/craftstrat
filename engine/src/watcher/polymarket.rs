@@ -9,10 +9,8 @@ use uuid::Uuid;
 use crate::execution::queue::ExecutionQueue;
 use crate::execution::{ExecutionOrder, OrderPriority, Side};
 use crate::metrics as m;
-use crate::storage::postgres::{
-    self, CopyRelationship,
-};
 use crate::proxy::HttpPool;
+use crate::storage::postgres::{self, CopyRelationship};
 use crate::strategy::{OrderType, Outcome};
 
 // ---------------------------------------------------------------------------
@@ -144,15 +142,9 @@ async fn check_new_trades(
 // Redis helpers — get/update last_seen
 // ---------------------------------------------------------------------------
 
-async fn get_last_seen(
-    conn: &mut redis::aio::MultiplexedConnection,
-    address: &str,
-) -> Result<i64> {
+async fn get_last_seen(conn: &mut redis::aio::MultiplexedConnection, address: &str) -> Result<i64> {
     let key = format!("craftstrat:watcher:last_seen:{}", address);
-    let val: Option<String> = redis::cmd("GET")
-        .arg(&key)
-        .query_async(conn)
-        .await?;
+    let val: Option<String> = redis::cmd("GET").arg(&key).query_async(conn).await?;
     Ok(val.and_then(|v| v.parse().ok()).unwrap_or(0))
 }
 
@@ -313,8 +305,7 @@ mod tests {
     fn test_build_copy_order_markets_filter_pass() {
         let trade = test_trade();
         let mut follower = test_follower();
-        follower.markets_filter =
-            Some(serde_json::json!(["condition_456"]));
+        follower.markets_filter = Some(serde_json::json!(["condition_456"]));
 
         let result = build_copy_order(&trade, &follower, "0xleader");
 
@@ -325,8 +316,7 @@ mod tests {
     fn test_build_copy_order_markets_filter_reject() {
         let trade = test_trade();
         let mut follower = test_follower();
-        follower.markets_filter =
-            Some(serde_json::json!(["other"]));
+        follower.markets_filter = Some(serde_json::json!(["other"]));
 
         let result = build_copy_order(&trade, &follower, "0xleader");
 

@@ -77,7 +77,10 @@ pub(super) fn check_cooldown(graph: &Value, state: &StrategyState, tick: &Tick) 
 
 /// Returns `true` if the signal would create a duplicate of the current open position.
 pub(super) fn check_duplicate(graph: &Value, state: &StrategyState, signal: &Signal) -> bool {
-    if !graph["risk"]["prevent_duplicates"].as_bool().unwrap_or(false) {
+    if !graph["risk"]["prevent_duplicates"]
+        .as_bool()
+        .unwrap_or(false)
+    {
         return false;
     }
     if let Some(ref pos) = state.position {

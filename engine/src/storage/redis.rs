@@ -22,7 +22,10 @@ pub async fn save_states(
                 Ok(guard) => guard,
                 Err(poisoned) => poisoned.into_inner(),
             };
-            let key = format!("craftstrat:strategy_state:{}:{}", a.wallet_id, a.strategy_id);
+            let key = format!(
+                "craftstrat:strategy_state:{}:{}",
+                a.wallet_id, a.strategy_id
+            );
             let json = serde_json::to_string(&*state)?;
             pipe.set_ex(&key, json, 3600);
             count += 1;

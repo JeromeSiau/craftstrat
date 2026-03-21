@@ -22,6 +22,7 @@ import InputNode from '@/components/strategy/nodes/input-node';
 import KellyNode from '@/components/strategy/nodes/kelly-node';
 import LogicNode from '@/components/strategy/nodes/logic-node';
 import MathNode from '@/components/strategy/nodes/math-node';
+import ModelScoreNode from '@/components/strategy/nodes/model-score-node';
 import NotNode from '@/components/strategy/nodes/not-node';
 import NotifyNode from '@/components/strategy/nodes/notify-node';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ const nodeDefaults: Record<string, Record<string, unknown>> = {
     cancel: { outcome: 'UP' },
     notify: { channel: 'database', message: 'Strategy alert' },
     api_fetch: { url: '', json_path: '', interval_secs: 60, label: 'API Value' },
+    model_score: { url: '', json_path: 'proba_up', interval_ms: 2000, label: 'Model Score' },
 };
 
 function toFlowNodes(
@@ -107,6 +109,7 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
             cancel: CancelNode,
             notify: NotifyNode,
             api_fetch: ApiFetchNode,
+            model_score: ModelScoreNode,
         }),
         [],
     );
@@ -193,6 +196,9 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('api_fetch')}>
                     + API Fetch
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addNode('model_score')}>
+                    + Model Score
                 </Button>
                 <div className="flex-1" />
                 <Button type="button" size="sm" className="h-7 text-xs" onClick={handleSave}>

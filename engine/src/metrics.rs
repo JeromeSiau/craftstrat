@@ -25,7 +25,9 @@ pub fn init() -> PrometheusHandle {
     let builder = PrometheusBuilder::new()
         .set_buckets_for_metric(
             metrics_exporter_prometheus::Matcher::Full(STRATEGY_EVAL_DURATION.to_string()),
-            &[0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1],
+            &[
+                0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1,
+            ],
         )
         .expect("failed to set eval buckets")
         .set_buckets_for_metric(
@@ -46,14 +48,32 @@ pub fn init() -> PrometheusHandle {
 fn describe_metrics() {
     metrics::describe_counter!(TICKS_TOTAL, "Total number of ticks processed from Kafka");
     metrics::describe_gauge!(UPTIME_SECONDS, "Seconds since the strategy engine started");
-    metrics::describe_histogram!(STRATEGY_EVAL_DURATION, "Time to evaluate all strategies for one tick (seconds)");
-    metrics::describe_counter!(SIGNALS_TOTAL, "Total trading signals emitted by the strategy engine");
+    metrics::describe_histogram!(
+        STRATEGY_EVAL_DURATION,
+        "Time to evaluate all strategies for one tick (seconds)"
+    );
+    metrics::describe_counter!(
+        SIGNALS_TOTAL,
+        "Total trading signals emitted by the strategy engine"
+    );
     metrics::describe_counter!(ORDERS_TOTAL, "Total orders submitted to Polymarket");
-    metrics::describe_histogram!(ORDER_EXEC_DURATION, "Time to submit an order to Polymarket (seconds)");
+    metrics::describe_histogram!(
+        ORDER_EXEC_DURATION,
+        "Time to submit an order to Polymarket (seconds)"
+    );
     metrics::describe_gauge!(PNL_USDC, "Cumulative realized PnL in USDC");
     metrics::describe_counter!(COPY_TRADES_TOTAL, "Total copy trading orders");
-    metrics::describe_gauge!(ACTIVE_WALLETS, "Number of wallets with active strategy assignments");
-    metrics::describe_gauge!(ACTIVE_ASSIGNMENTS, "Number of active wallet-strategy assignments");
-    metrics::describe_counter!(WS_RECONNECTIONS_TOTAL, "Total WebSocket reconnection attempts");
+    metrics::describe_gauge!(
+        ACTIVE_WALLETS,
+        "Number of wallets with active strategy assignments"
+    );
+    metrics::describe_gauge!(
+        ACTIVE_ASSIGNMENTS,
+        "Number of active wallet-strategy assignments"
+    );
+    metrics::describe_counter!(
+        WS_RECONNECTIONS_TOTAL,
+        "Total WebSocket reconnection attempts"
+    );
     metrics::describe_counter!(WS_ERRORS_TOTAL, "Total WebSocket errors by type");
 }

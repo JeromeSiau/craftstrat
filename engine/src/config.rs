@@ -18,7 +18,9 @@ impl MarketSource {
     pub fn binance_symbol(&self) -> Option<&str> {
         match self {
             Self::CryptoUpDown { binance_symbol, .. } => Some(binance_symbol),
-            Self::Custom { ref_price_symbol, .. } => ref_price_symbol.as_deref(),
+            Self::Custom {
+                ref_price_symbol, ..
+            } => ref_price_symbol.as_deref(),
         }
     }
 }
@@ -113,20 +115,17 @@ impl Config {
             sources,
             tick_interval_ms: 1000,
             discovery_interval_secs: 60,
-            database_url: std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://craftstrat:craftstrat_secret@localhost:5432/craftstrat".into()),
+            database_url: std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+                "postgres://craftstrat:craftstrat_secret@localhost:5432/craftstrat".into()
+            }),
             clob_api_url: std::env::var("POLYMARKET_CLOB_URL")
                 .unwrap_or_else(|_| "https://clob.polymarket.com".into()),
             data_api_url: std::env::var("POLYMARKET_DATA_API_URL")
                 .unwrap_or_else(|_| "https://data-api.polymarket.com".into()),
-            builder_api_key: std::env::var("POLYMARKET_BUILDER_API_KEY")
-                .unwrap_or_default(),
-            builder_secret: std::env::var("POLYMARKET_BUILDER_SECRET")
-                .unwrap_or_default(),
-            builder_passphrase: std::env::var("POLYMARKET_BUILDER_PASSPHRASE")
-                .unwrap_or_default(),
-            encryption_key: std::env::var("ENCRYPTION_KEY")
-                .unwrap_or_default(),
+            builder_api_key: std::env::var("POLYMARKET_BUILDER_API_KEY").unwrap_or_default(),
+            builder_secret: std::env::var("POLYMARKET_BUILDER_SECRET").unwrap_or_default(),
+            builder_passphrase: std::env::var("POLYMARKET_BUILDER_PASSPHRASE").unwrap_or_default(),
+            encryption_key: std::env::var("ENCRYPTION_KEY").unwrap_or_default(),
             relayer_url: std::env::var("POLYMARKET_RELAYER_URL")
                 .unwrap_or_else(|_| "https://relayer-v2.polymarket.com".into()),
             max_orders_per_day: std::env::var("ENGINE_MAX_ORDERS_PER_DAY")

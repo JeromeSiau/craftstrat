@@ -2,6 +2,7 @@ pub mod api_fetch_task;
 mod data_feed;
 mod engine_tasks;
 mod execution_tasks;
+pub mod model_score_task;
 mod persistence;
 mod slot_resolver;
 mod writers;
@@ -56,6 +57,7 @@ pub async fn spawn_all(
 
     // API fetch cache (shared between background poller and strategy evaluation)
     let api_cache = api_fetch_task::ApiFetchCache::new();
+    let model_score_cache = model_score_task::ModelScoreCache::new();
 
     // Background API fetcher
     {
@@ -65,26 +67,43 @@ pub async fn spawn_all(
         tasks.spawn(async move { api_fetch_task::run(registry, cache, http).await });
     }
 
-    engine_tasks::spawn_strategy_engine(state, engine_registry.clone(), api_cache, signal_tx, tasks);
+    // Background model scorer
+    {
+        let registry = engine_registry.clone();
+        let cache = model_score_cache.clone();
+        let http = state.http.clone();
+        let tick_rx = state.tick_tx.subscribe();
+        tasks.spawn(async move { model_score_task::run(registry, cache, http, tick_rx).await });
+    }
+
+    engine_tasks::spawn_strategy_engine(
+        state,
+        engine_registry.clone(),
+        api_cache,
+        model_score_cache,
+        signal_tx,
+        tasks,
+    );
 
     // PostgreSQL connection pool
     let db = crate::storage::postgres::create_pool(&state.config.database_url).await?;
 
     // Shared execution queue
-    let exec_queue = Arc::new(Mutex::new(
-        crate::execution::queue::ExecutionQueue::new(state.config.max_orders_per_day),
-    ));
+    let exec_queue = Arc::new(Mutex::new(crate::execution::queue::ExecutionQueue::new(
+        state.config.max_orders_per_day,
+    )));
 
     // Wallet key store (shared between execution and API)
     let wallet_keys = Arc::new(
-        crate::execution::wallet::WalletKeyStore::new(&state.config.encryption_key)
-            .unwrap_or_else(|e| {
+        crate::execution::wallet::WalletKeyStore::new(&state.config.encryption_key).unwrap_or_else(
+            |e| {
                 tracing::warn!(error = %e, "wallet_key_store_init_failed, using dummy key");
                 crate::execution::wallet::WalletKeyStore::new(
                     "0000000000000000000000000000000000000000000000000000000000000000",
                 )
                 .unwrap()
-            }),
+            },
+        ),
     );
 
     // Execution pipeline (replaces signal logger)

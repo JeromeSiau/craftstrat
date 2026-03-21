@@ -177,8 +177,7 @@ async fn update_position(
         None => {
             warn!(
                 wallet_id = order.wallet_id,
-                strategy_id,
-                "no_assignment_found_for_position_update"
+                strategy_id, "no_assignment_found_for_position_update"
             );
             return;
         }

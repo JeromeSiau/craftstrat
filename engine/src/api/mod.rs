@@ -22,10 +22,7 @@ pub fn router(state: Arc<ApiState>) -> Router {
             "/internal/strategy/deactivate",
             post(handlers::strategy::deactivate),
         )
-        .route(
-            "/internal/strategy/kill",
-            post(handlers::strategy::kill),
-        )
+        .route("/internal/strategy/kill", post(handlers::strategy::kill))
         .route(
             "/internal/strategy/unkill",
             post(handlers::strategy::unkill),
@@ -41,6 +38,10 @@ pub fn router(state: Arc<ApiState>) -> Router {
         .route("/internal/copy/unwatch", post(handlers::copy::unwatch))
         .route("/metrics", get(handlers::metrics::render))
         .route("/internal/stats/slots", get(handlers::stats::slots))
+        .route(
+            "/internal/stats/slots/ml-dataset",
+            get(handlers::stats::ml_dataset),
+        )
         .with_state(state)
 }
 

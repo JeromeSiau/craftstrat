@@ -83,8 +83,16 @@ pub fn build_tick(
         ask_down_l2,
         bid_down_l3,
         ask_down_l3,
-        mid_up: if bid_up > 0.0 && ask_up > 0.0 { (bid_up + ask_up) / 2.0 } else { 0.0 },
-        mid_down: if bid_down > 0.0 && ask_down > 0.0 { (bid_down + ask_down) / 2.0 } else { 0.0 },
+        mid_up: if bid_up > 0.0 && ask_up > 0.0 {
+            (bid_up + ask_up) / 2.0
+        } else {
+            0.0
+        },
+        mid_down: if bid_down > 0.0 && ask_down > 0.0 {
+            (bid_down + ask_down) / 2.0
+        } else {
+            0.0
+        },
         size_ratio_up: safe_div(bid_sz_up, ask_sz_up),
         size_ratio_down: safe_div(bid_sz_down, ask_sz_down),
         ref_price,
@@ -101,7 +109,9 @@ pub fn build_tick(
 }
 
 fn extract_l1(book: Option<&OrderBook>) -> (f32, f32, f32, f32) {
-    let Some(b) = book else { return (0.0, 0.0, 0.0, 0.0) };
+    let Some(b) = book else {
+        return (0.0, 0.0, 0.0, 0.0);
+    };
     (
         b.best_bid().map(|l| l.price).unwrap_or(0.0),
         b.best_ask().map(|l| l.price).unwrap_or(0.0),
@@ -119,7 +129,11 @@ fn extract_ln(book: Option<&OrderBook>, n: usize) -> (f32, f32) {
 }
 
 fn safe_div(a: f32, b: f32) -> f32 {
-    if b > 0.0 { a / b } else { 0.0 }
+    if b > 0.0 {
+        a / b
+    } else {
+        0.0
+    }
 }
 
 pub async fn run_tick_builder(
@@ -181,7 +195,10 @@ pub async fn run_tick_builder(
         if ticks_emitted > 0 {
             last_tick_at = std::time::Instant::now();
             stale_warned = false;
-        } else if !active.is_empty() && last_tick_at.elapsed() > stale_warn_interval && !stale_warned {
+        } else if !active.is_empty()
+            && last_tick_at.elapsed() > stale_warn_interval
+            && !stale_warned
+        {
             tracing::warn!(
                 active_markets = active.len(),
                 books_in_cache = book_snapshot.len(),
@@ -216,16 +233,24 @@ mod tests {
 
     fn book(bids: &[(f32, f32)], asks: &[(f32, f32)]) -> OrderBook {
         OrderBook {
-            bids: bids.iter().map(|&(p, s)| Level { price: p, size: s }).collect(),
-            asks: asks.iter().map(|&(p, s)| Level { price: p, size: s }).collect(),
+            bids: bids
+                .iter()
+                .map(|&(p, s)| Level { price: p, size: s })
+                .collect(),
+            asks: asks
+                .iter()
+                .map(|&(p, s)| Level { price: p, size: s })
+                .collect(),
         }
     }
 
     #[test]
     fn test_build_tick_mid_slot() {
         let m = market(1700000000);
-        let up = book(&[(0.60, 100.0), (0.58, 50.0), (0.55, 30.0)],
-                       &[(0.62, 80.0), (0.65, 40.0), (0.68, 20.0)]);
+        let up = book(
+            &[(0.60, 100.0), (0.58, 50.0), (0.55, 30.0)],
+            &[(0.62, 80.0), (0.65, 40.0), (0.68, 20.0)],
+        );
         let down = book(&[(0.38, 90.0)], &[(0.40, 70.0)]);
         let now = 1700000000.0 + 450.0;
 
@@ -251,7 +276,15 @@ mod tests {
     fn test_empty_books_zero_prices() {
         let m = market(1700000000);
         let empty = OrderBook::default();
-        let t = build_tick(&m, Some(&empty), Some(&empty), 50000.0, "binance", 1700000100.0).unwrap();
+        let t = build_tick(
+            &m,
+            Some(&empty),
+            Some(&empty),
+            50000.0,
+            "binance",
+            1700000100.0,
+        )
+        .unwrap();
         assert!((t.bid_up).abs() < 0.001);
         assert!((t.mid_up).abs() < 0.001);
     }

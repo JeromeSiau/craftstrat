@@ -154,14 +154,13 @@ async fn resolve_trades(
         let pnl = (resolved_price - entry) * size_usdc;
 
         // Update trade record
-        if let Err(e) = sqlx::query(
-            "UPDATE trades SET status = $1, filled_price = $2 WHERE id = $3",
-        )
-        .bind(new_status)
-        .bind(resolved_price)
-        .bind(trade_id)
-        .execute(db)
-        .await
+        if let Err(e) =
+            sqlx::query("UPDATE trades SET status = $1, filled_price = $2 WHERE id = $3")
+                .bind(new_status)
+                .bind(resolved_price)
+                .bind(trade_id)
+                .execute(db)
+                .await
         {
             tracing::warn!(trade_id, error = %e, "resolve_trade_update_failed");
             continue;
@@ -184,7 +183,15 @@ async fn resolve_trades(
             } else {
                 Outcome::Down
             };
-            clear_position(registry, *wallet_id as u64, *sid as u64, pnl, symbol, winning).await;
+            clear_position(
+                registry,
+                *wallet_id as u64,
+                *sid as u64,
+                pnl,
+                symbol,
+                winning,
+            )
+            .await;
         }
     }
 }
@@ -205,9 +212,10 @@ async fn clear_position(
 
     // The registry is keyed by market prefix (e.g. "btc-updown-15m").
     // Find the assignment matching (wallet_id, strategy_id).
-    let assignment = reg.values().flatten().find(|a| {
-        a.wallet_id == wallet_id && a.strategy_id == strategy_id
-    });
+    let assignment = reg
+        .values()
+        .flatten()
+        .find(|a| a.wallet_id == wallet_id && a.strategy_id == strategy_id);
 
     let assignment = match assignment {
         Some(a) => a,

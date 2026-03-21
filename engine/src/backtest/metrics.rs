@@ -124,10 +124,7 @@ mod tests {
 
     #[test]
     fn test_compute_all_losses() {
-        let result = compute(vec![
-            trade(-10.0, 100.0),
-            trade(-5.0, 100.0),
-        ]);
+        let result = compute(vec![trade(-10.0, 100.0), trade(-5.0, 100.0)]);
         assert_eq!(result.total_trades, 2);
         assert!((result.win_rate).abs() < f64::EPSILON);
         assert!((result.total_pnl_usdc - (-15.0)).abs() < f64::EPSILON);
@@ -143,10 +140,7 @@ mod tests {
         unclosed.exit_at = None;
         unclosed.exit_reason = None;
 
-        let result = compute(vec![
-            trade(10.0, 100.0),
-            unclosed,
-        ]);
+        let result = compute(vec![trade(10.0, 100.0), unclosed]);
         // Only closed trade counts
         assert_eq!(result.total_trades, 1);
         assert!((result.total_pnl_usdc - 10.0).abs() < f64::EPSILON);

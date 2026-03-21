@@ -152,6 +152,9 @@ mod tests {
         let inner = cache.cache.read().await;
         let entry = inner.get("token_old").expect("entry should exist");
         assert_eq!(entry.fee_rate_bps, 150);
-        assert!(!entry.is_fresh(), "entry should be expired after 120s (TTL is 60s)");
+        assert!(
+            !entry.is_fresh(),
+            "entry should be expired after 120s (TTL is 60s)"
+        );
     }
 }

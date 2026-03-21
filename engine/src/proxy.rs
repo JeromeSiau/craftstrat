@@ -29,9 +29,7 @@ impl HttpPool {
     /// established through different exit IPs. If `proxy_urls` is empty,
     /// `proxied()` falls back to the direct client.
     pub fn new(proxy_urls: &[String], timeout: Duration) -> anyhow::Result<Self> {
-        let direct = reqwest::Client::builder()
-            .timeout(timeout)
-            .build()?;
+        let direct = reqwest::Client::builder().timeout(timeout).build()?;
 
         let mut proxied = Vec::with_capacity(proxy_urls.len());
         for url in proxy_urls {
