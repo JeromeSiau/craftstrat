@@ -33,7 +33,7 @@ impl StatsParams {
                 .map(|s| format!("'{}'", s.replace('\'', "")))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("AND upper(splitByChar('-', symbol)[1]) IN ({list})")
+            format!("AND lower(splitByChar('-', symbol)[1]) IN ({list})")
         }
     }
 }
@@ -63,8 +63,44 @@ impl MlDatasetParams {
                 .map(|s| format!("'{}'", s.replace('\'', "")))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("AND upper(splitByChar('-', symbol)[1]) IN ({list})")
+            format!("AND lower(splitByChar('-', symbol)[1]) IN ({list})")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MlDatasetParams, StatsParams};
+
+    #[test]
+    fn stats_symbol_clause_uses_lowercase_prefixes() {
+        let params = StatsParams {
+            slot_duration: 900,
+            symbols: vec!["btc".into(), "eth".into()],
+            hours: 24.0,
+        };
+
+        assert_eq!(
+            params.symbol_clause(),
+            "AND lower(splitByChar('-', symbol)[1]) IN ('btc', 'eth')"
+        );
+    }
+
+    #[test]
+    fn ml_dataset_symbol_clause_uses_lowercase_prefixes() {
+        let params = MlDatasetParams {
+            slot_duration: 900,
+            symbols: vec!["btc".into()],
+            hours: 24.0,
+            sample_every: 5,
+            limit: 1000,
+            offset: 0,
+        };
+
+        assert_eq!(
+            params.symbol_clause(),
+            "AND lower(splitByChar('-', symbol)[1]) IN ('btc')"
+        );
     }
 }
 
