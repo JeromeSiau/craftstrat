@@ -39,7 +39,7 @@ fn parse_symbols(symbols: Option<String>) -> Vec<String> {
     symbols
         .map(|s| {
             s.split(',')
-                .map(|v| v.trim().to_uppercase())
+                .map(|v| v.trim().to_lowercase())
                 .filter(|v| !v.is_empty())
                 .collect()
         })
@@ -151,4 +151,17 @@ pub async fn ml_dataset(
         row_count: rows.len(),
         rows,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_symbols;
+
+    #[test]
+    fn parse_symbols_normalizes_to_lowercase_prefixes() {
+        assert_eq!(
+            parse_symbols(Some(" BTC,eth , Sol ".into())),
+            vec!["btc", "eth", "sol"]
+        );
+    }
 }
