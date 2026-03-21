@@ -72,15 +72,30 @@ class StrategyController extends Controller
             'strategy' => $strategy,
             'liveStats' => Inertia::defer(function () use ($strategy) {
                 $buildStats = function ($query) {
-                    $filled = (clone $query)->where('status', 'filled');
-                    $totalTrades = $filled->count();
-                    $totalPnl = (float) (clone $filled)->sum('size_usdc');
-                    $winCount = (clone $filled)->where('price', '>', 0.5)->count();
+                    $stats = (clone $query)
+                        ->selectRaw('COUNT(*) as total_trades')
+                        ->selectRaw("SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won_trades")
+                        ->selectRaw("SUM(CASE WHEN status IN ('won', 'lost') THEN 1 ELSE 0 END) as resolved_trades")
+                        ->selectRaw("
+                            COALESCE(SUM(
+                                CASE
+                                    WHEN status IN ('won', 'lost')
+                                        THEN (COALESCE(filled_price, price, 0.5) - COALESCE(price, 0.5)) * COALESCE(size_usdc, 0)
+                                    ELSE 0
+                                END
+                            ), 0) as total_pnl_usdc
+                        ")
+                        ->first();
+
+                    $totalTrades = (int) ($stats?->total_trades ?? 0);
+                    $resolvedTrades = (int) ($stats?->resolved_trades ?? 0);
+                    $wonTrades = (int) ($stats?->won_trades ?? 0);
+                    $totalPnl = (float) ($stats?->total_pnl_usdc ?? 0);
 
                     return [
                         'total_trades' => $totalTrades,
-                        'win_rate' => $totalTrades > 0
-                            ? number_format($winCount / $totalTrades, 4)
+                        'win_rate' => $resolvedTrades > 0
+                            ? number_format($wonTrades / $resolvedTrades, 4)
                             : null,
                         'total_pnl_usdc' => number_format($totalPnl, 2, '.', ''),
                     ];

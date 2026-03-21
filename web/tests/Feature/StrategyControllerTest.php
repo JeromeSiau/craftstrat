@@ -152,6 +152,58 @@ it('loads deferred live stats and recent trades', function () {
         );
 });
 
+it('builds paper stats from resolved trades', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $wallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'buy',
+        'status' => 'won',
+        'is_paper' => true,
+        'price' => 0.400000,
+        'filled_price' => 1.000000,
+        'size_usdc' => 10.000000,
+        'executed_at' => now(),
+    ]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'buy',
+        'status' => 'lost',
+        'is_paper' => true,
+        'price' => 0.250000,
+        'filled_price' => 0.000000,
+        'size_usdc' => 4.000000,
+        'executed_at' => now(),
+    ]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'buy',
+        'status' => 'filled',
+        'is_paper' => true,
+        'price' => 0.550000,
+        'filled_price' => 0.550000,
+        'size_usdc' => 2.000000,
+        'executed_at' => now(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('strategies.show', $strategy))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
+                ->where('liveStats.paper.total_trades', 3)
+                ->where('liveStats.paper.win_rate', '0.5000')
+                ->where('liveStats.paper.total_pnl_usdc', '5.00')
+            )
+        );
+});
+
 it('includes filled price in recent trades payload', function () {
     $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
     $wallet = Wallet::factory()->create(['user_id' => $this->user->id]);

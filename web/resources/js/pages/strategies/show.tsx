@@ -348,8 +348,8 @@ export default function StrategiesShow({ strategy, liveStats, recentTrades }: Pr
                                                 </TableCell>
                                                 <TableCell>{trade.outcome ?? '-'}</TableCell>
                                                 <TableCell className="tabular-nums">
-                                                    {trade.filled_price || trade.price
-                                                        ? `$${parseFloat(trade.filled_price ?? trade.price ?? '0').toFixed(4)}`
+                                                    {trade.price !== null || trade.filled_price !== null
+                                                        ? `$${parseFloat(trade.price ?? trade.filled_price ?? '0').toFixed(4)}`
                                                         : '-'}
                                                 </TableCell>
                                                 <TableCell className="tabular-nums">
