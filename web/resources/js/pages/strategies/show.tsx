@@ -124,6 +124,20 @@ function bpsColorClass(value: string | null, positiveIsGood: boolean): string {
         : 'text-emerald-600 dark:text-emerald-400';
 }
 
+function tradeStatusClass(status: string): string {
+    switch (status) {
+        case 'filled':
+        case 'won':
+            return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+        case 'lost':
+            return 'bg-red-500/10 text-red-700 dark:text-red-400';
+        case 'pending':
+            return 'bg-amber-500/10 text-amber-700 dark:text-amber-400';
+        default:
+            return 'bg-muted text-muted-foreground';
+    }
+}
+
 function LabelWithTooltip({
     label,
     tooltip,
@@ -138,7 +152,7 @@ function LabelWithTooltip({
                 <TooltipTrigger asChild>
                     <button
                         type="button"
-                        className="rounded-sm text-muted-foreground/70 outline-none transition-colors hover:text-foreground"
+                        className="rounded-sm text-muted-foreground/70 transition-colors outline-none hover:text-foreground"
                         aria-label={`${label} help`}
                     >
                         <CircleHelp className="size-3.5" />
@@ -690,15 +704,7 @@ export default function StrategiesShow({
                                                 </TableCell>
                                                 <TableCell>
                                                     <span
-                                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                                                            trade.status ===
-                                                            'filled'
-                                                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                                                : trade.status ===
-                                                                    'pending'
-                                                                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                                                                  : 'bg-muted text-muted-foreground'
-                                                        }`}
+                                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tradeStatusClass(trade.status)}`}
                                                     >
                                                         {trade.status}
                                                     </span>
