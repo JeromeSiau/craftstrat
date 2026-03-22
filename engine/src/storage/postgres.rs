@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde_json::Value;
 use sqlx::PgPool;
 
 use crate::execution::{ExecutionOrder, OrderResult, OrderStatus, Side};
@@ -175,6 +176,18 @@ pub struct CopyRelationship {
     pub markets_filter: Option<serde_json::Value>,
 }
 
+#[derive(Debug, Clone)]
+pub struct RunningStrategyAssignment {
+    pub wallet_id: i64,
+    pub strategy_id: i64,
+    pub graph: Value,
+    pub markets: Vec<String>,
+    pub max_position_usdc: f64,
+    pub is_paper: bool,
+    pub private_key_enc: String,
+    pub safe_address: Option<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Get active followers
 // ---------------------------------------------------------------------------
@@ -234,4 +247,58 @@ pub async fn load_watched_addresses(pool: &PgPool) -> Result<Vec<String>> {
 
     tracing::info!(count = addresses.len(), "watched_addresses_loaded");
     Ok(addresses)
+}
+
+pub async fn load_running_strategy_assignments(
+    pool: &PgPool,
+) -> Result<Vec<RunningStrategyAssignment>> {
+    let rows = sqlx::query_as::<_, (i64, i64, Value, Value, f64, bool, String, Option<String>)>(
+        r#"
+        SELECT
+            ws.wallet_id,
+            ws.strategy_id,
+            s.graph,
+            ws.markets,
+            ws.max_position_usdc::float8,
+            ws.is_paper,
+            w.private_key_enc,
+            w.safe_address
+        FROM wallet_strategies ws
+        JOIN strategies s ON s.id = ws.strategy_id
+        JOIN wallets w ON w.id = ws.wallet_id
+        WHERE ws.is_running = true
+          AND s.is_active = true
+          AND w.is_active = true
+        ORDER BY ws.started_at ASC NULLS LAST, ws.id ASC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let assignments = rows
+        .into_iter()
+        .map(
+            |(
+                wallet_id,
+                strategy_id,
+                graph,
+                markets,
+                max_position_usdc,
+                is_paper,
+                private_key_enc,
+                safe_address,
+            )| RunningStrategyAssignment {
+                wallet_id,
+                strategy_id,
+                graph,
+                markets: serde_json::from_value(markets).unwrap_or_default(),
+                max_position_usdc,
+                is_paper,
+                private_key_enc,
+                safe_address,
+            },
+        )
+        .collect();
+
+    Ok(assignments)
 }

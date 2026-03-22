@@ -11,6 +11,7 @@ mod writers;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use alloy::primitives::Address;
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tokio::task::JoinSet;
 
@@ -107,6 +108,14 @@ pub async fn spawn_all(
         ),
     );
 
+    rehydrate_running_assignments(
+        &state.config.redis_url,
+        &db,
+        &engine_registry,
+        wallet_keys.as_ref(),
+    )
+    .await;
+
     // Execution pipeline (replaces signal logger)
     execution_tasks::spawn_execution(
         state,
@@ -150,4 +159,115 @@ pub async fn spawn_all(
         db,
         wallet_keys,
     })
+}
+
+async fn rehydrate_running_assignments(
+    redis_url: &str,
+    db: &sqlx::PgPool,
+    registry: &crate::strategy::registry::AssignmentRegistry,
+    wallet_keys: &crate::execution::wallet::WalletKeyStore,
+) {
+    let assignments = match crate::storage::postgres::load_running_strategy_assignments(db).await {
+        Ok(assignments) => assignments,
+        Err(e) => {
+            tracing::warn!(error = %e, "running_assignments_load_failed");
+            return;
+        }
+    };
+
+    let mut redis_conn = match redis::Client::open(redis_url) {
+        Ok(client) => match client.get_multiplexed_tokio_connection().await {
+            Ok(conn) => Some(conn),
+            Err(e) => {
+                tracing::warn!(error = %e, "rehydration_redis_connect_failed");
+                None
+            }
+        },
+        Err(e) => {
+            tracing::warn!(error = %e, "rehydration_redis_client_failed");
+            None
+        }
+    };
+
+    let mut count = 0usize;
+
+    for assignment in assignments {
+        if !assignment.private_key_enc.is_empty() {
+            if let Err(e) =
+                wallet_keys.store_key(assignment.wallet_id as u64, &assignment.private_key_enc)
+            {
+                tracing::warn!(
+                    wallet_id = assignment.wallet_id,
+                    strategy_id = assignment.strategy_id,
+                    error = %e,
+                    "running_assignment_key_load_failed"
+                );
+                continue;
+            }
+        }
+
+        if let Some(safe_address) = assignment.safe_address.as_deref().filter(|s| !s.is_empty()) {
+            match safe_address.parse::<Address>() {
+                Ok(address) => {
+                    if let Err(e) =
+                        wallet_keys.store_safe_address(assignment.wallet_id as u64, address)
+                    {
+                        tracing::warn!(
+                            wallet_id = assignment.wallet_id,
+                            strategy_id = assignment.strategy_id,
+                            error = %e,
+                            "running_assignment_safe_store_failed"
+                        );
+                        continue;
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        wallet_id = assignment.wallet_id,
+                        strategy_id = assignment.strategy_id,
+                        error = %e,
+                        "running_assignment_safe_parse_failed"
+                    );
+                    continue;
+                }
+            }
+        }
+
+        let initial_state = match redis_conn.as_mut() {
+            Some(conn) => match crate::storage::redis::load_state(
+                conn,
+                assignment.wallet_id as u64,
+                assignment.strategy_id as u64,
+            )
+            .await
+            {
+                Ok(state) => state,
+                Err(e) => {
+                    tracing::warn!(
+                        wallet_id = assignment.wallet_id,
+                        strategy_id = assignment.strategy_id,
+                        error = %e,
+                        "running_assignment_state_load_failed"
+                    );
+                    None
+                }
+            },
+            None => None,
+        };
+
+        crate::strategy::registry::activate(
+            registry,
+            assignment.wallet_id as u64,
+            assignment.strategy_id as u64,
+            assignment.graph,
+            assignment.markets,
+            assignment.max_position_usdc,
+            assignment.is_paper,
+            initial_state,
+        )
+        .await;
+        count += 1;
+    }
+
+    tracing::info!(count, "running_assignments_rehydrated");
 }
