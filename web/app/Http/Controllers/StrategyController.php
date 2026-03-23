@@ -72,17 +72,34 @@ class StrategyController extends Controller
             'strategy' => $strategy,
             'liveStats' => Inertia::defer(function () use ($strategy) {
                 $buildStats = function ($query) {
+                    $query = (clone $query)->where('side', 'buy');
+
                     $stats = (clone $query)
                         ->selectRaw('COUNT(*) as total_trades')
-                        ->selectRaw("SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won_trades")
-                        ->selectRaw("SUM(CASE WHEN status IN ('won', 'lost') THEN 1 ELSE 0 END) as resolved_trades")
+                        ->selectRaw("
+                            SUM(
+                                CASE
+                                    WHEN status = 'won' THEN 1
+                                    WHEN status = 'closed'
+                                        AND COALESCE(resolved_price, filled_price, price, 0.5)
+                                            > COALESCE(filled_price, price, 0.5)
+                                        THEN 1
+                                    ELSE 0
+                                END
+                            ) as won_trades
+                        ")
+                        ->selectRaw("SUM(CASE WHEN status IN ('won', 'lost', 'closed') THEN 1 ELSE 0 END) as resolved_trades")
                         ->selectRaw("
                             COALESCE(SUM(
                                 CASE
-                                    WHEN status IN ('won', 'lost')
+                                    WHEN status IN ('won', 'lost', 'closed')
                                         THEN (
                                             (
-                                                COALESCE(resolved_price, filled_price, price, 0.5)
+                                                CASE
+                                                    WHEN status = 'won' THEN COALESCE(resolved_price, 1.0)
+                                                    WHEN status = 'lost' THEN COALESCE(resolved_price, 0.0)
+                                                    ELSE COALESCE(resolved_price, filled_price, price, 0.5)
+                                                END
                                                 - COALESCE(filled_price, price, 0.5)
                                             )
                                             / NULLIF(COALESCE(filled_price, price, 0.5), 0)

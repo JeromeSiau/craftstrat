@@ -129,6 +129,7 @@ it('loads deferred live stats and recent trades', function () {
     Trade::factory()->count(5)->create([
         'wallet_id' => $wallet->id,
         'strategy_id' => $strategy->id,
+        'side' => 'buy',
         'status' => 'filled',
     ]);
 
@@ -145,6 +146,7 @@ it('loads deferred live stats and recent trades', function () {
                     ->where('total_trades', 5)
                     ->has('win_rate')
                     ->has('total_pnl_usdc')
+                    ->etc()
                 )
                 ->has('liveStats.paper')
                 ->has('recentTrades', 5)
@@ -163,7 +165,8 @@ it('builds paper stats from resolved trades', function () {
         'status' => 'won',
         'is_paper' => true,
         'price' => 0.400000,
-        'filled_price' => 1.000000,
+        'filled_price' => 0.400000,
+        'resolved_price' => 1.000000,
         'size_usdc' => 10.000000,
         'executed_at' => now(),
     ]);
@@ -175,7 +178,8 @@ it('builds paper stats from resolved trades', function () {
         'status' => 'lost',
         'is_paper' => true,
         'price' => 0.250000,
-        'filled_price' => 0.000000,
+        'filled_price' => 0.250000,
+        'resolved_price' => 0.000000,
         'size_usdc' => 4.000000,
         'executed_at' => now(),
     ]);
@@ -199,7 +203,62 @@ it('builds paper stats from resolved trades', function () {
             ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
                 ->where('liveStats.paper.total_trades', 3)
                 ->where('liveStats.paper.win_rate', '0.5000')
-                ->where('liveStats.paper.total_pnl_usdc', '5.00')
+                ->where('liveStats.paper.total_pnl_usdc', '11.00')
+            )
+        );
+});
+
+it('builds paper stats from closed buy trades and ignores sell exits', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $wallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'buy',
+        'status' => 'closed',
+        'is_paper' => true,
+        'price' => 0.400000,
+        'filled_price' => 0.400000,
+        'resolved_price' => 0.550000,
+        'size_usdc' => 10.000000,
+        'executed_at' => now(),
+    ]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'buy',
+        'status' => 'closed',
+        'is_paper' => true,
+        'price' => 0.600000,
+        'filled_price' => 0.600000,
+        'resolved_price' => 0.450000,
+        'size_usdc' => 6.000000,
+        'executed_at' => now(),
+    ]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'sell',
+        'status' => 'won',
+        'is_paper' => true,
+        'price' => 0.550000,
+        'filled_price' => 0.550000,
+        'resolved_price' => 1.000000,
+        'size_usdc' => 10.000000,
+        'executed_at' => now(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('strategies.show', $strategy))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps('liveData', fn (Assert $reload) => $reload
+                ->where('liveStats.paper.total_trades', 2)
+                ->where('liveStats.paper.win_rate', '0.5000')
+                ->where('liveStats.paper.total_pnl_usdc', '2.25')
             )
         );
 });

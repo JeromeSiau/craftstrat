@@ -134,7 +134,7 @@ async fn resolve_trades(
     // Find all open trades for this symbol
     let rows: Vec<(i64, i64, Option<i64>, String, Option<f64>, f64)> = match sqlx::query_as(
         "SELECT id, wallet_id, strategy_id, outcome, COALESCE(filled_price, price)::float8, size_usdc::float8 \
-         FROM trades WHERE symbol = $1 AND status = 'filled'",
+         FROM trades WHERE symbol = $1 AND status = 'filled' AND side = 'buy'",
     )
     .bind(symbol)
     .fetch_all(db)
@@ -203,7 +203,7 @@ async fn resolve_trades(
 
 async fn reconcile_resolved_trades(db_ch: &Client, db: &PgPool, registry: &AssignmentRegistry) {
     let pending_symbols: Vec<String> = match sqlx::query_scalar(
-        "SELECT DISTINCT symbol FROM trades WHERE status = 'filled' AND symbol IS NOT NULL",
+        "SELECT DISTINCT symbol FROM trades WHERE status = 'filled' AND side = 'buy' AND symbol IS NOT NULL",
     )
     .fetch_all(db)
     .await

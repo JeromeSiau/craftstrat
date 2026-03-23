@@ -107,6 +107,71 @@ pub async fn write_trade(
     Ok(trade_id)
 }
 
+pub async fn close_open_entry_trade_on_exit(
+    pool: &PgPool,
+    order: &ExecutionOrder,
+    result: &OrderResult,
+) -> Result<Option<i64>> {
+    if order.side != Side::Sell || result.status != OrderStatus::Filled {
+        return Ok(None);
+    }
+
+    let Some(strategy_id) = order.strategy_id.map(|id| id as i64) else {
+        return Ok(None);
+    };
+
+    let Some(resolved_price) = result
+        .filled_price
+        .or(order.reference_price)
+        .or(order.price)
+    else {
+        return Ok(None);
+    };
+
+    let outcome_str = match order.outcome {
+        crate::strategy::Outcome::Up => "UP",
+        crate::strategy::Outcome::Down => "DOWN",
+    };
+
+    let entry_trade_id = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT id
+        FROM trades
+        WHERE wallet_id = $1
+            AND strategy_id = $2
+            AND symbol = $3
+            AND outcome = $4
+            AND side = 'buy'
+            AND status = 'filled'
+            AND is_paper = $5
+        ORDER BY COALESCE(executed_at, created_at) DESC, id DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(order.wallet_id as i64)
+    .bind(strategy_id)
+    .bind(&order.symbol)
+    .bind(outcome_str)
+    .bind(order.is_paper)
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(entry_trade_id) = entry_trade_id else {
+        return Ok(None);
+    };
+
+    sqlx::query(
+        "UPDATE trades SET status = $1, resolved_price = $2 WHERE id = $3 AND status = 'filled'",
+    )
+    .bind("closed")
+    .bind(resolved_price)
+    .bind(entry_trade_id)
+    .execute(pool)
+    .await?;
+
+    Ok(Some(entry_trade_id))
+}
+
 // ---------------------------------------------------------------------------
 // Write copy trade
 // ---------------------------------------------------------------------------

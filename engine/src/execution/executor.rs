@@ -88,8 +88,25 @@ pub async fn run(
         }
 
         // 5. Write trade to PostgreSQL
-        if let Err(e) = crate::storage::postgres::write_trade(&db, &order, &result).await {
-            error!(order_id = %order.id, error = %e, "write_trade_failed");
+        let trade_id = match crate::storage::postgres::write_trade(&db, &order, &result).await {
+            Ok(trade_id) => Some(trade_id),
+            Err(e) => {
+                error!(order_id = %order.id, error = %e, "write_trade_failed");
+                None
+            }
+        };
+
+        if let Some(exit_trade_id) = trade_id {
+            if let Err(e) =
+                crate::storage::postgres::close_open_entry_trade_on_exit(&db, &order, &result).await
+            {
+                error!(
+                    order_id = %order.id,
+                    trade_id = exit_trade_id,
+                    error = %e,
+                    "close_open_entry_trade_failed"
+                );
+            }
         }
 
         // 6. If copy trade, write copy_trade record

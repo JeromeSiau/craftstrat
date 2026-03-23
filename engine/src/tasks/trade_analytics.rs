@@ -56,7 +56,7 @@ pub async fn run_trade_analytics(ch: Client, db: PgPool) -> Result<()> {
             WHERE symbol IS NOT NULL
                 AND COALESCE(filled_price, reference_price, price) IS NOT NULL
                 AND COALESCE(executed_at, created_at) <= NOW() - INTERVAL '60 seconds'
-                AND status IN ('filled', 'won', 'lost')
+                AND status IN ('filled', 'won', 'lost', 'closed')
                 AND (
                     markout_bps_60s IS NULL
                     OR (

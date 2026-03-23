@@ -41,7 +41,3 @@ __pycache__/
 # Docker
 supervisord.log
 supervisord.pid
-
-# AI
-CLAUDE.md
-AGENTS.md
