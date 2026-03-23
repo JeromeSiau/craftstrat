@@ -64,14 +64,6 @@ docker compose -f docker-compose.yml build --no-cache engine
 docker compose -f docker-compose.yml up -d engine
 ```
 
-If the change touches both `engine/` and `web/`, rebuild both images after production has pulled the pushed commit:
-
-```bash
-docker compose -f docker-compose.yml build --no-cache engine
-docker compose -f docker-compose.yml build app
-docker compose -f docker-compose.yml up -d engine app
-```
-
 ### Wayfinder (route generation)
 
 Wayfinder auto-generates TypeScript route functions on Vite dev/build. Generated files live in `web/resources/js/actions/` and `web/resources/js/routes/`.
@@ -88,10 +80,10 @@ Use production Git deploys, not manual file copies:
 
 1. Make and verify the change locally.
 2. Commit on `main` and `git push origin main`.
-3. Wait about 5 minutes for the automatic deploy to update `/home/ploi/craftstrat.com`.
-4. SSH to prod and confirm tracked files are clean with `git status --short`.
-5. Rebuild only the impacted images.
-6. Restart only the impacted services.
+3. Wait about 5 minutes for the automatic deploy to update `/home/ploi/craftstrat.com`. This deploy already handles `web/app`.
+4. If Rust code changed in `engine/`, SSH to prod and confirm tracked files are clean with `git status --short`.
+5. If Rust code changed in `engine/`, run `docker compose -f docker-compose.yml build --no-cache engine`.
+6. If Rust code changed in `engine/`, run `docker compose -f docker-compose.yml up -d engine`.
 7. Verify with `docker compose -f docker-compose.yml ps` and targeted logs.
 
 If a tracked file was copied manually onto prod during debugging, restore it before the next deploy:
