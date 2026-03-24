@@ -55,6 +55,17 @@ Artisan::command('ml:refresh-candidate
         'Entry min_value: %.4f',
         (float) ($report['candidate']['rl_like']['entry_policy']['recommended']['min_value'] ?? 0.0),
     ));
+    $this->line(sprintf(
+        'Auto-promotion verdict: %s',
+        (string) ($report['auto_promotion']['verdict'] ?? 'unknown'),
+    ));
+
+    if (($report['auto_promotion']['promoted'] ?? false) === true) {
+        $this->info(sprintf(
+            'Live bundle updated automatically from %s',
+            $report['promotion']['promoted_from'] ?? ($report['candidate_name'] ?? 'unknown'),
+        ));
+    }
 
     return Command::SUCCESS;
 })->purpose('Export a fresh ML dataset and train a candidate bundle through the ML trainer');

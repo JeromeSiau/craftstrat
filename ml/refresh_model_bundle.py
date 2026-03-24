@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 from urllib import parse, request
 
-from xgboost_pipeline import DEFAULT_METADATA_NAME, DEFAULT_MODEL_NAME
+DEFAULT_MODEL_NAME = "model.json"
+DEFAULT_METADATA_NAME = "metadata.json"
 
 
 LATEST_CANDIDATE_FILE = "latest-candidate.json"
@@ -34,6 +35,13 @@ class RefreshConfig:
     max_rows: int
     verbose_eval: int
     rl_gamma: float
+    auto_promote_enabled: bool
+    min_candidate_rows_for_promotion: int
+    min_policy_total_pnl_delta: float
+    min_entry_total_reward_delta: float
+    min_efficiency_ratio: float
+    max_drawdown_ratio: float
+    min_trade_ratio: float
 
     @property
     def candidates_dir(self) -> Path:
@@ -54,6 +62,11 @@ class RefreshConfig:
 
 def _env(name: str, default: str) -> str:
     return str(os.environ.get(name, default))
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = _env(name, "true" if default else "false").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def utc_now() -> datetime:
@@ -93,6 +106,13 @@ def config_from_env() -> RefreshConfig:
         max_rows=int(_env("ML_REFRESH_MAX_ROWS", "0")),
         verbose_eval=int(_env("ML_TRAIN_VERBOSE_EVAL", "50")),
         rl_gamma=float(_env("ML_TRAIN_RL_GAMMA", "0.999")),
+        auto_promote_enabled=_env_bool("ML_AUTO_PROMOTE_ENABLED", False),
+        min_candidate_rows_for_promotion=int(_env("ML_AUTO_PROMOTE_MIN_ROWS", "50000")),
+        min_policy_total_pnl_delta=float(_env("ML_AUTO_PROMOTE_MIN_POLICY_TOTAL_PNL_DELTA", "0.0")),
+        min_entry_total_reward_delta=float(_env("ML_AUTO_PROMOTE_MIN_ENTRY_TOTAL_REWARD_DELTA", "0.0")),
+        min_efficiency_ratio=float(_env("ML_AUTO_PROMOTE_MIN_EFFICIENCY_RATIO", "0.9")),
+        max_drawdown_ratio=float(_env("ML_AUTO_PROMOTE_MAX_DRAWDOWN_RATIO", "1.1")),
+        min_trade_ratio=float(_env("ML_AUTO_PROMOTE_MIN_TRADE_RATIO", "0.5")),
     )
 
 
@@ -257,6 +277,200 @@ def compare_bundles(live_metadata: dict[str, Any] | None, candidate_metadata: di
     }
 
 
+def safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def gate_result(
+    passed: bool,
+    *,
+    candidate: Any = None,
+    live: Any = None,
+    threshold: Any = None,
+    delta: Any = None,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"passed": bool(passed)}
+    if candidate is not None:
+        payload["candidate"] = candidate
+    if live is not None:
+        payload["live"] = live
+    if threshold is not None:
+        payload["threshold"] = threshold
+    if delta is not None:
+        payload["delta"] = delta
+    if reason is not None:
+        payload["reason"] = reason
+    return payload
+
+
+def passes_min_ratio(candidate: float, live: float, min_ratio: float) -> bool:
+    if live <= 0.0:
+        return True
+    return candidate >= (live * min_ratio)
+
+
+def passes_max_ratio(candidate: float, live: float, max_ratio: float) -> bool:
+    if live <= 0.0:
+        return True
+    return candidate <= (live * max_ratio)
+
+
+def evaluate_auto_promotion(
+    config: RefreshConfig,
+    export_summary: dict[str, Any],
+    live_metadata: dict[str, Any] | None,
+    candidate_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    thresholds = {
+        "enabled": config.auto_promote_enabled,
+        "min_candidate_rows": config.min_candidate_rows_for_promotion,
+        "min_policy_total_pnl_delta": config.min_policy_total_pnl_delta,
+        "min_entry_total_reward_delta": config.min_entry_total_reward_delta,
+        "min_efficiency_ratio": config.min_efficiency_ratio,
+        "max_drawdown_ratio": config.max_drawdown_ratio,
+        "min_trade_ratio": config.min_trade_ratio,
+    }
+
+    candidate_policy = candidate_metadata.get("policy", {}).get("recommended", {})
+    candidate_entry = candidate_metadata.get("rl_like", {}).get("entry_policy", {}).get("recommended", {})
+    live_policy = (live_metadata or {}).get("policy", {}).get("recommended", {})
+    live_entry = (live_metadata or {}).get("rl_like", {}).get("entry_policy", {}).get("recommended", {})
+
+    gates: dict[str, dict[str, Any]] = {}
+    reasons: list[str] = []
+    row_count = int(export_summary.get("rows", 0))
+    has_live_bundle = live_metadata is not None
+
+    gates["min_candidate_rows"] = gate_result(
+        row_count >= config.min_candidate_rows_for_promotion,
+        candidate=row_count,
+        threshold=config.min_candidate_rows_for_promotion,
+        reason="candidate dataset must be large enough for auto-promotion",
+    )
+
+    if not has_live_bundle:
+        eligible = gates["min_candidate_rows"]["passed"]
+        if eligible:
+            reasons.append("no live bundle present")
+        else:
+            reasons.append("candidate dataset is too small for first promotion")
+
+        return {
+            "enabled": config.auto_promote_enabled,
+            "eligible": eligible,
+            "verdict": "promote" if eligible else "reject",
+            "reasons": reasons,
+            "thresholds": thresholds,
+            "gates": gates,
+        }
+
+    policy_total_pnl_delta = safe_float(candidate_policy.get("total_pnl_per_1usdc")) - safe_float(
+        live_policy.get("total_pnl_per_1usdc")
+    )
+    entry_total_reward_delta = safe_float(candidate_entry.get("total_reward_per_contract")) - safe_float(
+        live_entry.get("total_reward_per_contract")
+    )
+
+    gates["policy_total_pnl"] = gate_result(
+        policy_total_pnl_delta >= config.min_policy_total_pnl_delta,
+        candidate=round(safe_float(candidate_policy.get("total_pnl_per_1usdc")), 6),
+        live=round(safe_float(live_policy.get("total_pnl_per_1usdc")), 6),
+        delta=round(policy_total_pnl_delta, 6),
+        threshold=config.min_policy_total_pnl_delta,
+        reason="policy total pnl must improve versus live",
+    )
+    gates["entry_total_reward"] = gate_result(
+        entry_total_reward_delta >= config.min_entry_total_reward_delta,
+        candidate=round(safe_float(candidate_entry.get("total_reward_per_contract")), 6),
+        live=round(safe_float(live_entry.get("total_reward_per_contract")), 6),
+        delta=round(entry_total_reward_delta, 6),
+        threshold=config.min_entry_total_reward_delta,
+        reason="entry total reward must improve versus live",
+    )
+
+    candidate_policy_efficiency = safe_float(candidate_policy.get("pnl_to_drawdown"))
+    live_policy_efficiency = safe_float(live_policy.get("pnl_to_drawdown"))
+    gates["policy_efficiency"] = gate_result(
+        passes_min_ratio(candidate_policy_efficiency, live_policy_efficiency, config.min_efficiency_ratio),
+        candidate=round(candidate_policy_efficiency, 6),
+        live=round(live_policy_efficiency, 6),
+        threshold=config.min_efficiency_ratio,
+        reason="policy pnl-to-drawdown ratio must not deteriorate too much",
+    )
+
+    candidate_entry_efficiency = safe_float(candidate_entry.get("reward_to_drawdown"))
+    live_entry_efficiency = safe_float(live_entry.get("reward_to_drawdown"))
+    gates["entry_efficiency"] = gate_result(
+        passes_min_ratio(candidate_entry_efficiency, live_entry_efficiency, config.min_efficiency_ratio),
+        candidate=round(candidate_entry_efficiency, 6),
+        live=round(live_entry_efficiency, 6),
+        threshold=config.min_efficiency_ratio,
+        reason="entry reward-to-drawdown ratio must not deteriorate too much",
+    )
+
+    candidate_policy_drawdown = safe_float(candidate_policy.get("max_drawdown_per_1usdc"))
+    live_policy_drawdown = safe_float(live_policy.get("max_drawdown_per_1usdc"))
+    gates["policy_drawdown"] = gate_result(
+        passes_max_ratio(candidate_policy_drawdown, live_policy_drawdown, config.max_drawdown_ratio),
+        candidate=round(candidate_policy_drawdown, 6),
+        live=round(live_policy_drawdown, 6),
+        threshold=config.max_drawdown_ratio,
+        reason="policy drawdown must stay under the allowed ratio",
+    )
+
+    candidate_entry_drawdown = safe_float(candidate_entry.get("max_drawdown_per_contract"))
+    live_entry_drawdown = safe_float(live_entry.get("max_drawdown_per_contract"))
+    gates["entry_drawdown"] = gate_result(
+        passes_max_ratio(candidate_entry_drawdown, live_entry_drawdown, config.max_drawdown_ratio),
+        candidate=round(candidate_entry_drawdown, 6),
+        live=round(live_entry_drawdown, 6),
+        threshold=config.max_drawdown_ratio,
+        reason="entry drawdown must stay under the allowed ratio",
+    )
+
+    candidate_policy_trades = safe_float(candidate_policy.get("trades"))
+    live_policy_trades = safe_float(live_policy.get("trades"))
+    gates["policy_trades"] = gate_result(
+        passes_min_ratio(candidate_policy_trades, live_policy_trades, config.min_trade_ratio),
+        candidate=int(candidate_policy_trades),
+        live=int(live_policy_trades),
+        threshold=config.min_trade_ratio,
+        reason="policy trade count must not collapse",
+    )
+
+    candidate_entry_trades = safe_float(candidate_entry.get("trades"))
+    live_entry_trades = safe_float(live_entry.get("trades"))
+    gates["entry_trades"] = gate_result(
+        passes_min_ratio(candidate_entry_trades, live_entry_trades, config.min_trade_ratio),
+        candidate=int(candidate_entry_trades),
+        live=int(live_entry_trades),
+        threshold=config.min_trade_ratio,
+        reason="entry trade count must not collapse",
+    )
+
+    eligible = all(gate["passed"] for gate in gates.values())
+    if eligible:
+        reasons.append("candidate beat live according to promotion gates")
+    else:
+        for key, gate in gates.items():
+            if gate["passed"]:
+                continue
+            reasons.append(f"{key}: {gate.get('reason', 'failed')}")
+
+    return {
+        "enabled": config.auto_promote_enabled,
+        "eligible": eligible,
+        "verdict": "promote" if eligible else "reject",
+        "reasons": reasons,
+        "thresholds": thresholds,
+        "gates": gates,
+    }
+
+
 def refresh_candidate(config: RefreshConfig, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     config = apply_overrides(config, overrides)
     run_id = utc_timestamp()
@@ -273,6 +487,12 @@ def refresh_candidate(config: RefreshConfig, overrides: dict[str, Any] | None = 
         raise FileNotFoundError(f"missing trained metadata file: {metadata_path}")
 
     live_metadata = load_json(config.live_dir / DEFAULT_METADATA_NAME)
+    auto_promotion = evaluate_auto_promotion(
+        config,
+        export_summary,
+        live_metadata,
+        candidate_metadata,
+    )
 
     report = {
         "ok": True,
@@ -284,10 +504,25 @@ def refresh_candidate(config: RefreshConfig, overrides: dict[str, Any] | None = 
         "train": train_summary,
         "candidate": summarize_metadata(candidate_metadata),
         "comparison": compare_bundles(live_metadata, candidate_metadata),
+        "auto_promotion": auto_promotion,
         "generated_at": utc_now().isoformat(),
     }
 
-    write_json(candidate_dir / "report.json", report)
+    if auto_promotion["enabled"] and auto_promotion["eligible"]:
+        promotion = promote_candidate(config, candidate_name)
+        report["promotion"] = promotion
+        report["auto_promotion"] = {
+            **auto_promotion,
+            "promoted": True,
+        }
+        write_json(config.live_dir / "report.json", report)
+    else:
+        report["auto_promotion"] = {
+            **auto_promotion,
+            "promoted": False,
+        }
+        write_json(candidate_dir / "report.json", report)
+
     write_json(config.artifacts_dir / LATEST_CANDIDATE_FILE, report)
     return report
 
