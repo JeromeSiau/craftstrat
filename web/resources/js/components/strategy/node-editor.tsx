@@ -60,6 +60,113 @@ const nodeDefaults: Record<string, Record<string, GraphValue>> = {
     },
 };
 
+const AUTO_LAYOUT_X_GAP = 320;
+const AUTO_LAYOUT_Y_GAP = 180;
+const AUTO_LAYOUT_START = { x: 40, y: 40 };
+
+function hasValidPosition(
+    position?: { x: number; y: number },
+): position is { x: number; y: number } {
+    return (
+        position !== undefined &&
+        Number.isFinite(position.x) &&
+        Number.isFinite(position.y)
+    );
+}
+
+function shouldAutoLayout(graphNodes: NodeModeGraph['nodes']): boolean {
+    if (graphNodes.length <= 1) {
+        return !graphNodes.every((node) => hasValidPosition(node.position));
+    }
+
+    const seen = new Set<string>();
+
+    for (const node of graphNodes) {
+        const { position } = node;
+
+        if (!hasValidPosition(position)) {
+            return true;
+        }
+
+        const key = `${position.x}:${position.y}`;
+        if (seen.has(key)) {
+            return true;
+        }
+
+        seen.add(key);
+    }
+
+    return false;
+}
+
+function withAutoLayout(graph: NodeModeGraph): NodeModeGraph['nodes'] {
+    const nodeIds = new Set(graph.nodes.map((node) => node.id));
+    const indegree = new Map<string, number>();
+    const adjacency = new Map<string, string[]>();
+
+    for (const node of graph.nodes) {
+        indegree.set(node.id, 0);
+        adjacency.set(node.id, []);
+    }
+
+    for (const edge of graph.edges) {
+        if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+            continue;
+        }
+
+        adjacency.get(edge.source)?.push(edge.target);
+        indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+    }
+
+    const queue = graph.nodes
+        .filter((node) => (indegree.get(node.id) ?? 0) === 0)
+        .map((node) => node.id);
+    const levels = new Map<string, number>();
+
+    for (const nodeId of queue) {
+        levels.set(nodeId, 0);
+    }
+
+    let cursor = 0;
+    while (cursor < queue.length) {
+        const nodeId = queue[cursor++];
+        const level = levels.get(nodeId) ?? 0;
+
+        for (const nextId of adjacency.get(nodeId) ?? []) {
+            levels.set(nextId, Math.max(levels.get(nextId) ?? 0, level + 1));
+            indegree.set(nextId, (indegree.get(nextId) ?? 1) - 1);
+
+            if ((indegree.get(nextId) ?? 0) === 0) {
+                queue.push(nextId);
+            }
+        }
+    }
+
+    let fallbackLevel = Math.max(0, ...levels.values(), 0);
+    for (const node of graph.nodes) {
+        if (!levels.has(node.id)) {
+            fallbackLevel += 1;
+            levels.set(node.id, fallbackLevel);
+        }
+    }
+
+    const rowsByLevel = new Map<number, number>();
+
+    return graph.nodes.map((node) => {
+        const level = levels.get(node.id) ?? 0;
+        const row = rowsByLevel.get(level) ?? 0;
+        rowsByLevel.set(level, row + 1);
+
+        return {
+            ...node,
+            position: {
+                x: AUTO_LAYOUT_START.x + level * AUTO_LAYOUT_X_GAP,
+                y: AUTO_LAYOUT_START.y + row * AUTO_LAYOUT_Y_GAP,
+            },
+        };
+    });
+}
+
 function toFlowNodes(
     graphNodes: NodeModeGraph['nodes'],
     onUpdate: (id: string, data: Record<string, GraphValue>) => void,
@@ -126,9 +233,13 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
     }, [handleNodeDataUpdate]);
 
     useEffect(() => {
-        setNodes(toFlowNodes(graph.nodes, proxyNodeDataUpdate));
+        const normalizedNodes = shouldAutoLayout(graph.nodes)
+            ? withAutoLayout(graph)
+            : graph.nodes;
+
+        setNodes(toFlowNodes(normalizedNodes, proxyNodeDataUpdate));
         setEdges(toFlowEdges(graph.edges));
-    }, [graph.edges, graph.nodes, proxyNodeDataUpdate, setEdges, setNodes]);
+    }, [graph, proxyNodeDataUpdate, setEdges, setNodes]);
 
     const nodeTypes = useMemo(
         () => ({
