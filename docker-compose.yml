@@ -49,6 +49,39 @@ services:
     networks:
       - craftstrat
 
+  ml-trainer:
+    build:
+      context: .
+      dockerfile: infra/docker/ml-inference.Dockerfile
+    environment:
+      ML_TRAINER_HOST: 0.0.0.0
+      ML_TRAINER_PORT: 8011
+      ENGINE_INTERNAL_URL: ${ENGINE_INTERNAL_URL:-http://engine:8080}
+      ML_MODEL_NAME: ${ML_MODEL_NAME:-btc-15m-xgb-policy}
+      ML_ARTIFACTS_DIR: /models
+      ML_DATA_DIR: /data
+      ML_REFRESH_SLOT_DURATION: ${ML_REFRESH_SLOT_DURATION:-900}
+      ML_REFRESH_SYMBOLS: ${ML_REFRESH_SYMBOLS:-BTC}
+      ML_REFRESH_HOURS: ${ML_REFRESH_HOURS:-720}
+      ML_REFRESH_SAMPLE_EVERY: ${ML_REFRESH_SAMPLE_EVERY:-6}
+      ML_REFRESH_LIMIT: ${ML_REFRESH_LIMIT:-5000}
+      ML_REFRESH_MAX_ROWS: ${ML_REFRESH_MAX_ROWS:-0}
+      ML_TRAIN_VERBOSE_EVAL: ${ML_TRAIN_VERBOSE_EVAL:-50}
+      ML_TRAIN_RL_GAMMA: ${ML_TRAIN_RL_GAMMA:-0.999}
+    volumes:
+      - ./ml/artifacts:/models
+      - ./ml/data:/data
+    depends_on:
+      engine:
+        condition: service_started
+    restart: unless-stopped
+    command:
+      - sh
+      - -lc
+      - exec uv run --project /app/ml python /app/ml/serve_trainer.py --host "${ML_TRAINER_HOST:-0.0.0.0}" --port "${ML_TRAINER_PORT:-8011}"
+    networks:
+      - craftstrat
+
   postgres:
     image: postgres:17
     environment:

@@ -45,6 +45,14 @@ return [
         'timeout' => env('ENGINE_TIMEOUT', 30),
     ],
 
+    'ml_trainer' => [
+        'url' => env('ML_TRAINER_URL', 'http://ml-trainer:8011'),
+        'timeout' => env('ML_TRAINER_TIMEOUT', 30),
+        'enabled' => filter_var(env('ML_TRAINER_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'schedule_at' => env('ML_TRAINER_SCHEDULE_AT', '03:15'),
+        'schedule_timezone' => env('ML_TRAINER_SCHEDULE_TIMEZONE', 'UTC'),
+    ],
+
     'wallet' => [
         'encryption_key' => env('ENCRYPTION_KEY'),
     ],

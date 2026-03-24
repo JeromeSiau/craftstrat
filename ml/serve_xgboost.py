@@ -6,14 +6,63 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import threading
 from typing import Any
 
-from xgboost_pipeline import load_bundle, score_rows
+from xgboost_pipeline import AUX_MODEL_FILES, DEFAULT_METADATA_NAME, DEFAULT_MODEL_NAME, load_bundle, score_rows
+
+
+class BundleStore:
+    def __init__(self, model_dir: str):
+        self.model_dir = Path(model_dir)
+        self._lock = threading.Lock()
+        self._bundle = None
+        self._signature: tuple[tuple[str, int | None, int | None], ...] | None = None
+
+    def _collect_signature(self) -> tuple[tuple[str, int | None, int | None], ...] | None:
+        watched = [DEFAULT_MODEL_NAME, DEFAULT_METADATA_NAME, *AUX_MODEL_FILES.values()]
+        model_path = self.model_dir / DEFAULT_MODEL_NAME
+        metadata_path = self.model_dir / DEFAULT_METADATA_NAME
+        if not model_path.exists() or not metadata_path.exists():
+            return None
+
+        signature = []
+        for name in sorted(set(watched)):
+            path = self.model_dir / name
+            if not path.exists():
+                signature.append((name, None, None))
+                continue
+            stat = path.stat()
+            signature.append((name, stat.st_mtime_ns, stat.st_size))
+
+        return tuple(signature)
+
+    def get_bundle(self):
+        signature = self._collect_signature()
+        with self._lock:
+            if signature is None:
+                if self._bundle is None:
+                    raise FileNotFoundError(
+                        f"model bundle is missing mandatory files in {self.model_dir}"
+                    )
+                return self._bundle
+
+            if self._bundle is None or signature != self._signature:
+                try:
+                    bundle = load_bundle(self.model_dir)
+                except Exception:
+                    if self._bundle is None:
+                        raise
+                    return self._bundle
+
+                self._bundle = bundle
+                self._signature = signature
+
+            return self._bundle
 
 
 def build_handler(model_dir: str):
-    bundle = load_bundle(model_dir)
-    metadata = bundle.metadata
+    store = BundleStore(model_dir)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "craftstrat-ml/0.1"
@@ -28,6 +77,8 @@ def build_handler(model_dir: str):
 
         def do_GET(self) -> None:  # noqa: N802
             if self.path == "/health":
+                bundle = store.get_bundle()
+                metadata = bundle.metadata
                 self._send_json(
                     {
                         "ok": True,
@@ -82,6 +133,7 @@ def build_handler(model_dir: str):
                 )
                 return
 
+            bundle = store.get_bundle()
             predictions = score_rows(rows, bundle)
             response: dict[str, Any] = {
                 "count": len(predictions),

@@ -3,6 +3,7 @@
 use App\Http\Middleware\CheckPlanLimits;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,6 +29,18 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        if (! config('services.ml_trainer.enabled')) {
+            return;
+        }
+
+        $schedule
+            ->command('ml:refresh-candidate')
+            ->dailyAt((string) config('services.ml_trainer.schedule_at'))
+            ->timezone((string) config('services.ml_trainer.schedule_timezone'))
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/ml-refresh.log'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

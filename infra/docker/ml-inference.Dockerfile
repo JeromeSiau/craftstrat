@@ -10,6 +10,8 @@ WORKDIR /app/ml
 
 COPY ml/pyproject.toml ml/uv.lock ./
 COPY ml/serve_xgboost.py ./
+COPY ml/serve_trainer.py ./
+COPY ml/refresh_model_bundle.py ./
 COPY ml/train_xgboost.py ./
 COPY ml/xgboost_pipeline.py ./
 

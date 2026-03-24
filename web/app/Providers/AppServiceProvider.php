@@ -26,6 +26,13 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(\App\Services\MlTrainerService::class, function ($app) {
+            return new \App\Services\MlTrainerService(
+                baseUrl: config('services.ml_trainer.url'),
+                timeout: (int) config('services.ml_trainer.timeout'),
+            );
+        });
+
         $this->app->singleton(\App\Services\WalletService::class, function ($app) {
             return new \App\Services\WalletService(
                 encryptionKey: config('services.wallet.encryption_key'),
