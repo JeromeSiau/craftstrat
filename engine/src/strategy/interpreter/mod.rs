@@ -53,12 +53,33 @@ pub fn evaluate_with_caches(
     }
 
     // Universal risk management on open position
-    if let Some(ref pos) = state.position {
-        if let Some(signal) = check_risk(graph, tick, pos) {
+    if let Some(pos) = state.position.clone() {
+        if let Some(signal) = check_risk(graph, tick, &pos) {
             state.position = None; // clear position after exit signal
             return signal;
         }
-        return Signal::Hold; // in position, no risk trigger → hold
+
+        let signal = evaluate_graph_signal(graph, tick, state, api_cache, model_score_cache);
+        if let Signal::Sell {
+            outcome,
+            ref order_type,
+            ..
+        } = signal
+        {
+            if outcome == pos.outcome {
+                state.position = None;
+                return Signal::Sell {
+                    outcome: pos.outcome,
+                    size_usdc: pos.size_usdc,
+                    order_type: order_type.clone(),
+                };
+            }
+        }
+
+        return match signal {
+            Signal::Notify { channel, message } => Signal::Notify { channel, message },
+            _ => Signal::Hold,
+        };
     }
 
     if state.pending_entry_symbol.is_some() {
@@ -78,12 +99,7 @@ pub fn evaluate_with_caches(
         return Signal::Hold;
     }
 
-    let mode = graph["mode"].as_str().unwrap_or("form");
-    let signal = match mode {
-        "form" => evaluate_form_conditions(graph, tick, state),
-        "node" => evaluate_node(graph, tick, state, api_cache, model_score_cache),
-        _ => Signal::Hold,
-    };
+    let signal = evaluate_graph_signal(graph, tick, state, api_cache, model_score_cache);
 
     // Duplicate prevention — block if same position already open
     if check_duplicate(graph, state, &signal) {
@@ -98,6 +114,20 @@ pub fn evaluate_with_caches(
         state.trades_this_slot += 1;
     }
     signal
+}
+
+fn evaluate_graph_signal(
+    graph: &Value,
+    tick: &Tick,
+    state: &mut StrategyState,
+    api_cache: Option<&ApiFetchCache>,
+    model_score_cache: Option<&ModelScoreCache>,
+) -> Signal {
+    match graph["mode"].as_str().unwrap_or("form") {
+        "form" => evaluate_form_conditions(graph, tick, state),
+        "node" => evaluate_node(graph, tick, state, api_cache, model_score_cache),
+        _ => Signal::Hold,
+    }
 }
 
 // ── Shared utilities (used by both form_mode and node_mode) ──────────
@@ -316,5 +346,70 @@ mod tests {
         let second_signal = evaluate(&graph, &tick, &mut state);
         assert!(matches!(second_signal, Signal::Hold));
         assert_eq!(state.trades_this_slot, 1);
+    }
+
+    #[test]
+    fn test_open_position_allows_form_exit_signal() {
+        let graph = serde_json::json!({
+            "mode": "form",
+            "conditions": [{
+                "type": "AND",
+                "rules": [{ "indicator": "pct_into_slot", "operator": ">", "value": 0.1 }]
+            }],
+            "action": { "signal": "sell", "outcome": "UP", "size_usdc": 1, "order_type": "market" },
+            "risk": {}
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        state.position = Some(crate::strategy::state::Position {
+            outcome: Outcome::Up,
+            entry_price: 0.50,
+            size_usdc: 42.0,
+            entry_at: 1700000000,
+            symbol: tick.symbol.clone(),
+        });
+
+        let signal = evaluate(&graph, &tick, &mut state);
+
+        match signal {
+            Signal::Sell {
+                outcome,
+                size_usdc,
+                order_type,
+            } => {
+                assert_eq!(outcome, Outcome::Up);
+                assert!((size_usdc - 42.0).abs() < f64::EPSILON);
+                assert!(matches!(order_type, OrderType::Market));
+            }
+            _ => panic!("expected Sell, got {:?}", signal),
+        }
+        assert!(state.position.is_none(), "position should be cleared on exit signal");
+    }
+
+    #[test]
+    fn test_open_position_ignores_entry_only_graph_signal() {
+        let graph = serde_json::json!({
+            "mode": "form",
+            "conditions": [{
+                "type": "AND",
+                "rules": [{ "indicator": "pct_into_slot", "operator": ">", "value": 0.1 }]
+            }],
+            "action": { "signal": "buy", "outcome": "UP", "size_usdc": 50, "order_type": "market" },
+            "risk": {}
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        state.position = Some(crate::strategy::state::Position {
+            outcome: Outcome::Up,
+            entry_price: 0.50,
+            size_usdc: 42.0,
+            entry_at: 1700000000,
+            symbol: tick.symbol.clone(),
+        });
+
+        let signal = evaluate(&graph, &tick, &mut state);
+
+        assert!(matches!(signal, Signal::Hold));
+        assert!(state.position.is_some(), "position should stay open without exit signal");
     }
 }
