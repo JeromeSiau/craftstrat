@@ -7,6 +7,7 @@ use tokio::sync::broadcast;
 
 use crate::fetcher::models::Tick;
 use crate::proxy::HttpPool;
+use crate::strategy::bandit;
 use crate::strategy::ml_features::{build_live_feature_row, LIVE_FEATURE_WINDOW};
 use crate::strategy::registry::{Assignment, AssignmentRegistry};
 
@@ -170,6 +171,17 @@ fn collect_targets(assignments: &[Assignment]) -> Vec<ModelTarget> {
                 .and_modify(|existing| *existing = (*existing).min(interval_ms))
                 .or_insert(interval_ms);
         }
+
+        for (url, interval_ms) in bandit::collect_model_targets(&assignment.graph) {
+            if url.is_empty() {
+                continue;
+            }
+
+            intervals
+                .entry(url)
+                .and_modify(|existing| *existing = (*existing).min(interval_ms))
+                .or_insert(interval_ms.max(1_000));
+        }
     }
 
     intervals
@@ -327,5 +339,40 @@ mod tests {
         assert_eq!(targets.len(), 1);
         assert_eq!(targets[0].url, "https://ml.example.com/predict");
         assert_eq!(targets[0].interval_ms, 2_000);
+    }
+
+    #[test]
+    fn test_collect_targets_includes_bandit_entry_url() {
+        let assignments = vec![Assignment {
+            wallet_id: 1,
+            strategy_id: 10,
+            graph: serde_json::json!({
+                "mode": "node",
+                "nodes": [],
+                "edges": [],
+                "bandit": {
+                    "entry": {
+                        "enabled": true,
+                        "url": "https://ml.example.com/predict",
+                        "interval_ms": 3_000,
+                        "profiles": [
+                            { "id": "balanced", "min_value": 0.02 }
+                        ]
+                    }
+                }
+            }),
+            markets: vec!["btc-updown-15m".into()],
+            max_position_usdc: 100.0,
+            is_paper: false,
+            is_killed: false,
+            state: Arc::new(std::sync::Mutex::new(
+                crate::strategy::state::StrategyState::new(16),
+            )),
+        }];
+
+        let targets = collect_targets(&assignments);
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].url, "https://ml.example.com/predict");
+        assert_eq!(targets[0].interval_ms, 3_000);
     }
 }

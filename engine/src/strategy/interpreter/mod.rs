@@ -4,6 +4,7 @@ mod risk;
 
 use serde_json::Value;
 
+use super::bandit;
 use super::eval::get_field;
 use super::indicators;
 use super::state::{Position, StrategyState};
@@ -39,6 +40,7 @@ pub fn evaluate_with_caches(
     api_cache: Option<&ApiFetchCache>,
     model_score_cache: Option<&ModelScoreCache>,
 ) -> Signal {
+    bandit::update_pending_rewards(graph, tick, state);
     state.push_tick(tick.clone());
 
     // Daily loss limit — blocks ALL trading (entries and exits) when breached
@@ -97,6 +99,13 @@ pub fn evaluate_with_caches(
         .unwrap_or(u64::MAX) as u32;
     if state.trades_this_slot >= max_trades {
         return Signal::Hold;
+    }
+
+    if let Some(decision) = bandit::evaluate_entry_signal(graph, tick, state, model_score_cache) {
+        state.pending_entry_symbol = Some(tick.symbol.clone());
+        state.trades_this_slot += 1;
+        bandit::stage_pending_choice(state, &tick.symbol, &decision);
+        return decision.signal;
     }
 
     let signal = evaluate_graph_signal(graph, tick, state, api_cache, model_score_cache);
@@ -319,6 +328,7 @@ pub(super) fn build_action_signal(action: &Value) -> Signal {
 mod tests {
     use super::*;
     use crate::strategy::test_utils::test_tick;
+    use crate::tasks::model_score_task::ModelScoreCache;
 
     #[test]
     fn test_daily_loss_limit_blocks_evaluation() {
@@ -522,6 +532,63 @@ mod tests {
         assert_eq!(
             resolve_field("position_unrealized_pnl_usdc", &tick, &state),
             Some(0.0)
+        );
+    }
+
+    #[test]
+    fn test_entry_bandit_can_emit_buy_without_entry_nodes() {
+        let graph = serde_json::json!({
+            "mode": "node",
+            "nodes": [],
+            "edges": [],
+            "bandit": {
+                "entry": {
+                    "enabled": true,
+                    "url": "https://ml.example.com/predict",
+                    "interval_ms": 2_000,
+                    "size_usdc": 1.25,
+                    "profiles": [
+                        {
+                            "id": "balanced",
+                            "min_value": 0.02,
+                            "max_spread_rel": 0.05,
+                            "max_pct_into_slot": 0.75
+                        }
+                    ]
+                }
+            }
+        });
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        let cache = ModelScoreCache::new();
+        cache.set(
+            "https://ml.example.com/predict#btc-updown-15m-1700000000".into(),
+            serde_json::json!({
+                "entry_value_up": 0.03,
+                "entry_value_down": 0.01
+            }),
+        );
+
+        let signal = evaluate_with_caches(&graph, &tick, &mut state, None, Some(&cache));
+
+        assert!(matches!(
+            signal,
+            Signal::Buy {
+                outcome: Outcome::Up,
+                size_usdc,
+                ..
+            } if (size_usdc - 1.25).abs() < f64::EPSILON
+        ));
+        assert_eq!(
+            state.pending_entry_symbol.as_deref(),
+            Some(tick.symbol.as_str())
+        );
+        assert_eq!(
+            state
+                .pending_bandit_choice
+                .as_ref()
+                .map(|choice| choice.profile_id.as_str()),
+            Some("balanced")
         );
     }
 }

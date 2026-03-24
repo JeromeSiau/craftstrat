@@ -145,10 +145,34 @@ export interface GraphEdge {
     targetHandle?: string | null;
 }
 
+export interface EntryBanditProfileConfig {
+    id: string;
+    min_value: number;
+    min_pct_into_slot?: number;
+    max_pct_into_slot?: number;
+    max_spread_rel?: number;
+}
+
+export interface EntryBanditConfig {
+    enabled: boolean;
+    url: string;
+    interval_ms?: number;
+    size_usdc?: number;
+    reward_horizon_sec?: number;
+    exploration_bps?: number;
+    prior_mean_bps?: number;
+    prior_count?: number;
+    reward_clip_bps?: number;
+    profiles: EntryBanditProfileConfig[];
+}
+
 export interface NodeModeGraph {
     mode: 'node';
     nodes: GraphNode[];
     edges: GraphEdge[];
+    bandit?: {
+        entry?: EntryBanditConfig;
+    };
 }
 
 export interface BacktestTrade {

@@ -5,6 +5,36 @@ use serde::{Deserialize, Serialize};
 use super::Outcome;
 use crate::fetcher::models::Tick;
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BanditArmState {
+    #[serde(default)]
+    pub pulls: u32,
+    #[serde(default)]
+    pub total_reward_bps: f64,
+    #[serde(default)]
+    pub last_reward_bps: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingBanditChoice {
+    pub profile_id: String,
+    pub profile_index: u32,
+    pub outcome: Outcome,
+    pub symbol: String,
+    pub reward_horizon_sec: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingBanditRewardObservation {
+    pub profile_id: String,
+    pub profile_index: u32,
+    pub outcome: Outcome,
+    pub symbol: String,
+    pub entry_price: f64,
+    pub due_at: i64,
+    pub reward_clip_bps: f64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
     pub outcome: Outcome,
@@ -33,6 +63,12 @@ pub struct StrategyState {
     pub daily_pnl_date: u32,
     #[serde(default)]
     pub last_trade_at: Option<i64>,
+    #[serde(default)]
+    pub bandit_entry_stats: HashMap<String, BanditArmState>,
+    #[serde(default)]
+    pub pending_bandit_choice: Option<PendingBanditChoice>,
+    #[serde(default)]
+    pub pending_bandit_reward_observations: Vec<PendingBanditRewardObservation>,
 }
 
 impl StrategyState {
@@ -49,6 +85,9 @@ impl StrategyState {
             daily_pnl: 0.0,
             daily_pnl_date: 0,
             last_trade_at: None,
+            bandit_entry_stats: HashMap::new(),
+            pending_bandit_choice: None,
+            pending_bandit_reward_observations: Vec::new(),
         }
     }
 

@@ -11,6 +11,7 @@ use super::orders::OrderSubmitter;
 use super::queue::ExecutionQueue;
 use super::{ExecutionOrder, OrderResult, OrderStatus, Side};
 use crate::metrics as m;
+use crate::strategy::bandit;
 use crate::strategy::registry::AssignmentRegistry;
 use crate::strategy::state::Position;
 use crate::strategy::Outcome;
@@ -223,6 +224,13 @@ async fn update_position(
                 entry_at: now,
                 symbol: order.symbol.clone(),
             });
+            bandit::record_entry_fill(
+                &assignment.graph,
+                &mut state,
+                &order.symbol,
+                filled_price,
+                now,
+            );
         }
         Side::Sell => {
             if let Some(ref pos) = state.position {
@@ -257,6 +265,7 @@ async fn clear_pending_entry(registry: &AssignmentRegistry, order: &ExecutionOrd
         Err(poisoned) => poisoned.into_inner(),
     };
     state.pending_entry_symbol = None;
+    bandit::clear_pending_choice(&mut state);
 }
 
 // ---------------------------------------------------------------------------

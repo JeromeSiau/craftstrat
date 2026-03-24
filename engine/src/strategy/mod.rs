@@ -1,3 +1,4 @@
+pub mod bandit;
 pub mod engine;
 pub mod eval;
 pub mod indicators;

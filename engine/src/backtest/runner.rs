@@ -6,6 +6,7 @@ use serde_json::Value;
 use super::metrics;
 use super::{compute_pnl, BacktestRequest, BacktestResult, BacktestTrade, ExitReason, Side};
 use crate::fetcher::models::Tick;
+use crate::strategy::bandit;
 use crate::strategy::interpreter::{evaluate, evaluate_with_caches};
 use crate::strategy::ml_features::{build_live_feature_row, LIVE_FEATURE_WINDOW};
 use crate::strategy::state::{Position, StrategyState};
@@ -116,6 +117,8 @@ impl BacktestEngine {
             } => {
                 let Some(entry_fill) = simulate_entry_fill(outcome, tick, size_usdc) else {
                     // No liquidity — skip this entry
+                    ctx.state.pending_entry_symbol = None;
+                    bandit::clear_pending_choice(&mut ctx.state);
                     return;
                 };
                 ctx.state.pending_entry_symbol = None;
@@ -126,6 +129,13 @@ impl BacktestEngine {
                     entry_at: tick.captured_at.unix_timestamp(),
                     symbol: tick.symbol.clone(),
                 });
+                bandit::record_entry_fill(
+                    &self.graph,
+                    &mut ctx.state,
+                    &tick.symbol,
+                    entry_fill.average_price,
+                    tick.captured_at.unix_timestamp(),
+                );
                 ctx.open_trade = Some(BacktestTrade {
                     symbol: tick.symbol.clone(),
                     outcome,
@@ -481,22 +491,26 @@ pub async fn run(req: &BacktestRequest, ch_client: &Client) -> anyhow::Result<Ba
 }
 
 fn collect_model_score_urls(graph: &Value) -> Vec<String> {
-    let Some(nodes) = graph["nodes"].as_array() else {
-        return Vec::new();
-    };
-
     let mut urls = Vec::new();
-    for node in nodes {
-        if node["type"].as_str() != Some("model_score") {
-            continue;
-        }
+    if let Some(nodes) = graph["nodes"].as_array() {
+        for node in nodes {
+            if node["type"].as_str() != Some("model_score") {
+                continue;
+            }
 
-        let url = node["data"]["url"].as_str().unwrap_or("").trim();
-        if url.is_empty() || urls.iter().any(|existing| existing == url) {
-            continue;
-        }
+            let url = node["data"]["url"].as_str().unwrap_or("").trim();
+            if url.is_empty() || urls.iter().any(|existing| existing == url) {
+                continue;
+            }
 
-        urls.push(url.to_string());
+            urls.push(url.to_string());
+        }
+    }
+
+    for (url, _) in bandit::collect_model_targets(graph) {
+        if !urls.iter().any(|existing| existing == &url) {
+            urls.push(url);
+        }
     }
 
     urls

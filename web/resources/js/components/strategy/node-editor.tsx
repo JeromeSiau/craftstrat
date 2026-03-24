@@ -300,7 +300,7 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
             sourceHandle: edge.sourceHandle ?? null,
             targetHandle: edge.targetHandle ?? null,
         }));
-        onChange({ mode: 'node', nodes: graphNodes, edges: graphEdges });
+        onChange({ ...graph, mode: 'node', nodes: graphNodes, edges: graphEdges });
     }
 
     return (
