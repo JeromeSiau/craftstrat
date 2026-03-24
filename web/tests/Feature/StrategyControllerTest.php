@@ -24,6 +24,49 @@ it('displays strategies index page', function () {
         );
 });
 
+it('includes live and paper performance summaries on strategies index', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $wallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'buy',
+        'status' => 'won',
+        'is_paper' => false,
+        'price' => 0.400000,
+        'filled_price' => 0.400000,
+        'resolved_price' => 1.000000,
+        'size_usdc' => 10.000000,
+        'executed_at' => now(),
+    ]);
+
+    Trade::factory()->create([
+        'wallet_id' => $wallet->id,
+        'strategy_id' => $strategy->id,
+        'side' => 'buy',
+        'status' => 'lost',
+        'is_paper' => true,
+        'price' => 0.500000,
+        'filled_price' => 0.500000,
+        'resolved_price' => 0.000000,
+        'size_usdc' => 4.000000,
+        'executed_at' => now(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('strategies.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('strategies.data.0.performance_stats.live.total_trades', 1)
+            ->where('strategies.data.0.performance_stats.live.win_rate', '1.0000')
+            ->where('strategies.data.0.performance_stats.live.total_pnl_usdc', '15.00')
+            ->where('strategies.data.0.performance_stats.paper.total_trades', 1)
+            ->where('strategies.data.0.performance_stats.paper.win_rate', '0.0000')
+            ->where('strategies.data.0.performance_stats.paper.total_pnl_usdc', '-4.00')
+        );
+});
+
 it('displays create strategy page', function () {
     $this->actingAs($this->user)
         ->get(route('strategies.create'))

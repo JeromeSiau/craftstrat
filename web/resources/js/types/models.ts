@@ -17,6 +17,7 @@ export interface Strategy {
     is_active: boolean;
     wallets_count?: number;
     wallet_strategies?: WalletStrategy[];
+    performance_stats?: StrategyPerformanceStats;
     backtest_results?: BacktestResult[];
     created_at: string;
 }
@@ -202,6 +203,17 @@ export interface LiveStatsEntry {
 export interface LiveStats {
     live: LiveStatsEntry;
     paper: LiveStatsEntry;
+}
+
+export interface StrategyPerformanceEntry {
+    total_trades: number;
+    win_rate: string | null;
+    total_pnl_usdc: string | null;
+}
+
+export interface StrategyPerformanceStats {
+    live: StrategyPerformanceEntry;
+    paper: StrategyPerformanceEntry;
 }
 
 // Slot Analytics types

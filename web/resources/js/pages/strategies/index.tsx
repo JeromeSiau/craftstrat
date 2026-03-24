@@ -10,12 +10,73 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { MARKET_LABEL_MAP } from '@/lib/constants';
+import { formatPnl, formatWinRate } from '@/lib/formatters';
 import type { BreadcrumbItem } from '@/types';
-import type { Strategy, Paginated } from '@/types/models';
+import type {
+    Strategy,
+    Paginated,
+    StrategyPerformanceEntry,
+} from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Strategies', href: index.url() },
 ];
+
+function performancePnlClass(pnlUsdc: string | null): string {
+    if (!pnlUsdc) return 'text-foreground';
+
+    const pnl = parseFloat(pnlUsdc);
+
+    if (Number.isNaN(pnl) || pnl === 0) {
+        return 'text-foreground';
+    }
+
+    return pnl > 0
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-red-500 dark:text-red-400';
+}
+
+function StrategyPerformanceLine({
+    label,
+    stats,
+    tone,
+}: {
+    label: 'Live' | 'Paper';
+    stats: StrategyPerformanceEntry | undefined;
+    tone: 'blue' | 'amber';
+}) {
+    const toneClasses = {
+        blue: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
+        amber: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    };
+
+    const pnl = stats?.total_pnl_usdc ?? '0.00';
+
+    return (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border/60 bg-muted/35 px-3 py-2 text-sm">
+            <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClasses[tone]}`}
+            >
+                {label}
+            </span>
+            <span className="text-muted-foreground">PnL</span>
+            <span
+                className={`font-semibold tabular-nums ${performancePnlClass(pnl)}`}
+            >
+                {formatPnl(pnl)}
+            </span>
+            <span className="text-muted-foreground/60">/</span>
+            <span className="text-muted-foreground">WR</span>
+            <span className="font-medium tabular-nums">
+                {formatWinRate(stats?.win_rate ?? null)}
+            </span>
+            <span className="text-muted-foreground/60">/</span>
+            <span className="text-muted-foreground tabular-nums">
+                {stats?.total_trades ?? 0} trades
+            </span>
+        </div>
+    );
+}
 
 export default function StrategiesIndex({
     strategies,
@@ -72,7 +133,7 @@ export default function StrategiesIndex({
                                 className="group"
                             >
                                 <Card className="h-full transition hover:border-primary/30 hover:shadow-md">
-                                    <CardContent className="flex h-full items-center justify-between gap-4 py-5">
+                                    <CardContent className="flex h-full items-start justify-between gap-4 py-5">
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-3">
                                                 <h3 className="truncate font-semibold">
@@ -87,6 +148,26 @@ export default function StrategiesIndex({
                                                 {strategy.wallets_count ?? 0}{' '}
                                                 wallet(s)
                                             </p>
+                                            <div className="mt-3 space-y-2">
+                                                <StrategyPerformanceLine
+                                                    label="Live"
+                                                    stats={
+                                                        strategy
+                                                            .performance_stats
+                                                            ?.live
+                                                    }
+                                                    tone="blue"
+                                                />
+                                                <StrategyPerformanceLine
+                                                    label="Paper"
+                                                    stats={
+                                                        strategy
+                                                            .performance_stats
+                                                            ?.paper
+                                                    }
+                                                    tone="amber"
+                                                />
+                                            </div>
                                             {(() => {
                                                 const markets = [
                                                     ...new Set(
@@ -96,7 +177,7 @@ export default function StrategiesIndex({
                                                     ),
                                                 ];
                                                 return markets.length > 0 ? (
-                                                    <div className="mt-2 flex flex-wrap gap-1">
+                                                    <div className="mt-3 flex flex-wrap gap-1">
                                                         {markets.map((m) => (
                                                             <span
                                                                 key={m}

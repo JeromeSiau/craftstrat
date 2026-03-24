@@ -7,6 +7,7 @@ use App\Http\Requests\GenerateStrategyRequest;
 use App\Http\Requests\StoreStrategyRequest;
 use App\Http\Requests\UpdateStrategyRequest;
 use App\Models\Strategy;
+use App\Models\Trade;
 use App\Services\EngineService;
 use App\Services\StrategyActivationService;
 use App\Services\StrategyGeneratorService;
@@ -21,12 +22,27 @@ class StrategyController extends Controller
 {
     public function index(): Response
     {
+        $strategies = auth()->user()->strategies()
+            ->withCount('wallets')
+            ->with('walletStrategies:id,strategy_id,markets')
+            ->latest()
+            ->paginate(20);
+
+        $performanceStats = $this->buildIndexPerformanceStats(
+            $strategies->getCollection()->pluck('id')->all()
+        );
+
+        $strategies->getCollection()->transform(function (Strategy $strategy) use ($performanceStats) {
+            $strategy->setAttribute(
+                'performance_stats',
+                $performanceStats[$strategy->id] ?? $this->emptyPerformanceStats()
+            );
+
+            return $strategy;
+        });
+
         return Inertia::render('strategies/index', [
-            'strategies' => auth()->user()->strategies()
-                ->withCount('wallets')
-                ->with('walletStrategies:id,strategy_id,markets')
-                ->latest()
-                ->paginate(20),
+            'strategies' => $strategies,
         ]);
     }
 
@@ -241,5 +257,90 @@ class StrategyController extends Controller
         }
 
         return back()->with('success', 'Kill switch deactivated — evaluation resumed.');
+    }
+
+    private function buildIndexPerformanceStats(array $strategyIds): array
+    {
+        if ($strategyIds === []) {
+            return [];
+        }
+
+        $performanceStats = collect($strategyIds)
+            ->mapWithKeys(fn (int $strategyId) => [
+                $strategyId => $this->emptyPerformanceStats(),
+            ])
+            ->all();
+
+        $aggregates = Trade::query()
+            ->whereIn('strategy_id', $strategyIds)
+            ->where('side', 'buy')
+            ->selectRaw('strategy_id, is_paper')
+            ->selectRaw('COUNT(*) as total_trades')
+            ->selectRaw("
+                SUM(
+                    CASE
+                        WHEN status = 'won' THEN 1
+                        WHEN status = 'closed'
+                            AND COALESCE(resolved_price, filled_price, price, 0.5)
+                                > COALESCE(filled_price, price, 0.5)
+                            THEN 1
+                        ELSE 0
+                    END
+                ) as won_trades
+            ")
+            ->selectRaw("SUM(CASE WHEN status IN ('won', 'lost', 'closed') THEN 1 ELSE 0 END) as resolved_trades")
+            ->selectRaw("
+                COALESCE(SUM(
+                    CASE
+                        WHEN status IN ('won', 'lost', 'closed')
+                            THEN (
+                                (
+                                    CASE
+                                        WHEN status = 'won' THEN COALESCE(resolved_price, 1.0)
+                                        WHEN status = 'lost' THEN COALESCE(resolved_price, 0.0)
+                                        ELSE COALESCE(resolved_price, filled_price, price, 0.5)
+                                    END
+                                    - COALESCE(filled_price, price, 0.5)
+                                )
+                                / NULLIF(COALESCE(filled_price, price, 0.5), 0)
+                            ) * COALESCE(size_usdc, 0)
+                        ELSE 0
+                    END
+                ), 0) as total_pnl_usdc
+            ")
+            ->groupBy('strategy_id', 'is_paper')
+            ->get();
+
+        foreach ($aggregates as $aggregate) {
+            $mode = $aggregate->is_paper ? 'paper' : 'live';
+            $resolvedTrades = (int) $aggregate->resolved_trades;
+
+            $performanceStats[$aggregate->strategy_id][$mode] = [
+                'total_trades' => (int) $aggregate->total_trades,
+                'win_rate' => $resolvedTrades > 0
+                    ? number_format((int) $aggregate->won_trades / $resolvedTrades, 4, '.', '')
+                    : null,
+                'total_pnl_usdc' => number_format((float) $aggregate->total_pnl_usdc, 2, '.', ''),
+            ];
+        }
+
+        return $performanceStats;
+    }
+
+    private function emptyPerformanceStats(): array
+    {
+        return [
+            'live' => $this->emptyPerformanceEntry(),
+            'paper' => $this->emptyPerformanceEntry(),
+        ];
+    }
+
+    private function emptyPerformanceEntry(): array
+    {
+        return [
+            'total_trades' => 0,
+            'win_rate' => null,
+            'total_pnl_usdc' => '0.00',
+        ];
     }
 }

@@ -1,6 +1,5 @@
 import { Deferred, Head, Link, router, useForm } from '@inertiajs/react';
 import {
-    Activity,
     ArrowLeftRight,
     CircleHelp,
     FlaskConical,
@@ -8,7 +7,6 @@ import {
     OctagonX,
     Pencil,
     Settings2,
-    TrendingUp,
     Wallet,
     X,
 } from 'lucide-react';
@@ -26,7 +24,6 @@ import {
 import BacktestResultsTable from '@/components/backtest-results-table';
 import ConfirmDialog from '@/components/confirm-dialog';
 import InputError from '@/components/input-error';
-import MetricCard from '@/components/metric-card';
 import StatusBadge from '@/components/status-badge';
 import StrategyRulesDisplay, {
     isFormModeGraph,
@@ -45,7 +42,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Tooltip,
     TooltipContent,
@@ -61,13 +57,27 @@ import type { LiveStats, Strategy, Trade } from '@/types/models';
 function LiveDataSkeleton() {
     return (
         <>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                {Array.from({ length: 5 }).map((_, i) => (
+            <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                {Array.from({ length: 2 }).map((_, i) => (
                     <Card key={i} className="relative overflow-hidden">
-                        <CardContent className="pt-5 pb-5">
-                            <div className="space-y-2">
-                                <Skeleton className="h-3 w-24" />
-                                <Skeleton className="h-8 w-20" />
+                        <CardContent className="space-y-4 pt-5 pb-5">
+                            <div className="flex items-center justify-between">
+                                <Skeleton className="h-6 w-16" />
+                                <Skeleton className="h-4 w-20" />
+                            </div>
+                            <div className="flex items-end justify-between gap-4">
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3 w-12" />
+                                    <Skeleton className="h-9 w-28" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Skeleton className="ml-auto h-3 w-16" />
+                                    <Skeleton className="h-7 w-20" />
+                                </div>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <Skeleton className="h-20 w-full" />
+                                <Skeleton className="h-20 w-full" />
                             </div>
                         </CardContent>
                     </Card>
@@ -166,6 +176,100 @@ function LabelWithTooltip({
     );
 }
 
+function pnlColorClass(value: string | null): string {
+    if (!value) return 'text-foreground';
+
+    const parsed = parseFloat(value);
+    if (Number.isNaN(parsed) || parsed === 0) return 'text-foreground';
+
+    return parsed > 0
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-red-500 dark:text-red-400';
+}
+
+function toneBadgeClass(tone: 'blue' | 'amber'): string {
+    return tone === 'blue'
+        ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
+        : 'bg-amber-500/10 text-amber-700 dark:text-amber-300';
+}
+
+function StrategyPerformancePanel({
+    label,
+    tone,
+    stats,
+}: {
+    label: 'Live' | 'Paper';
+    tone: 'blue' | 'amber';
+    stats: LiveStats['live'] | undefined;
+}) {
+    return (
+        <div className="rounded-xl border border-border/70 bg-muted/25 p-4">
+            <div className="flex items-center justify-between gap-3">
+                <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${toneBadgeClass(tone)}`}
+                >
+                    {label}
+                </span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                    {stats?.total_trades ?? 0} trades
+                </span>
+            </div>
+
+            <div className="mt-4 flex items-end justify-between gap-4">
+                <div>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        PnL
+                    </p>
+                    <p
+                        className={`text-3xl font-bold tracking-tight tabular-nums ${pnlColorClass(
+                            stats?.total_pnl_usdc ?? null,
+                        )}`}
+                    >
+                        {formatPnl(stats?.total_pnl_usdc ?? null)}
+                    </p>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Win Rate
+                    </p>
+                    <p className="text-xl font-semibold tabular-nums">
+                        {formatWinRate(stats?.win_rate ?? null)}
+                    </p>
+                </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg bg-background/70 p-3">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Avg Slippage
+                    </p>
+                    <p
+                        className={`mt-1 text-base font-semibold tabular-nums ${bpsColorClass(
+                            stats?.avg_fill_slippage_bps ?? null,
+                            false,
+                        )}`}
+                    >
+                        {formatBps(stats?.avg_fill_slippage_bps ?? null)}
+                    </p>
+                </div>
+                <div className="rounded-lg bg-background/70 p-3">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        1m Markout
+                    </p>
+                    <p
+                        className={`mt-1 text-base font-semibold tabular-nums ${bpsColorClass(
+                            stats?.avg_markout_bps_60s ?? null,
+                            true,
+                        )}`}
+                    >
+                        {formatBps(stats?.avg_markout_bps_60s ?? null)}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function StrategiesShow({
     strategy,
     liveStats,
@@ -189,20 +293,6 @@ export default function StrategiesShow({
 
     const currentStats = liveStats?.live;
     const paperStats = liveStats?.paper;
-    const pnlValue = currentStats?.total_pnl_usdc
-        ? parseFloat(currentStats.total_pnl_usdc)
-        : 0;
-    const pnlTrend =
-        pnlValue > 0 ? 'up' : pnlValue < 0 ? 'down' : ('neutral' as const);
-    const paperPnlValue = paperStats?.total_pnl_usdc
-        ? parseFloat(paperStats.total_pnl_usdc)
-        : 0;
-    const paperPnlTrend =
-        paperPnlValue > 0
-            ? 'up'
-            : paperPnlValue < 0
-              ? 'down'
-              : ('neutral' as const);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -437,161 +527,42 @@ export default function StrategiesShow({
                     data={['liveStats', 'recentTrades']}
                     fallback={<LiveDataSkeleton />}
                 >
-                    <Tabs defaultValue="live" className="mt-6">
-                        <TabsList>
-                            <TabsTrigger value="live">Live</TabsTrigger>
-                            <TabsTrigger value="paper">Paper</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="live">
-                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                                <MetricCard
-                                    label="Total Trades"
-                                    value={currentStats?.total_trades ?? 0}
-                                    icon={Activity}
-                                />
-                                <MetricCard
-                                    label="Win Rate"
-                                    value={formatWinRate(
-                                        currentStats?.win_rate ?? null,
-                                    )}
-                                    icon={TrendingUp}
-                                />
-                                <MetricCard
-                                    label="PnL"
-                                    value={formatPnl(
-                                        currentStats?.total_pnl_usdc ?? null,
-                                    )}
-                                    icon={ArrowLeftRight}
-                                    trend={
-                                        currentStats?.total_pnl_usdc
-                                            ? pnlTrend
-                                            : undefined
-                                    }
-                                />
-                                <MetricCard
-                                    label="Avg Slippage"
-                                    value={formatBps(
-                                        currentStats?.avg_fill_slippage_bps ??
-                                            null,
-                                    )}
-                                    icon={Settings2}
-                                    trend={
-                                        currentStats?.avg_fill_slippage_bps
-                                            ? parseFloat(
-                                                  currentStats.avg_fill_slippage_bps,
-                                              ) > 0
-                                                ? 'down'
-                                                : parseFloat(
-                                                        currentStats.avg_fill_slippage_bps,
-                                                    ) < 0
-                                                  ? 'up'
-                                                  : 'neutral'
-                                            : undefined
-                                    }
-                                />
-                                <MetricCard
-                                    label={
-                                        <LabelWithTooltip
-                                            label="1m Markout"
-                                            tooltip={markoutTooltipText}
-                                        />
-                                    }
-                                    value={formatBps(
-                                        currentStats?.avg_markout_bps_60s ??
-                                            null,
-                                    )}
-                                    icon={LineChart}
-                                    trend={
-                                        currentStats?.avg_markout_bps_60s
-                                            ? parseFloat(
-                                                  currentStats.avg_markout_bps_60s,
-                                              ) > 0
-                                                ? 'up'
-                                                : parseFloat(
-                                                        currentStats.avg_markout_bps_60s,
-                                                    ) < 0
-                                                  ? 'down'
-                                                  : 'neutral'
-                                            : undefined
-                                    }
+                    <Card className="mt-6 border-l-4 border-l-sky-500/50">
+                        <CardHeader>
+                            <div className="flex items-center gap-3">
+                                <div className="rounded-lg bg-sky-500/10 p-2 dark:bg-sky-500/15">
+                                    <ArrowLeftRight className="size-4 text-sky-600 dark:text-sky-400" />
+                                </div>
+                                <div>
+                                    <CardTitle>Performance overview</CardTitle>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Live and paper side by side for a quick
+                                        comparison.
+                                    </p>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="mb-4">
+                                <LabelWithTooltip
+                                    label="1m markout compares post-fill drift 60 seconds after execution."
+                                    tooltip={markoutTooltipText}
                                 />
                             </div>
-                        </TabsContent>
-                        <TabsContent value="paper">
-                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                                <MetricCard
-                                    label="Total Trades"
-                                    value={paperStats?.total_trades ?? 0}
-                                    icon={Activity}
+                            <div className="grid gap-4 xl:grid-cols-2">
+                                <StrategyPerformancePanel
+                                    label="Live"
+                                    tone="blue"
+                                    stats={currentStats}
                                 />
-                                <MetricCard
-                                    label="Win Rate"
-                                    value={formatWinRate(
-                                        paperStats?.win_rate ?? null,
-                                    )}
-                                    icon={TrendingUp}
-                                />
-                                <MetricCard
-                                    label="PnL"
-                                    value={formatPnl(
-                                        paperStats?.total_pnl_usdc ?? null,
-                                    )}
-                                    icon={ArrowLeftRight}
-                                    trend={
-                                        paperStats?.total_pnl_usdc
-                                            ? paperPnlTrend
-                                            : undefined
-                                    }
-                                />
-                                <MetricCard
-                                    label="Avg Slippage"
-                                    value={formatBps(
-                                        paperStats?.avg_fill_slippage_bps ??
-                                            null,
-                                    )}
-                                    icon={Settings2}
-                                    trend={
-                                        paperStats?.avg_fill_slippage_bps
-                                            ? parseFloat(
-                                                  paperStats.avg_fill_slippage_bps,
-                                              ) > 0
-                                                ? 'down'
-                                                : parseFloat(
-                                                        paperStats.avg_fill_slippage_bps,
-                                                    ) < 0
-                                                  ? 'up'
-                                                  : 'neutral'
-                                            : undefined
-                                    }
-                                />
-                                <MetricCard
-                                    label={
-                                        <LabelWithTooltip
-                                            label="1m Markout"
-                                            tooltip={markoutTooltipText}
-                                        />
-                                    }
-                                    value={formatBps(
-                                        paperStats?.avg_markout_bps_60s ?? null,
-                                    )}
-                                    icon={LineChart}
-                                    trend={
-                                        paperStats?.avg_markout_bps_60s
-                                            ? parseFloat(
-                                                  paperStats.avg_markout_bps_60s,
-                                              ) > 0
-                                                ? 'up'
-                                                : parseFloat(
-                                                        paperStats.avg_markout_bps_60s,
-                                                    ) < 0
-                                                  ? 'down'
-                                                  : 'neutral'
-                                            : undefined
-                                    }
+                                <StrategyPerformancePanel
+                                    label="Paper"
+                                    tone="amber"
+                                    stats={paperStats}
                                 />
                             </div>
-                        </TabsContent>
-                    </Tabs>
+                        </CardContent>
+                    </Card>
 
                     <Card className="mt-6 border-l-4 border-l-emerald-500/50">
                         <CardHeader>
