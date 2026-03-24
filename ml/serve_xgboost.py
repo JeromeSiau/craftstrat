@@ -12,7 +12,8 @@ from xgboost_pipeline import load_bundle, score_rows
 
 
 def build_handler(model_dir: str):
-    booster, metadata = load_bundle(model_dir)
+    bundle = load_bundle(model_dir)
+    metadata = bundle.metadata
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "craftstrat-ml/0.1"
@@ -37,6 +38,8 @@ def build_handler(model_dir: str):
                             0.0,
                         ),
                         "recommended_policy": metadata.get("policy", {}).get("recommended", {}),
+                        "rl_like": metadata.get("rl_like", {}),
+                        "aux_models": sorted(bundle.aux_models.keys()),
                     }
                 )
                 return
@@ -79,7 +82,7 @@ def build_handler(model_dir: str):
                 )
                 return
 
-            predictions = score_rows(rows, booster, metadata)
+            predictions = score_rows(rows, bundle)
             response: dict[str, Any] = {
                 "count": len(predictions),
                 "predictions": predictions,

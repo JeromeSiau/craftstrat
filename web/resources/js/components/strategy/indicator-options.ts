@@ -65,6 +65,35 @@ export const indicators = [
     { value: 'hour_utc', label: 'Hour (UTC)', category: 'Time' },
     { value: 'day_of_week', label: 'Day of Week', category: 'Time' },
     { value: 'market_volume_usd', label: 'Volume (USD)', category: 'Volume' },
+    { value: 'position_is_open', label: 'Position Is Open', category: 'Position' },
+    { value: 'position_is_up', label: 'Position Is UP', category: 'Position' },
+    { value: 'position_is_down', label: 'Position Is DOWN', category: 'Position' },
+    {
+        value: 'position_entry_price',
+        label: 'Position Entry Price',
+        category: 'Position',
+    },
+    {
+        value: 'position_size_usdc',
+        label: 'Position Size (USDC)',
+        category: 'Position',
+    },
+    { value: 'position_age_sec', label: 'Position Age (s)', category: 'Position' },
+    {
+        value: 'position_current_price',
+        label: 'Position Exit Price Now',
+        category: 'Position',
+    },
+    {
+        value: 'position_unrealized_pnl_pct',
+        label: 'Position Unrealized PnL %',
+        category: 'Position',
+    },
+    {
+        value: 'position_unrealized_pnl_usdc',
+        label: 'Position Unrealized PnL USDC',
+        category: 'Position',
+    },
 ] as const;
 
 export const operators = [

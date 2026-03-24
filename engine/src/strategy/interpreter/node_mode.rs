@@ -2,9 +2,9 @@ use std::collections::{HashMap, VecDeque};
 
 use serde_json::Value;
 
-use super::{build_action_signal, resolve_indicator};
+use super::{build_action_signal, resolve_field, resolve_indicator};
 use crate::fetcher::models::Tick;
-use crate::strategy::eval::{evaluate_op, get_field};
+use crate::strategy::eval::evaluate_op;
 use crate::strategy::state::StrategyState;
 use crate::strategy::{Outcome, Signal};
 use crate::tasks::api_fetch_task::ApiFetchCache;
@@ -145,7 +145,7 @@ pub(super) fn evaluate_node(
         let result = match node_type {
             "input" => {
                 let field = data["field"].as_str().unwrap_or("");
-                get_field(tick, field)
+                resolve_field(field, tick, state)
                     .map(NodeValue::Number)
                     .unwrap_or(NodeValue::Number(0.0))
             }

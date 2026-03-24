@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 import math
 from dataclasses import dataclass
@@ -14,6 +15,16 @@ FEATURE_PREFIX = "f_"
 TARGET_FIELD = "target_up"
 DEFAULT_MODEL_NAME = "model.json"
 DEFAULT_METADATA_NAME = "metadata.json"
+ENTRY_UP_MODEL_NAME = "entry_up_value_model.json"
+ENTRY_DOWN_MODEL_NAME = "entry_down_value_model.json"
+EXIT_UP_MODEL_NAME = "exit_up_advantage_model.json"
+EXIT_DOWN_MODEL_NAME = "exit_down_advantage_model.json"
+AUX_MODEL_FILES = {
+    "entry_up": ENTRY_UP_MODEL_NAME,
+    "entry_down": ENTRY_DOWN_MODEL_NAME,
+    "exit_up": EXIT_UP_MODEL_NAME,
+    "exit_down": EXIT_DOWN_MODEL_NAME,
+}
 
 
 @dataclass
@@ -48,6 +59,23 @@ class SplitBundle:
     val: DataSplit
     test: DataSplit
     feature_names: list[str]
+
+
+@dataclass
+class ModelBundle:
+    booster: xgb.Booster
+    metadata: dict[str, Any]
+    aux_models: dict[str, xgb.Booster]
+
+
+@dataclass
+class RLLikeTargets:
+    entry_up: np.ndarray
+    entry_down: np.ndarray
+    hold_advantage_up: np.ndarray
+    hold_advantage_down: np.ndarray
+    optimal_value_up: np.ndarray
+    optimal_value_down: np.ndarray
 
 
 def parse_timestamp(value: str) -> datetime:
@@ -271,6 +299,84 @@ def build_policy_inputs(rows: list[dict[str, Any]]) -> PolicyInputs:
     )
 
 
+def grouped_row_indices(rows: list[dict[str, Any]]) -> list[list[int]]:
+    groups: list[list[int]] = []
+    current_key: tuple[int, int, str] | None = None
+    current_group: list[int] = []
+
+    for idx, row in enumerate(rows):
+        key = (
+            int(row["slot_duration"]),
+            int(row["slot_ts"]),
+            str(row["symbol"]),
+        )
+        if current_key is not None and key != current_key:
+            groups.append(current_group)
+            current_group = []
+        current_group.append(idx)
+        current_key = key
+
+    if current_group:
+        groups.append(current_group)
+
+    return groups
+
+
+def derive_rl_like_targets(
+    rows: list[dict[str, Any]],
+    labels: np.ndarray,
+    gamma: float = 0.999,
+) -> RLLikeTargets:
+    size = len(rows)
+    ask_up = feature_array(rows, "f_ask_up")
+    ask_down = feature_array(rows, "f_ask_down")
+    bid_up = feature_array(rows, "f_bid_up")
+    bid_down = feature_array(rows, "f_bid_down")
+
+    entry_up = np.zeros(size, dtype=np.float64)
+    entry_down = np.zeros(size, dtype=np.float64)
+    hold_advantage_up = np.zeros(size, dtype=np.float64)
+    hold_advantage_down = np.zeros(size, dtype=np.float64)
+    optimal_value_up = np.zeros(size, dtype=np.float64)
+    optimal_value_down = np.zeros(size, dtype=np.float64)
+
+    gamma = float(max(0.0, min(1.0, gamma)))
+
+    for group in grouped_row_indices(rows):
+        if not group:
+            continue
+
+        terminal_up = 1.0 if float(labels[group[-1]]) >= 0.5 else 0.0
+        terminal_down = 1.0 - terminal_up
+        future_up = terminal_up
+        future_down = terminal_down
+
+        for idx in reversed(group):
+            continue_up = gamma * future_up
+            continue_down = gamma * future_down
+            exit_now_up = float(max(bid_up[idx], 0.0))
+            exit_now_down = float(max(bid_down[idx], 0.0))
+
+            hold_advantage_up[idx] = continue_up - exit_now_up
+            hold_advantage_down[idx] = continue_down - exit_now_down
+            optimal_value_up[idx] = max(exit_now_up, continue_up)
+            optimal_value_down[idx] = max(exit_now_down, continue_down)
+            entry_up[idx] = continue_up - float(max(ask_up[idx], 0.0))
+            entry_down[idx] = continue_down - float(max(ask_down[idx], 0.0))
+
+            future_up = float(optimal_value_up[idx])
+            future_down = float(optimal_value_down[idx])
+
+    return RLLikeTargets(
+        entry_up=entry_up,
+        entry_down=entry_down,
+        hold_advantage_up=hold_advantage_up,
+        hold_advantage_down=hold_advantage_down,
+        optimal_value_up=optimal_value_up,
+        optimal_value_down=optimal_value_down,
+    )
+
+
 def max_drawdown(pnl: np.ndarray) -> float:
     if pnl.size == 0:
         return 0.0
@@ -290,6 +396,157 @@ def sharpe_like(pnl: np.ndarray) -> float:
         return float(np.mean(pnl))
 
     return float(np.mean(pnl) / std * math.sqrt(pnl.size))
+
+
+def rmse(labels: np.ndarray, preds: np.ndarray) -> float:
+    if labels.size == 0:
+        return 0.0
+    return float(np.sqrt(np.mean((preds - labels) ** 2)))
+
+
+def mae(labels: np.ndarray, preds: np.ndarray) -> float:
+    if labels.size == 0:
+        return 0.0
+    return float(np.mean(np.abs(preds - labels)))
+
+
+def correlation(labels: np.ndarray, preds: np.ndarray) -> float:
+    if labels.size < 2:
+        return 0.0
+
+    labels_std = float(np.std(labels))
+    preds_std = float(np.std(preds))
+    if labels_std <= 1e-12 or preds_std <= 1e-12:
+        return 0.0
+
+    return float(np.corrcoef(labels, preds)[0, 1])
+
+
+def regression_metrics(labels: np.ndarray, preds: np.ndarray) -> dict[str, float]:
+    return {
+        "rmse": round(rmse(labels, preds), 6),
+        "mae": round(mae(labels, preds), 6),
+        "corr": round(correlation(labels, preds), 6),
+        "sign_accuracy": round(
+            float(np.mean((preds > 0.0) == (labels > 0.0))) if labels.size > 0 else 0.0,
+            6,
+        ),
+    }
+
+
+def entry_policy_masks(
+    entry_value_up: np.ndarray,
+    entry_value_down: np.ndarray,
+    min_value: float,
+) -> dict[str, np.ndarray]:
+    take_up = (entry_value_up >= min_value) & (entry_value_up >= entry_value_down)
+    take_down = (entry_value_down >= min_value) & (entry_value_down > entry_value_up)
+    return {
+        "take_up": take_up,
+        "take_down": take_down,
+        "take_trade": take_up | take_down,
+    }
+
+
+def evaluate_entry_policy(
+    entry_value_up: np.ndarray,
+    entry_value_down: np.ndarray,
+    realized_entry_up: np.ndarray,
+    realized_entry_down: np.ndarray,
+    min_value: float,
+) -> dict[str, Any]:
+    masks = entry_policy_masks(entry_value_up, entry_value_down, min_value)
+    take_up = masks["take_up"]
+    take_down = masks["take_down"]
+    take_trade = masks["take_trade"]
+    trade_count = int(np.sum(take_trade))
+
+    summary = {
+        "min_value": round(float(min_value), 6),
+        "trades": trade_count,
+        "up_trades": int(np.sum(take_up)),
+        "down_trades": int(np.sum(take_down)),
+        "total_reward_per_contract": 0.0,
+        "avg_reward_per_trade": 0.0,
+        "win_rate": 0.0,
+        "max_drawdown_per_contract": 0.0,
+        "reward_to_drawdown": 0.0,
+        "sharpe_like": 0.0,
+    }
+    if trade_count == 0:
+        return summary
+
+    reward = np.zeros(realized_entry_up.shape[0], dtype=np.float64)
+    reward[take_up] = realized_entry_up[take_up]
+    reward[take_down] = realized_entry_down[take_down]
+    trade_reward = reward[take_trade]
+    total_reward = float(np.sum(trade_reward))
+    avg_reward = float(np.mean(trade_reward))
+    dd = max_drawdown(trade_reward)
+
+    summary.update(
+        {
+            "total_reward_per_contract": round(total_reward, 6),
+            "avg_reward_per_trade": round(avg_reward, 6),
+            "win_rate": round(float(np.mean(trade_reward > 0.0)), 6),
+            "max_drawdown_per_contract": round(dd, 6),
+            "reward_to_drawdown": round(total_reward / dd, 6) if dd > 1e-9 else round(total_reward, 6),
+            "sharpe_like": round(sharpe_like(trade_reward), 6),
+        }
+    )
+    return summary
+
+
+def sweep_entry_value_thresholds(
+    entry_value_up: np.ndarray,
+    entry_value_down: np.ndarray,
+    realized_entry_up: np.ndarray,
+    realized_entry_down: np.ndarray,
+) -> dict[str, Any]:
+    thresholds = np.arange(0.0, 0.2001, 0.005, dtype=np.float32)
+    min_trades = max(25, entry_value_up.shape[0] // 200)
+    best: dict[str, Any] | None = None
+
+    def is_better(candidate: dict[str, Any], incumbent: dict[str, Any] | None) -> bool:
+        if incumbent is None:
+            return True
+
+        candidate_key = (
+            candidate["total_reward_per_contract"],
+            candidate["reward_to_drawdown"],
+            candidate["avg_reward_per_trade"],
+            candidate["sharpe_like"],
+            -candidate["trades"],
+        )
+        incumbent_key = (
+            incumbent["total_reward_per_contract"],
+            incumbent["reward_to_drawdown"],
+            incumbent["avg_reward_per_trade"],
+            incumbent["sharpe_like"],
+            -incumbent["trades"],
+        )
+        return candidate_key > incumbent_key
+
+    for min_value in thresholds:
+        candidate = evaluate_entry_policy(
+            entry_value_up=entry_value_up,
+            entry_value_down=entry_value_down,
+            realized_entry_up=realized_entry_up,
+            realized_entry_down=realized_entry_down,
+            min_value=float(min_value),
+        )
+        if candidate["trades"] < min_trades:
+            continue
+        if is_better(candidate, best):
+            best = candidate
+
+    return best or evaluate_entry_policy(
+        entry_value_up=entry_value_up,
+        entry_value_down=entry_value_down,
+        realized_entry_up=realized_entry_up,
+        realized_entry_down=realized_entry_down,
+        min_value=0.0,
+    )
 
 
 def recommended_policy(metadata: dict[str, Any]) -> dict[str, float]:
@@ -531,12 +788,20 @@ def load_metadata(path: str | Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def load_bundle(model_dir: str | Path) -> tuple[xgb.Booster, dict[str, Any]]:
+def load_bundle(model_dir: str | Path) -> ModelBundle:
     base = Path(model_dir)
     booster = xgb.Booster()
     booster.load_model(base / DEFAULT_MODEL_NAME)
     metadata = load_metadata(base / DEFAULT_METADATA_NAME)
-    return booster, metadata
+    aux_models: dict[str, xgb.Booster] = {}
+    for key, filename in AUX_MODEL_FILES.items():
+        path = base / filename
+        if not path.exists():
+            continue
+        aux_booster = xgb.Booster()
+        aux_booster.load_model(path)
+        aux_models[key] = aux_booster
+    return ModelBundle(booster=booster, metadata=metadata, aux_models=aux_models)
 
 
 def rows_to_matrix(rows: list[dict[str, Any]], feature_names: list[str]) -> np.ndarray:
@@ -546,11 +811,31 @@ def rows_to_matrix(rows: list[dict[str, Any]], feature_names: list[str]) -> np.n
     )
 
 
+def predict_regression(
+    booster: xgb.Booster,
+    X: np.ndarray,
+    feature_names: list[str],
+) -> np.ndarray:
+    matrix = build_matrix(X, None, feature_names)
+    return np.asarray(booster.predict(matrix), dtype=np.float64)
+
+
 def score_rows(
     rows: list[dict[str, Any]],
-    booster: xgb.Booster,
-    metadata: dict[str, Any],
+    bundle_or_booster: ModelBundle | xgb.Booster,
+    metadata: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
+    if isinstance(bundle_or_booster, ModelBundle):
+        bundle = bundle_or_booster
+    else:
+        bundle = ModelBundle(
+            booster=bundle_or_booster,
+            metadata=metadata or {},
+            aux_models={},
+        )
+
+    booster = bundle.booster
+    metadata = bundle.metadata
     feature_names = metadata["feature_names"]
     X = rows_to_matrix(rows, feature_names)
     matrix = build_matrix(X, None, feature_names)
@@ -568,6 +853,34 @@ def score_rows(
         policy=policy,
     )
     recommended_min_edge = float(policy["min_edge"])
+    rl_like = metadata.get("rl_like", {})
+    entry_policy = rl_like.get("entry_policy", {}).get("recommended", {})
+    exit_policy = rl_like.get("exit_policy", {}).get("recommended", {})
+    entry_min_value = float(entry_policy.get("min_value", 0.0))
+    exit_threshold = float(exit_policy.get("hold_advantage_threshold", 0.0))
+
+    zero_values = np.zeros(len(rows), dtype=np.float64)
+    entry_value_up = (
+        predict_regression(bundle.aux_models["entry_up"], X, feature_names)
+        if "entry_up" in bundle.aux_models
+        else zero_values
+    )
+    entry_value_down = (
+        predict_regression(bundle.aux_models["entry_down"], X, feature_names)
+        if "entry_down" in bundle.aux_models
+        else zero_values
+    )
+    exit_hold_advantage_up = (
+        predict_regression(bundle.aux_models["exit_up"], X, feature_names)
+        if "exit_up" in bundle.aux_models
+        else zero_values
+    )
+    exit_hold_advantage_down = (
+        predict_regression(bundle.aux_models["exit_down"], X, feature_names)
+        if "exit_down" in bundle.aux_models
+        else zero_values
+    )
+    entry_masks = entry_policy_masks(entry_value_up, entry_value_down, entry_min_value)
 
     predictions: list[dict[str, Any]] = []
     for idx, row in enumerate(rows):
@@ -612,6 +925,18 @@ def score_rows(
                 "policy_min_pct_into_slot": round(float(policy["min_pct_into_slot"]), 6),
                 "policy_max_pct_into_slot": round(float(policy["max_pct_into_slot"]), 6),
                 "policy_min_log_volume": round(float(policy["min_log_volume"]), 6),
+                "entry_value_up": round(float(entry_value_up[idx]), 6),
+                "entry_value_down": round(float(entry_value_down[idx]), 6),
+                "entry_take_trade": bool(entry_masks["take_trade"][idx]),
+                "entry_take_up": bool(entry_masks["take_up"][idx]),
+                "entry_take_down": bool(entry_masks["take_down"][idx]),
+                "entry_signal": 1 if bool(entry_masks["take_up"][idx]) else (-1 if bool(entry_masks["take_down"][idx]) else 0),
+                "entry_policy_min_value": round(entry_min_value, 6),
+                "exit_hold_advantage_up": round(float(exit_hold_advantage_up[idx]), 6),
+                "exit_hold_advantage_down": round(float(exit_hold_advantage_down[idx]), 6),
+                "exit_signal_up": bool(exit_hold_advantage_up[idx] <= exit_threshold),
+                "exit_signal_down": bool(exit_hold_advantage_down[idx] <= exit_threshold),
+                "exit_policy_hold_threshold": round(exit_threshold, 6),
                 "kelly_up_full": round(kelly_fraction(proba_up, ask_up, 1.0), 6),
                 "kelly_up_half": round(kelly_fraction(proba_up, ask_up, 0.5), 6),
                 "kelly_down_full": round(kelly_fraction(proba_down, ask_down, 1.0), 6),

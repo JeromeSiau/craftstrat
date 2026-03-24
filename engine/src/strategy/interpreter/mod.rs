@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::eval::get_field;
 use super::indicators;
-use super::state::StrategyState;
+use super::state::{Position, StrategyState};
 use super::{OrderType, Outcome, Signal};
 use crate::fetcher::models::Tick;
 use crate::tasks::api_fetch_task::ApiFetchCache;
@@ -132,6 +132,60 @@ fn evaluate_graph_signal(
 
 // ── Shared utilities (used by both form_mode and node_mode) ──────────
 
+fn position_mark_price(position: &Position, tick: &Tick) -> f64 {
+    match position.outcome {
+        Outcome::Up => tick.bid_up as f64,
+        Outcome::Down => tick.bid_down as f64,
+    }
+}
+
+pub(super) fn resolve_field(name: &str, tick: &Tick, state: &StrategyState) -> Option<f64> {
+    if let Some(value) = get_field(tick, name) {
+        return Some(value);
+    }
+
+    let position = state.position.as_ref();
+    let current_price = position
+        .map(|pos| position_mark_price(pos, tick))
+        .unwrap_or(0.0);
+    let unrealized_pct = position
+        .filter(|pos| pos.entry_price > 0.0 && current_price > 0.0)
+        .map(|pos| (current_price - pos.entry_price) / pos.entry_price * 100.0)
+        .unwrap_or(0.0);
+    let unrealized_usdc = position
+        .map(|pos| unrealized_pct / 100.0 * pos.size_usdc)
+        .unwrap_or(0.0);
+
+    match name {
+        "position_is_open" => Some(if position.is_some() { 1.0 } else { 0.0 }),
+        "position_is_up" => Some(
+            if matches!(position.map(|pos| pos.outcome), Some(Outcome::Up)) {
+                1.0
+            } else {
+                0.0
+            },
+        ),
+        "position_is_down" => Some(
+            if matches!(position.map(|pos| pos.outcome), Some(Outcome::Down)) {
+                1.0
+            } else {
+                0.0
+            },
+        ),
+        "position_entry_price" => Some(position.map(|pos| pos.entry_price).unwrap_or(0.0)),
+        "position_size_usdc" => Some(position.map(|pos| pos.size_usdc).unwrap_or(0.0)),
+        "position_age_sec" => Some(
+            position
+                .map(|pos| (tick.captured_at.unix_timestamp() - pos.entry_at).max(0) as f64)
+                .unwrap_or(0.0),
+        ),
+        "position_current_price" => Some(current_price),
+        "position_unrealized_pnl_pct" => Some(unrealized_pct),
+        "position_unrealized_pnl_usdc" => Some(unrealized_usdc),
+        _ => None,
+    }
+}
+
 pub(super) fn resolve_indicator(
     indicator: &Value,
     tick: &Tick,
@@ -139,7 +193,7 @@ pub(super) fn resolve_indicator(
 ) -> Option<f64> {
     // String → direct tick field (stateless)
     if let Some(name) = indicator.as_str() {
-        return get_field(tick, name);
+        return resolve_field(name, tick, state);
     }
 
     // Object → stateful indicator function
@@ -383,7 +437,10 @@ mod tests {
             }
             _ => panic!("expected Sell, got {:?}", signal),
         }
-        assert!(state.position.is_none(), "position should be cleared on exit signal");
+        assert!(
+            state.position.is_none(),
+            "position should be cleared on exit signal"
+        );
     }
 
     #[test]
@@ -410,6 +467,61 @@ mod tests {
         let signal = evaluate(&graph, &tick, &mut state);
 
         assert!(matches!(signal, Signal::Hold));
-        assert!(state.position.is_some(), "position should stay open without exit signal");
+        assert!(
+            state.position.is_some(),
+            "position should stay open without exit signal"
+        );
+    }
+
+    #[test]
+    fn test_position_fields_resolve_for_open_up_position() {
+        let tick = test_tick();
+        let mut state = StrategyState::new(100);
+        state.position = Some(crate::strategy::state::Position {
+            outcome: Outcome::Up,
+            entry_price: 0.50,
+            size_usdc: 42.0,
+            entry_at: 1_700_000_000,
+            symbol: tick.symbol.clone(),
+        });
+
+        assert_eq!(resolve_field("position_is_open", &tick, &state), Some(1.0));
+        assert_eq!(resolve_field("position_is_up", &tick, &state), Some(1.0));
+        assert_eq!(resolve_field("position_is_down", &tick, &state), Some(0.0));
+        assert_eq!(
+            resolve_field("position_entry_price", &tick, &state),
+            Some(0.50)
+        );
+        assert_eq!(
+            resolve_field("position_size_usdc", &tick, &state),
+            Some(42.0)
+        );
+        assert_eq!(
+            resolve_field("position_current_price", &tick, &state),
+            Some(tick.bid_up as f64)
+        );
+        assert!(resolve_field("position_unrealized_pnl_pct", &tick, &state)
+            .is_some_and(|value| value > 0.0));
+        assert_eq!(
+            resolve_field("position_age_sec", &tick, &state),
+            Some((tick.captured_at.unix_timestamp() - 1_700_000_000) as f64)
+        );
+    }
+
+    #[test]
+    fn test_position_fields_default_to_zero_without_position() {
+        let tick = test_tick();
+        let state = StrategyState::new(100);
+
+        assert_eq!(resolve_field("position_is_open", &tick, &state), Some(0.0));
+        assert_eq!(resolve_field("position_is_up", &tick, &state), Some(0.0));
+        assert_eq!(
+            resolve_field("position_current_price", &tick, &state),
+            Some(0.0)
+        );
+        assert_eq!(
+            resolve_field("position_unrealized_pnl_usdc", &tick, &state),
+            Some(0.0)
+        );
     }
 }
