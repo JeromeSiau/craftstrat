@@ -42,7 +42,8 @@ class BacktestController extends Controller
         $validated = $request->validated();
 
         try {
-            $engineResult = $engine->runBacktest(
+            $engineResult = $this->runEngineBacktest(
+                $engine,
                 $strategy->graph,
                 $validated['market_filter'] ?? [],
                 $validated['date_from'],
@@ -52,47 +53,13 @@ class BacktestController extends Controller
             return back()->with('error', 'Failed to run backtest. Engine may be unavailable.');
         }
 
-        $trades = collect($engineResult['trades'] ?? []);
-        $cumulative = 0.0;
-        $transformedTrades = $trades->map(function (array $trade, int $i) use (&$cumulative) {
-            $pnl = $trade['pnl_usdc'] ?? 0;
-            $cumulative += $pnl;
-
-            return [
-                'tick_index' => $i,
-                'side' => $trade['side'] ?? 'buy',
-                'outcome' => strtoupper($trade['outcome'] ?? 'UP'),
-                'entry_price' => $trade['entry_price'] ?? 0,
-                'entry_reference_price' => $trade['entry_reference_price'] ?? ($trade['entry_price'] ?? 0),
-                'entry_slippage_bps' => round((float) ($trade['entry_slippage_bps'] ?? 0), 2),
-                'entry_book_depth_usdc' => round((float) ($trade['entry_book_depth_usdc'] ?? 0), 4),
-                'entry_depth_ratio' => round((float) ($trade['entry_depth_ratio'] ?? 0), 6),
-                'exit_price' => $trade['exit_price'] ?? null,
-                'exit_reference_price' => $trade['exit_reference_price'] ?? null,
-                'exit_slippage_bps' => isset($trade['exit_slippage_bps']) ? round((float) $trade['exit_slippage_bps'], 2) : null,
-                'exit_book_depth_usdc' => isset($trade['exit_book_depth_usdc']) ? round((float) $trade['exit_book_depth_usdc'], 4) : null,
-                'exit_depth_ratio' => isset($trade['exit_depth_ratio']) ? round((float) $trade['exit_depth_ratio'], 6) : null,
-                'pnl' => round($pnl, 6),
-                'cumulative_pnl' => round($cumulative, 6),
-                'symbol' => $trade['symbol'] ?? null,
-                'entry_at' => $trade['entry_at'] ?? null,
-                'exit_at' => $trade['exit_at'] ?? null,
-                'exit_reason' => $trade['exit_reason'] ?? null,
-            ];
-        })->all();
-
         $result = BacktestResult::create([
             'user_id' => $request->user()->id,
             'strategy_id' => $strategy->id,
             'market_filter' => $validated['market_filter'] ?? null,
             'date_from' => $validated['date_from'],
             'date_to' => $validated['date_to'],
-            'total_trades' => $engineResult['total_trades'] ?? null,
-            'win_rate' => $engineResult['win_rate'] ?? null,
-            'total_pnl_usdc' => $engineResult['total_pnl_usdc'] ?? null,
-            'max_drawdown' => $engineResult['max_drawdown'] ?? null,
-            'sharpe_ratio' => $engineResult['sharpe_ratio'] ?? null,
-            'result_detail' => ['trades' => $transformedTrades],
+            ...$this->backtestResultPayload($engineResult),
         ]);
 
         return to_route('backtests.show', $result)->with('success', 'Backtest completed.');
@@ -114,7 +81,8 @@ class BacktestController extends Controller
         $result->load('strategy');
 
         try {
-            $engineResult = $engine->runBacktest(
+            $engineResult = $this->runEngineBacktest(
+                $engine,
                 $result->strategy->graph,
                 $result->market_filter ?? [],
                 $result->date_from->toDateString(),
@@ -124,10 +92,39 @@ class BacktestController extends Controller
             return back()->with('error', 'Failed to run backtest. Engine may be unavailable.');
         }
 
-        $trades = collect($engineResult['trades'] ?? []);
+        $result->update($this->backtestResultPayload($engineResult));
+
+        return back()->with('success', 'Backtest re-run completed.');
+    }
+
+    private function runEngineBacktest(
+        EngineService $engine,
+        array $graph,
+        array $marketFilter,
+        string $dateFrom,
+        string $dateTo,
+    ): array {
+        return $engine->runBacktest($graph, $marketFilter, $dateFrom, $dateTo);
+    }
+
+    private function backtestResultPayload(array $engineResult): array
+    {
+        return [
+            'total_trades' => $engineResult['total_trades'] ?? null,
+            'win_rate' => $engineResult['win_rate'] ?? null,
+            'total_pnl_usdc' => $engineResult['total_pnl_usdc'] ?? null,
+            'max_drawdown' => $engineResult['max_drawdown'] ?? null,
+            'sharpe_ratio' => $engineResult['sharpe_ratio'] ?? null,
+            'result_detail' => ['trades' => $this->transformTrades($engineResult['trades'] ?? [])],
+        ];
+    }
+
+    private function transformTrades(array $trades): array
+    {
         $cumulative = 0.0;
-        $transformedTrades = $trades->map(function (array $trade, int $i) use (&$cumulative) {
-            $pnl = $trade['pnl_usdc'] ?? 0;
+
+        return collect($trades)->map(function (array $trade, int $i) use (&$cumulative) {
+            $pnl = (float) ($trade['pnl_usdc'] ?? 0);
             $cumulative += $pnl;
 
             return [
@@ -152,16 +149,5 @@ class BacktestController extends Controller
                 'exit_reason' => $trade['exit_reason'] ?? null,
             ];
         })->all();
-
-        $result->update([
-            'total_trades' => $engineResult['total_trades'] ?? null,
-            'win_rate' => $engineResult['win_rate'] ?? null,
-            'total_pnl_usdc' => $engineResult['total_pnl_usdc'] ?? null,
-            'max_drawdown' => $engineResult['max_drawdown'] ?? null,
-            'sharpe_ratio' => $engineResult['sharpe_ratio'] ?? null,
-            'result_detail' => ['trades' => $transformedTrades],
-        ]);
-
-        return back()->with('success', 'Backtest re-run completed.');
     }
 }

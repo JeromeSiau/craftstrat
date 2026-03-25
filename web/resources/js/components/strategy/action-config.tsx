@@ -127,6 +127,10 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                                 onChange({
                                     ...action,
                                     order_type: value as 'market' | 'limit',
+                                    limit_price:
+                                        value === 'limit'
+                                            ? (action.limit_price ?? 0.5)
+                                            : null,
                                 })
                             }
                         >
@@ -139,6 +143,32 @@ export default function ActionConfig({ action, onChange }: ActionConfigProps) {
                             </SelectContent>
                         </Select>
                     </div>
+
+                    {action.order_type === 'limit' && (
+                        <div className="space-y-2">
+                            <Label htmlFor="limit_price">Limit Price</Label>
+                            <Input
+                                id="limit_price"
+                                type="number"
+                                min={0.01}
+                                max={0.99}
+                                step="any"
+                                value={action.limit_price ?? ''}
+                                onChange={(e) =>
+                                    onChange({
+                                        ...action,
+                                        limit_price:
+                                            e.target.value === ''
+                                                ? null
+                                                : safeParseFloat(
+                                                      e.target.value,
+                                                      0,
+                                                  ),
+                                    })
+                                }
+                            />
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>

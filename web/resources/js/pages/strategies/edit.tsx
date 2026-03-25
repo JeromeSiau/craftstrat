@@ -1,18 +1,19 @@
 import { Head, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     index,
     show,
     edit,
     update,
 } from '@/actions/App/Http/Controllers/StrategyController';
-import InputError from '@/components/input-error';
-import FormBuilder from '@/components/strategy/form-builder';
-import NodeEditor from '@/components/strategy/node-editor';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import StrategyEditorForm, {
+    type StrategyFormData,
+} from '@/components/strategy/strategy-editor-form';
 import AppLayout from '@/layouts/app-layout';
+import {
+    createDefaultFormGraph,
+    createDefaultNodeGraph,
+} from '@/lib/strategy-defaults';
 import type { BreadcrumbItem } from '@/types';
 import type { FormModeGraph, NodeModeGraph, Strategy } from '@/types/models';
 
@@ -20,14 +21,9 @@ interface Props {
     strategy: Strategy;
 }
 
-type StrategyFormData = {
-    name: string;
-    description: string;
-    mode: 'form' | 'node';
-    graph: FormModeGraph | NodeModeGraph;
-};
-
 export default function StrategiesEdit({ strategy }: Props) {
+    const [defaultFormGraph] = useState(() => createDefaultFormGraph());
+    const [defaultNodeGraph] = useState(() => createDefaultNodeGraph());
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Strategies', href: index.url() },
         { title: strategy.name, href: show.url(strategy.id) },
@@ -41,28 +37,6 @@ export default function StrategiesEdit({ strategy }: Props) {
             mode: strategy.mode as 'form' | 'node',
             graph: strategy.graph as FormModeGraph | NodeModeGraph,
         });
-
-    function handleTabChange(tab: string): void {
-        if (tab === 'form') {
-            setData({
-                ...data,
-                mode: 'form',
-                graph:
-                    strategy.mode === 'form'
-                        ? (strategy.graph as FormModeGraph)
-                        : data.graph,
-            });
-        } else {
-            setData({
-                ...data,
-                mode: 'node',
-                graph:
-                    strategy.mode === 'node'
-                        ? (strategy.graph as NodeModeGraph)
-                        : data.graph,
-            });
-        }
-    }
 
     function handleSubmit(e: React.FormEvent): void {
         e.preventDefault();
@@ -82,73 +56,25 @@ export default function StrategiesEdit({ strategy }: Props) {
                         strategy.
                     </p>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    <div className="grid gap-6 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Name</Label>
-                            <Input
-                                id="name"
-                                value={data.name}
-                                onChange={(e) =>
-                                    setData('name', e.target.value)
-                                }
-                                placeholder="e.g. BTC Momentum Long"
-                            />
-                            <InputError message={errors.name} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="description">Description</Label>
-                            <Input
-                                id="description"
-                                value={data.description}
-                                onChange={(e) =>
-                                    setData('description', e.target.value)
-                                }
-                                placeholder="Describe what this strategy does..."
-                            />
-                        </div>
-                    </div>
-
-                    <Tabs
-                        defaultValue={strategy.mode}
-                        onValueChange={handleTabChange}
-                    >
-                        <TabsList>
-                            <TabsTrigger value="form">Form Builder</TabsTrigger>
-                            <TabsTrigger value="node">Node Editor</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="form" className="mt-6">
-                            <FormBuilder
-                                graph={data.graph as FormModeGraph}
-                                onChange={(graph) => setData('graph', graph)}
-                            />
-                        </TabsContent>
-                        <TabsContent value="node" className="mt-6">
-                            <NodeEditor
-                                graph={data.graph as NodeModeGraph}
-                                onChange={(graph) => setData('graph', graph)}
-                            />
-                        </TabsContent>
-                    </Tabs>
-
-                    <InputError message={errors.graph} />
-
-                    <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/80 px-4 py-4 backdrop-blur-sm md:-mx-8 md:px-8">
-                        <div className="flex items-center gap-4">
-                            <Button
-                                type="submit"
-                                size="lg"
-                                disabled={processing}
-                            >
-                                Save Changes
-                            </Button>
-                            <p className="text-sm text-muted-foreground">
-                                Changes will take effect on next strategy
-                                evaluation.
-                            </p>
-                        </div>
-                    </div>
-                </form>
+                <StrategyEditorForm
+                    data={data}
+                    errors={errors}
+                    processing={processing}
+                    initialFormGraph={
+                        strategy.mode === 'form'
+                            ? (strategy.graph as FormModeGraph)
+                            : defaultFormGraph
+                    }
+                    initialNodeGraph={
+                        strategy.mode === 'node'
+                            ? (strategy.graph as NodeModeGraph)
+                            : defaultNodeGraph
+                    }
+                    submitLabel="Save Changes"
+                    submitHint="Changes will take effect on next strategy evaluation."
+                    onSubmit={handleSubmit}
+                    onChange={(nextData) => setData(nextData)}
+                />
             </div>
         </AppLayout>
     );

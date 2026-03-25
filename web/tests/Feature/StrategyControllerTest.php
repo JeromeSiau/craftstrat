@@ -153,6 +153,68 @@ it('activates a strategy and calls engine', function () {
     expect($strategy->fresh()->is_active)->toBeTrue();
 });
 
+it('rolls back engine activation when a later assignment fails', function () {
+    Http::fake([
+        '*/internal/strategy/activate' => Http::sequence()
+            ->push(null, 200)
+            ->push(null, 500),
+        '*/internal/strategy/deactivate' => Http::response(null, 200),
+    ]);
+
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $firstWallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+    $secondWallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+
+    $strategy->walletStrategies()->create([
+        'wallet_id' => $firstWallet->id,
+        'markets' => ['BTC'],
+        'max_position_usdc' => 100,
+        'is_paper' => false,
+        'is_running' => false,
+    ]);
+
+    $strategy->walletStrategies()->create([
+        'wallet_id' => $secondWallet->id,
+        'markets' => ['ETH'],
+        'max_position_usdc' => 150,
+        'is_paper' => true,
+        'is_running' => false,
+    ]);
+
+    $this->actingAs($this->user)
+        ->from(route('strategies.show', $strategy))
+        ->post(route('strategies.activate', $strategy))
+        ->assertRedirect(route('strategies.show', $strategy))
+        ->assertSessionHas('error');
+
+    expect($strategy->fresh()->is_active)->toBeFalse()
+        ->and($strategy->walletStrategies()->where('is_running', true)->count())->toBe(0);
+
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/internal/strategy/deactivate')
+        && $request['wallet_id'] === $firstWallet->id
+        && $request['strategy_id'] === $strategy->id
+    );
+});
+
+it('shows a friendly error when an assigned wallet is not deployed', function () {
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $wallet = Wallet::factory()->pending()->create(['user_id' => $this->user->id]);
+
+    $strategy->walletStrategies()->create([
+        'wallet_id' => $wallet->id,
+        'markets' => ['BTC'],
+        'max_position_usdc' => 100,
+        'is_paper' => false,
+        'is_running' => false,
+    ]);
+
+    $this->actingAs($this->user)
+        ->from(route('strategies.show', $strategy))
+        ->post(route('strategies.activate', $strategy))
+        ->assertRedirect(route('strategies.show', $strategy))
+        ->assertSessionHas('error', "Wallet #{$wallet->id} Safe is not deployed yet.");
+});
+
 it('deactivates a strategy and calls engine', function () {
     Http::fake(['*/internal/strategy/deactivate' => Http::response(null, 200)]);
 
@@ -163,6 +225,51 @@ it('deactivates a strategy and calls engine', function () {
         ->assertRedirect();
 
     expect($strategy->fresh()->is_active)->toBeFalse();
+});
+
+it('rolls back engine deactivation when a later assignment fails', function () {
+    Http::fake([
+        '*/internal/strategy/deactivate' => Http::sequence()
+            ->push(null, 200)
+            ->push(null, 500),
+        '*/internal/strategy/activate' => Http::response(null, 200),
+    ]);
+
+    $strategy = Strategy::factory()->active()->create(['user_id' => $this->user->id]);
+    $firstWallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+    $secondWallet = Wallet::factory()->create(['user_id' => $this->user->id]);
+
+    $strategy->walletStrategies()->create([
+        'wallet_id' => $firstWallet->id,
+        'markets' => ['BTC'],
+        'max_position_usdc' => 100,
+        'is_paper' => false,
+        'is_running' => true,
+        'started_at' => now(),
+    ]);
+
+    $strategy->walletStrategies()->create([
+        'wallet_id' => $secondWallet->id,
+        'markets' => ['ETH'],
+        'max_position_usdc' => 150,
+        'is_paper' => true,
+        'is_running' => true,
+        'started_at' => now(),
+    ]);
+
+    $this->actingAs($this->user)
+        ->from(route('strategies.show', $strategy))
+        ->post(route('strategies.deactivate', $strategy))
+        ->assertRedirect(route('strategies.show', $strategy))
+        ->assertSessionHas('error');
+
+    expect($strategy->fresh()->is_active)->toBeTrue()
+        ->and($strategy->walletStrategies()->where('is_running', true)->count())->toBe(2);
+
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/internal/strategy/activate')
+        && $request['wallet_id'] === $firstWallet->id
+        && $request['strategy_id'] === $strategy->id
+    );
 });
 
 it('loads deferred live stats and recent trades', function () {

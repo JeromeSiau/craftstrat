@@ -10,6 +10,7 @@ use crate::proxy::HttpPool;
 use crate::strategy::bandit;
 use crate::strategy::ml_features::{build_live_feature_row, LIVE_FEATURE_WINDOW};
 use crate::strategy::registry::{Assignment, AssignmentRegistry};
+use crate::tasks::json_path::extract_json_path;
 
 #[derive(Debug, Clone)]
 struct CacheEntry {
@@ -31,6 +32,11 @@ impl ModelScoreCache {
             .get(key)
             .filter(|entry| entry.updated_at.elapsed().as_millis() < max_age_ms as u128)
             .and_then(|entry| extract_json_path(&entry.payload, json_path))
+            .and_then(|value| {
+                value
+                    .as_f64()
+                    .or_else(|| value.as_bool().map(|flag| if flag { 1.0 } else { 0.0 }))
+            })
             .unwrap_or(0.0)
     }
 
@@ -239,21 +245,6 @@ pub(crate) async fn fetch_prediction_batch(
     Ok(predictions.to_vec())
 }
 
-fn extract_json_path(value: &Value, path: &str) -> Option<f64> {
-    let path = path.strip_prefix("$.").unwrap_or(path);
-    let mut current = value;
-    for segment in path.split('.') {
-        if let Ok(index) = segment.parse::<usize>() {
-            current = current.get(index)?;
-        } else {
-            current = current.get(segment)?;
-        }
-    }
-    current
-        .as_f64()
-        .or_else(|| current.as_bool().map(|flag| if flag { 1.0 } else { 0.0 }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,7 +290,7 @@ mod tests {
         });
 
         assert_eq!(
-            extract_json_path(&payload, "predictions.1.proba_up"),
+            extract_json_path(&payload, "predictions.1.proba_up").and_then(Value::as_f64),
             Some(0.63)
         );
     }
@@ -311,8 +302,16 @@ mod tests {
             "nested": { "take_down": false }
         });
 
-        assert_eq!(extract_json_path(&payload, "take_trade"), Some(1.0));
-        assert_eq!(extract_json_path(&payload, "nested.take_down"), Some(0.0));
+        assert_eq!(
+            extract_json_path(&payload, "take_trade")
+                .and_then(|value| value.as_bool().map(|flag| if flag { 1.0 } else { 0.0 })),
+            Some(1.0)
+        );
+        assert_eq!(
+            extract_json_path(&payload, "nested.take_down")
+                .and_then(|value| value.as_bool().map(|flag| if flag { 1.0 } else { 0.0 })),
+            Some(0.0)
+        );
     }
 
     #[test]
@@ -327,7 +326,6 @@ mod tests {
                 ]
             }),
             markets: vec!["btc-updown-15m".into()],
-            max_position_usdc: 100.0,
             is_paper: false,
             is_killed: false,
             state: Arc::new(std::sync::Mutex::new(
@@ -362,7 +360,6 @@ mod tests {
                 }
             }),
             markets: vec!["btc-updown-15m".into()],
-            max_position_usdc: 100.0,
             is_paper: false,
             is_killed: false,
             state: Arc::new(std::sync::Mutex::new(

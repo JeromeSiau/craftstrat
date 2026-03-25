@@ -9,10 +9,20 @@ use Illuminate\Support\Str;
 class StrategyGeneratorService
 {
     private const VALID_INDICATORS = [
-        'abs_move_pct', 'dir_move_pct', 'spread_up', 'spread_down',
-        'size_ratio_up', 'size_ratio_down', 'pct_into_slot', 'minutes_into_slot',
+        'abs_move_pct', 'dir_move_pct', 'spread_up', 'spread_down', 'spread_up_rel', 'spread_down_rel',
+        'size_ratio_up', 'size_ratio_down', 'l1_imbalance_up', 'l1_imbalance_down',
+        'cross_sum_mid', 'cross_sum_bid', 'cross_sum_ask', 'parity_gap_up',
+        'pct_into_slot', 'minutes_into_slot',
         'mid_up', 'mid_down', 'bid_up', 'ask_up', 'bid_down', 'ask_down',
+        'bid_size_up', 'ask_size_up', 'bid_size_down', 'ask_size_down',
+        'bid_up_l2', 'ask_up_l2', 'bid_up_l3', 'ask_up_l3',
+        'bid_down_l2', 'ask_down_l2', 'bid_down_l3', 'ask_down_l3',
+        'bid_gap_up_12', 'bid_gap_up_23', 'ask_gap_up_12', 'ask_gap_up_23',
+        'bid_gap_down_12', 'bid_gap_down_23', 'ask_gap_down_12', 'ask_gap_down_23',
         'ref_price', 'hour_utc', 'day_of_week', 'market_volume_usd',
+        'position_is_open', 'position_is_up', 'position_is_down',
+        'position_entry_price', 'position_size_usdc', 'position_age_sec',
+        'position_current_price', 'position_unrealized_pnl_pct', 'position_unrealized_pnl_usdc',
     ];
 
     private const VALID_OPERATORS = ['>', '<', '>=', '<=', '==', '!=', 'between'];
@@ -166,6 +176,10 @@ class StrategyGeneratorService
         if (! in_array($action['order_type'] ?? null, ['market', 'limit'], true)) {
             throw StrategyGenerationException::validationFailed('action.order_type must be market or limit');
         }
+
+        if (($action['order_type'] ?? null) === 'limit' && (! is_numeric($action['limit_price'] ?? null) || $action['limit_price'] <= 0 || $action['limit_price'] >= 1)) {
+            throw StrategyGenerationException::validationFailed('action.limit_price must be between 0 and 1 for limit orders');
+        }
     }
 
     private function validateRisk(mixed $risk): void
@@ -257,7 +271,8 @@ You output ONLY valid JSON matching the FormModeGraph schema below. No markdown,
     "outcome": "UP" or "DOWN",
     "size_mode": "fixed",
     "size_usdc": <number >= 1>,
-    "order_type": "market" or "limit"
+    "order_type": "market" or "limit",
+    "limit_price": <number > 0 and < 1> or null
   },
   "risk": {
     "stoploss_pct": <number > 0> or null,
@@ -279,14 +294,25 @@ Price:
 Spread:
 - spread_up: Bid-ask spread for UP outcome (0 to 0.1, lower = tighter)
 - spread_down: Bid-ask spread for DOWN outcome (0 to 0.1)
+- spread_up_rel: Bid-ask spread for UP divided by mid price
+- spread_down_rel: Bid-ask spread for DOWN divided by mid price
 
 Order Book:
 - size_ratio_up: Bid/ask size ratio for UP (>1 = more buyers, <1 = more sellers)
 - size_ratio_down: Bid/ask size ratio for DOWN
+- l1_imbalance_up: (bid_size_up - ask_size_up) / total top-of-book size
+- l1_imbalance_down: (bid_size_down - ask_size_down) / total top-of-book size
 - bid_up: Best bid for UP (0 to 1)
 - ask_up: Best ask for UP (0 to 1)
 - bid_down: Best bid for DOWN (0 to 1)
 - ask_down: Best ask for DOWN (0 to 1)
+- bid_size_up / ask_size_up / bid_size_down / ask_size_down: top-of-book sizes
+- bid_up_l2 / ask_up_l2 / bid_up_l3 / ask_up_l3 / bid_down_l2 / ask_down_l2 / bid_down_l3 / ask_down_l3: deeper book prices
+
+Parity / Depth:
+- cross_sum_mid, cross_sum_bid, cross_sum_ask: UP + DOWN parity checks against 1.0
+- parity_gap_up: UP midpoint versus synthetic parity from DOWN
+- bid_gap_up_12, bid_gap_up_23, ask_gap_up_12, ask_gap_up_23, bid_gap_down_12, bid_gap_down_23, ask_gap_down_12, ask_gap_down_23: depth spacing
 
 Time:
 - pct_into_slot: % of time elapsed in current slot (0 to 1)
@@ -296,6 +322,11 @@ Time:
 
 Volume:
 - market_volume_usd: Total market volume in USD for current slot
+
+Position:
+- position_is_open, position_is_up, position_is_down
+- position_entry_price, position_size_usdc, position_age_sec
+- position_current_price, position_unrealized_pnl_pct, position_unrealized_pnl_usdc
 
 ## Available Operators
 >, <, >=, <=, ==, !=, between
@@ -342,6 +373,7 @@ User: "Buy UP during weekday mornings when volume is high and price is cheap"
 - Always include stoploss_pct and take_profit_pct (non-null).
 - Use "fixed" for size_mode unless the user specifically asks for proportional.
 - Use "market" for order_type unless the user specifically asks for limit orders.
+- When using "limit", always include a realistic "limit_price" between 0 and 1.
 - Output ONLY the JSON object. No other text.
 PROMPT;
     }

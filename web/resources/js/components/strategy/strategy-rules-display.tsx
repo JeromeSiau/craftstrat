@@ -82,6 +82,14 @@ export default function StrategyRulesDisplay({
                     <dd>{graph.action.size_usdc} USDC</dd>
                     <dt className="text-muted-foreground">Order Type</dt>
                     <dd className="capitalize">{graph.action.order_type}</dd>
+                    {graph.action.order_type === 'limit' && (
+                        <>
+                            <dt className="text-muted-foreground">
+                                Limit Price
+                            </dt>
+                            <dd>{graph.action.limit_price ?? '-'}</dd>
+                        </>
+                    )}
                 </dl>
             </div>
 

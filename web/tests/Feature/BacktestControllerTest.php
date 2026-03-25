@@ -60,7 +60,7 @@ it('runs a backtest via the engine and stores the result', function () {
     Http::fake(['*/internal/backtest/run' => Http::response([
         'total_trades' => 42,
         'win_rate' => 0.65,
-        'pnl' => 123.45,
+        'total_pnl_usdc' => 123.45,
         'max_drawdown' => 0.12,
         'sharpe_ratio' => 1.5,
         'trades' => [],
@@ -136,7 +136,7 @@ it('allows full history backtest for starter plan', function () {
     Http::fake(['*/internal/backtest/run' => Http::response([
         'total_trades' => 10,
         'win_rate' => 0.50,
-        'pnl' => 50.0,
+        'total_pnl_usdc' => 50.0,
         'max_drawdown' => 0.05,
         'sharpe_ratio' => 1.0,
         'trades' => [],
@@ -151,6 +151,98 @@ it('allows full history backtest for starter plan', function () {
             'date_to' => now()->toDateString(),
         ])
         ->assertRedirect();
+});
+
+it('transforms engine trades when storing a backtest result', function () {
+    Http::fake(['*/internal/backtest/run' => Http::response([
+        'total_trades' => 2,
+        'win_rate' => 0.50,
+        'total_pnl_usdc' => 1.25,
+        'max_drawdown' => 0.05,
+        'sharpe_ratio' => 1.1,
+        'trades' => [
+            [
+                'side' => 'buy',
+                'outcome' => 'up',
+                'entry_price' => 0.40,
+                'entry_reference_price' => 0.39,
+                'entry_slippage_bps' => 1.234,
+                'entry_book_depth_usdc' => 100.123456,
+                'entry_depth_ratio' => 0.3333333,
+                'exit_price' => 0.46,
+                'exit_reference_price' => 0.45,
+                'exit_slippage_bps' => -2.345,
+                'exit_book_depth_usdc' => 90.54321,
+                'exit_depth_ratio' => 0.2222222,
+                'pnl_usdc' => 1.5,
+                'symbol' => 'btc-updown-15m-1',
+                'entry_at' => '2026-03-01T00:00:00Z',
+                'exit_at' => '2026-03-01T00:15:00Z',
+                'exit_reason' => 'take_profit',
+            ],
+            [
+                'side' => 'sell',
+                'outcome' => 'down',
+                'entry_price' => 0.55,
+                'pnl_usdc' => -0.25,
+            ],
+        ],
+    ])]);
+
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)
+        ->post(route('backtests.run', $strategy), [
+            'date_from' => now()->subDays(7)->toDateString(),
+            'date_to' => now()->toDateString(),
+        ])
+        ->assertRedirect();
+
+    $result = BacktestResult::where('strategy_id', $strategy->id)->first();
+
+    expect($result)->not->toBeNull()
+        ->and($result->result_detail['trades'][0]['outcome'])->toBe('UP')
+        ->and($result->result_detail['trades'][0]['entry_slippage_bps'])->toBe(1.23)
+        ->and($result->result_detail['trades'][0]['entry_book_depth_usdc'])->toBe(100.1235)
+        ->and($result->result_detail['trades'][0]['entry_depth_ratio'])->toBe(0.333333)
+        ->and($result->result_detail['trades'][0]['exit_slippage_bps'])->toBe(-2.35)
+        ->and($result->result_detail['trades'][0]['cumulative_pnl'])->toBe(1.5)
+        ->and($result->result_detail['trades'][1]['cumulative_pnl'])->toBe(1.25);
+});
+
+it('reruns a backtest and refreshes the stored result detail', function () {
+    Http::fake(['*/internal/backtest/run' => Http::response([
+        'total_trades' => 1,
+        'win_rate' => 1.00,
+        'total_pnl_usdc' => 4.5,
+        'max_drawdown' => 0.01,
+        'sharpe_ratio' => 2.2,
+        'trades' => [[
+            'side' => 'buy',
+            'outcome' => 'up',
+            'entry_price' => 0.42,
+            'pnl_usdc' => 4.5,
+        ]],
+    ])]);
+
+    $strategy = Strategy::factory()->create(['user_id' => $this->user->id]);
+    $result = BacktestResult::factory()->create([
+        'user_id' => $this->user->id,
+        'strategy_id' => $strategy->id,
+        'result_detail' => ['trades' => [['cumulative_pnl' => 0.0]]],
+    ]);
+
+    $this->actingAs($this->user)
+        ->from(route('backtests.show', $result))
+        ->post(route('backtests.rerun', $result))
+        ->assertRedirect(route('backtests.show', $result));
+
+    $result->refresh();
+
+    expect($result->total_trades)->toBe(1)
+        ->and($result->total_pnl_usdc)->toBe('4.500000')
+        ->and($result->result_detail['trades'][0]['cumulative_pnl'])->toBe(4.5)
+        ->and($result->result_detail['trades'][0]['outcome'])->toBe('UP');
 });
 
 it('requires authentication', function () {

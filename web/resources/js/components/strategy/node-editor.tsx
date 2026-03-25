@@ -38,7 +38,13 @@ const nodeDefaults: Record<string, Record<string, GraphValue>> = {
     indicator: { fn: 'EMA', period: 20, field: 'mid_up' },
     comparator: { operator: '>', value: 0 },
     logic: { operator: 'AND' },
-    action: { signal: 'buy', outcome: 'UP', size_usdc: 50 },
+    action: {
+        signal: 'buy',
+        outcome: 'UP',
+        size_usdc: 50,
+        order_type: 'market',
+        limit_price: null,
+    },
     not: {},
     if_else: {},
     math: { operation: '+' },
@@ -64,9 +70,10 @@ const AUTO_LAYOUT_X_GAP = 320;
 const AUTO_LAYOUT_Y_GAP = 180;
 const AUTO_LAYOUT_START = { x: 40, y: 40 };
 
-function hasValidPosition(
-    position?: { x: number; y: number },
-): position is { x: number; y: number } {
+function hasValidPosition(position?: {
+    x: number;
+    y: number;
+}): position is { x: number; y: number } {
     return (
         position !== undefined &&
         Number.isFinite(position.x) &&
@@ -189,6 +196,41 @@ function toFlowEdges(graphEdges: NodeModeGraph['edges']): Edge[] {
     }));
 }
 
+function buildGraphFromFlow(
+    graph: NodeModeGraph,
+    nodes: Node[],
+    edges: Edge[],
+): NodeModeGraph {
+    const graphNodes = nodes.map((node) => {
+        const rest = { ...(node.data as Record<string, GraphValue>) };
+        delete rest.onUpdate;
+
+        return {
+            id: node.id,
+            type: node.type as NodeModeGraph['nodes'][number]['type'],
+            data: rest,
+            position: node.position,
+        };
+    });
+    const graphEdges = edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle ?? null,
+        targetHandle: edge.targetHandle ?? null,
+    }));
+
+    return {
+        ...graph,
+        mode: 'node',
+        nodes: graphNodes,
+        edges: graphEdges,
+    };
+}
+
+function serializeGraph(graph: NodeModeGraph): string {
+    return JSON.stringify(graph);
+}
+
 export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
     const counterRef = useRef(
         graph.nodes.reduce((max, n) => {
@@ -202,6 +244,8 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
     const handleNodeDataUpdateRef = useRef<
         (nodeId: string, newData: Record<string, GraphValue>) => void
     >(() => undefined);
+    const isApplyingExternalGraphRef = useRef(false);
+    const lastSerializedGraphRef = useRef(serializeGraph(graph));
     const proxyNodeDataUpdate = useCallback(
         (nodeId: string, newData: Record<string, GraphValue>) => {
             handleNodeDataUpdateRef.current(nodeId, newData);
@@ -236,10 +280,41 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
         const normalizedNodes = shouldAutoLayout(graph.nodes)
             ? withAutoLayout(graph)
             : graph.nodes;
+        const normalizedGraph = {
+            ...graph,
+            nodes: normalizedNodes,
+        };
+        const serializedGraph = serializeGraph(normalizedGraph);
 
+        if (serializedGraph === lastSerializedGraphRef.current) {
+            return;
+        }
+
+        isApplyingExternalGraphRef.current = true;
+        lastSerializedGraphRef.current = serializedGraph;
         setNodes(toFlowNodes(normalizedNodes, proxyNodeDataUpdate));
         setEdges(toFlowEdges(graph.edges));
     }, [graph, proxyNodeDataUpdate, setEdges, setNodes]);
+
+    useEffect(() => {
+        const nextGraph = buildGraphFromFlow(graph, nodes, edges);
+        const serializedGraph = serializeGraph(nextGraph);
+
+        if (isApplyingExternalGraphRef.current) {
+            if (serializedGraph === lastSerializedGraphRef.current) {
+                isApplyingExternalGraphRef.current = false;
+            }
+
+            return;
+        }
+
+        if (serializedGraph === lastSerializedGraphRef.current) {
+            return;
+        }
+
+        lastSerializedGraphRef.current = serializedGraph;
+        onChange(nextGraph);
+    }, [edges, graph, nodes, onChange]);
 
     const nodeTypes = useMemo(
         () => ({
@@ -281,26 +356,6 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
             data: { ...nodeDefaults[type], onUpdate: handleNodeDataUpdate },
         };
         setNodes((prev) => [...prev, newNode]);
-    }
-
-    function handleSave(): void {
-        const graphNodes = nodes.map((node) => {
-            const rest = { ...(node.data as Record<string, GraphValue>) };
-            delete rest.onUpdate;
-            return {
-                id: node.id,
-                type: node.type as NodeModeGraph['nodes'][number]['type'],
-                data: rest,
-                position: node.position,
-            };
-        });
-        const graphEdges = edges.map((edge) => ({
-            source: edge.source,
-            target: edge.target,
-            sourceHandle: edge.sourceHandle ?? null,
-            targetHandle: edge.targetHandle ?? null,
-        }));
-        onChange({ ...graph, mode: 'node', nodes: graphNodes, edges: graphEdges });
     }
 
     return (
@@ -438,14 +493,9 @@ export default function NodeEditor({ graph, onChange }: NodeEditorProps) {
                     + Model Score
                 </Button>
                 <div className="flex-1" />
-                <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={handleSave}
-                >
-                    Save Graph
-                </Button>
+                <span className="text-xs text-muted-foreground">
+                    Graph updates save automatically.
+                </span>
             </div>
             <div className="h-[500px] rounded-md border">
                 <ReactFlow

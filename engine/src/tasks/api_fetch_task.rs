@@ -2,8 +2,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
+use serde_json::Value;
+
 use crate::proxy::HttpPool;
 use crate::strategy::registry::AssignmentRegistry;
+use crate::tasks::json_path::extract_json_path;
 
 // ---------------------------------------------------------------------------
 // ApiFetchCache — shared cache for external API values
@@ -166,23 +169,10 @@ async fn fetch_value(client: &reqwest::Client, url: &str, json_path: &str) -> an
         anyhow::bail!("response too large: {} bytes", body.len());
     }
 
-    let json: serde_json::Value = serde_json::from_slice(&body)?;
+    let json: Value = serde_json::from_slice(&body)?;
     extract_json_path(&json, json_path)
+        .and_then(Value::as_f64)
         .ok_or_else(|| anyhow::anyhow!("json_path '{}' not found or not numeric", json_path))
-}
-
-/// Simple JSONPath extraction supporting dot notation (e.g. "main.temp", "data.0.price").
-fn extract_json_path(value: &serde_json::Value, path: &str) -> Option<f64> {
-    let path = path.strip_prefix("$.").unwrap_or(path);
-    let mut current = value;
-    for segment in path.split('.') {
-        if let Ok(index) = segment.parse::<usize>() {
-            current = current.get(index)?;
-        } else {
-            current = current.get(segment)?;
-        }
-    }
-    current.as_f64()
 }
 
 // ---------------------------------------------------------------------------
@@ -209,19 +199,28 @@ mod tests {
     #[test]
     fn test_extract_json_path_simple() {
         let json = serde_json::json!({"main": {"temp": 22.5}});
-        assert_eq!(extract_json_path(&json, "main.temp"), Some(22.5));
+        assert_eq!(
+            extract_json_path(&json, "main.temp").and_then(Value::as_f64),
+            Some(22.5)
+        );
     }
 
     #[test]
     fn test_extract_json_path_with_dollar_prefix() {
         let json = serde_json::json!({"data": {"price": 1.5}});
-        assert_eq!(extract_json_path(&json, "$.data.price"), Some(1.5));
+        assert_eq!(
+            extract_json_path(&json, "$.data.price").and_then(Value::as_f64),
+            Some(1.5)
+        );
     }
 
     #[test]
     fn test_extract_json_path_array_index() {
         let json = serde_json::json!({"data": [{"price": 10.0}, {"price": 20.0}]});
-        assert_eq!(extract_json_path(&json, "data.1.price"), Some(20.0));
+        assert_eq!(
+            extract_json_path(&json, "data.1.price").and_then(Value::as_f64),
+            Some(20.0)
+        );
     }
 
     #[test]
@@ -233,7 +232,10 @@ mod tests {
     #[test]
     fn test_extract_json_path_not_numeric() {
         let json = serde_json::json!({"name": "hello"});
-        assert_eq!(extract_json_path(&json, "name"), None);
+        assert_eq!(
+            extract_json_path(&json, "name").and_then(Value::as_f64),
+            None
+        );
     }
 
     #[test]

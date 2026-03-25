@@ -7,10 +7,10 @@ use App\Http\Requests\GenerateStrategyRequest;
 use App\Http\Requests\StoreStrategyRequest;
 use App\Http\Requests\UpdateStrategyRequest;
 use App\Models\Strategy;
-use App\Models\Trade;
 use App\Services\EngineService;
 use App\Services\StrategyActivationService;
 use App\Services\StrategyGeneratorService;
+use App\Services\TradePerformanceService;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +20,7 @@ use Inertia\Response;
 
 class StrategyController extends Controller
 {
-    public function index(): Response
+    public function index(TradePerformanceService $performance): Response
     {
         $strategies = auth()->user()->strategies()
             ->withCount('wallets')
@@ -28,14 +28,14 @@ class StrategyController extends Controller
             ->latest()
             ->paginate(20);
 
-        $performanceStats = $this->buildIndexPerformanceStats(
+        $performanceStats = $performance->summarizeByStrategyIds(
             $strategies->getCollection()->pluck('id')->all()
         );
 
-        $strategies->getCollection()->transform(function (Strategy $strategy) use ($performanceStats) {
+        $strategies->getCollection()->transform(function (Strategy $strategy) use ($performance, $performanceStats) {
             $strategy->setAttribute(
                 'performance_stats',
-                $performanceStats[$strategy->id] ?? $this->emptyPerformanceStats()
+                $performanceStats[$strategy->id] ?? $performance->emptySummaryStats()
             );
 
             return $strategy;
@@ -87,72 +87,9 @@ class StrategyController extends Controller
         return Inertia::render('strategies/show', [
             'strategy' => $strategy,
             'liveStats' => Inertia::defer(function () use ($strategy) {
-                $buildStats = function ($query) {
-                    $query = (clone $query)->where('side', 'buy');
-
-                    $stats = (clone $query)
-                        ->selectRaw('COUNT(*) as total_trades')
-                        ->selectRaw("
-                            SUM(
-                                CASE
-                                    WHEN status = 'won' THEN 1
-                                    WHEN status = 'closed'
-                                        AND COALESCE(resolved_price, filled_price, price, 0.5)
-                                            > COALESCE(filled_price, price, 0.5)
-                                        THEN 1
-                                    ELSE 0
-                                END
-                            ) as won_trades
-                        ")
-                        ->selectRaw("SUM(CASE WHEN status IN ('won', 'lost', 'closed') THEN 1 ELSE 0 END) as resolved_trades")
-                        ->selectRaw("
-                            COALESCE(SUM(
-                                CASE
-                                    WHEN status IN ('won', 'lost', 'closed')
-                                        THEN (
-                                            (
-                                                CASE
-                                                    WHEN status = 'won' THEN COALESCE(resolved_price, 1.0)
-                                                    WHEN status = 'lost' THEN COALESCE(resolved_price, 0.0)
-                                                    ELSE COALESCE(resolved_price, filled_price, price, 0.5)
-                                                END
-                                                - COALESCE(filled_price, price, 0.5)
-                                            )
-                                            / NULLIF(COALESCE(filled_price, price, 0.5), 0)
-                                        ) * COALESCE(size_usdc, 0)
-                                    ELSE 0
-                                END
-                            ), 0) as total_pnl_usdc
-                        ")
-                        ->selectRaw('AVG(fill_slippage_bps) as avg_fill_slippage_bps')
-                        ->selectRaw('AVG(markout_bps_60s) as avg_markout_bps_60s')
-                        ->first();
-
-                    $totalTrades = (int) ($stats?->total_trades ?? 0);
-                    $resolvedTrades = (int) ($stats?->resolved_trades ?? 0);
-                    $wonTrades = (int) ($stats?->won_trades ?? 0);
-                    $totalPnl = (float) ($stats?->total_pnl_usdc ?? 0);
-                    $avgFillSlippage = $stats?->avg_fill_slippage_bps !== null
-                        ? number_format((float) $stats->avg_fill_slippage_bps, 2, '.', '')
-                        : null;
-                    $avgMarkout = $stats?->avg_markout_bps_60s !== null
-                        ? number_format((float) $stats->avg_markout_bps_60s, 2, '.', '')
-                        : null;
-
-                    return [
-                        'total_trades' => $totalTrades,
-                        'win_rate' => $resolvedTrades > 0
-                            ? number_format($wonTrades / $resolvedTrades, 4)
-                            : null,
-                        'total_pnl_usdc' => number_format($totalPnl, 2, '.', ''),
-                        'avg_fill_slippage_bps' => $avgFillSlippage,
-                        'avg_markout_bps_60s' => $avgMarkout,
-                    ];
-                };
-
                 return [
-                    'live' => $buildStats($strategy->liveTrades()),
-                    'paper' => $buildStats($strategy->paperTrades()),
+                    'live' => app(TradePerformanceService::class)->summarizeDetailed($strategy->liveTrades()),
+                    'paper' => app(TradePerformanceService::class)->summarizeDetailed($strategy->paperTrades()),
                 ];
             }, 'liveData'),
             'recentTrades' => Inertia::defer(fn () => $strategy->trades()
@@ -207,6 +144,8 @@ class StrategyController extends Controller
 
         try {
             $activation->activate($strategy);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
         } catch (RequestException) {
             return back()->with('error', 'Failed to activate strategy. Engine may be unavailable.');
         }
@@ -257,90 +196,5 @@ class StrategyController extends Controller
         }
 
         return back()->with('success', 'Kill switch deactivated — evaluation resumed.');
-    }
-
-    private function buildIndexPerformanceStats(array $strategyIds): array
-    {
-        if ($strategyIds === []) {
-            return [];
-        }
-
-        $performanceStats = collect($strategyIds)
-            ->mapWithKeys(fn (int $strategyId) => [
-                $strategyId => $this->emptyPerformanceStats(),
-            ])
-            ->all();
-
-        $aggregates = Trade::query()
-            ->whereIn('strategy_id', $strategyIds)
-            ->where('side', 'buy')
-            ->selectRaw('strategy_id, is_paper')
-            ->selectRaw('COUNT(*) as total_trades')
-            ->selectRaw("
-                SUM(
-                    CASE
-                        WHEN status = 'won' THEN 1
-                        WHEN status = 'closed'
-                            AND COALESCE(resolved_price, filled_price, price, 0.5)
-                                > COALESCE(filled_price, price, 0.5)
-                            THEN 1
-                        ELSE 0
-                    END
-                ) as won_trades
-            ")
-            ->selectRaw("SUM(CASE WHEN status IN ('won', 'lost', 'closed') THEN 1 ELSE 0 END) as resolved_trades")
-            ->selectRaw("
-                COALESCE(SUM(
-                    CASE
-                        WHEN status IN ('won', 'lost', 'closed')
-                            THEN (
-                                (
-                                    CASE
-                                        WHEN status = 'won' THEN COALESCE(resolved_price, 1.0)
-                                        WHEN status = 'lost' THEN COALESCE(resolved_price, 0.0)
-                                        ELSE COALESCE(resolved_price, filled_price, price, 0.5)
-                                    END
-                                    - COALESCE(filled_price, price, 0.5)
-                                )
-                                / NULLIF(COALESCE(filled_price, price, 0.5), 0)
-                            ) * COALESCE(size_usdc, 0)
-                        ELSE 0
-                    END
-                ), 0) as total_pnl_usdc
-            ")
-            ->groupBy('strategy_id', 'is_paper')
-            ->get();
-
-        foreach ($aggregates as $aggregate) {
-            $mode = $aggregate->is_paper ? 'paper' : 'live';
-            $resolvedTrades = (int) $aggregate->resolved_trades;
-
-            $performanceStats[$aggregate->strategy_id][$mode] = [
-                'total_trades' => (int) $aggregate->total_trades,
-                'win_rate' => $resolvedTrades > 0
-                    ? number_format((int) $aggregate->won_trades / $resolvedTrades, 4, '.', '')
-                    : null,
-                'total_pnl_usdc' => number_format((float) $aggregate->total_pnl_usdc, 2, '.', ''),
-            ];
-        }
-
-        return $performanceStats;
-    }
-
-    private function emptyPerformanceStats(): array
-    {
-        return [
-            'live' => $this->emptyPerformanceEntry(),
-            'paper' => $this->emptyPerformanceEntry(),
-        ];
-    }
-
-    private function emptyPerformanceEntry(): array
-    {
-        return [
-            'total_trades' => 0,
-            'win_rate' => null,
-            'total_pnl_usdc' => '0.00',
-        ];
     }
 }

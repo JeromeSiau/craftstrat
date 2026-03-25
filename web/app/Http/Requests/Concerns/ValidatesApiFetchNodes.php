@@ -9,12 +9,47 @@ trait ValidatesApiFetchNodes
     protected function validateApiFetchNodes(Validator $validator): void
     {
         $graph = $this->input('graph');
-        if (! is_array($graph) || ($graph['mode'] ?? '') !== 'node') {
+        if (! is_array($graph)) {
+            return;
+        }
+
+        $this->validateLimitOrderSet($validator, $graph);
+
+        if (($graph['mode'] ?? '') !== 'node') {
             return;
         }
 
         $this->validateApiFetchNodeSet($validator, $graph);
         $this->validateModelScoreNodeSet($validator, $graph);
+    }
+
+    private function validateLimitOrderSet(Validator $validator, array $graph): void
+    {
+        if (($graph['mode'] ?? '') === 'form') {
+            $action = $graph['action'] ?? [];
+
+            if (($action['order_type'] ?? null) === 'limit' && $this->hasInvalidLimitPrice($action['limit_price'] ?? null)) {
+                $validator->errors()->add('graph.action.limit_price', 'Limit orders require a limit price between 0 and 1.');
+            }
+
+            return;
+        }
+
+        if (($graph['mode'] ?? '') !== 'node') {
+            return;
+        }
+
+        foreach (($graph['nodes'] ?? []) as $i => $node) {
+            if (($node['type'] ?? '') !== 'action') {
+                continue;
+            }
+
+            $data = $node['data'] ?? [];
+
+            if (($data['order_type'] ?? null) === 'limit' && $this->hasInvalidLimitPrice($data['limit_price'] ?? null)) {
+                $validator->errors()->add("graph.nodes.{$i}.data.limit_price", 'Limit orders require a limit price between 0 and 1.');
+            }
+        }
     }
 
     private function validateApiFetchNodeSet(Validator $validator, array $graph): void
@@ -142,5 +177,10 @@ trait ValidatesApiFetchNodes
         }
 
         return in_array(strtolower($host), ['localhost', '127.0.0.1', 'host.docker.internal'], true);
+    }
+
+    private function hasInvalidLimitPrice(mixed $limitPrice): bool
+    {
+        return ! is_numeric($limitPrice) || $limitPrice <= 0 || $limitPrice >= 1;
     }
 }

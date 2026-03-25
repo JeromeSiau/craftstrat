@@ -29,12 +29,6 @@ fn test_state() -> Arc<ApiState> {
     ));
     Arc::new(ApiState {
         registry: crate::strategy::registry::AssignmentRegistry::new(),
-        exec_queue: Arc::new(tokio::sync::Mutex::new(
-            crate::execution::queue::ExecutionQueue::new(100),
-        )),
-        db: sqlx::postgres::PgPoolOptions::new()
-            .connect_lazy("postgres://test@localhost/test")
-            .unwrap(),
         ch: clickhouse::Client::default(),
         redis: None,
         start_time: std::time::Instant::now(),

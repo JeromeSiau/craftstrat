@@ -97,6 +97,7 @@ export interface StrategyAction {
     size_mode: 'fixed' | 'proportional';
     size_usdc: number;
     order_type: 'market' | 'limit';
+    limit_price: number | null;
 }
 
 export interface StrategyRisk {

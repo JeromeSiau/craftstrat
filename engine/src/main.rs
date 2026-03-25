@@ -73,8 +73,6 @@ async fn main() -> anyhow::Result<()> {
 
     let api_state = std::sync::Arc::new(api::state::ApiState {
         registry: handles.registry,
-        exec_queue: handles.exec_queue,
-        db: handles.db,
         ch: ch_client,
         redis: Some(redis_conn),
         start_time: std::time::Instant::now(),

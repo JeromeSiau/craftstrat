@@ -13,6 +13,8 @@ type ActionNodeData = {
     signal: string;
     outcome: string;
     size_usdc: number;
+    order_type?: string;
+    limit_price?: number | null;
     onUpdate: (id: string, data: Record<string, unknown>) => void;
     [key: string]: unknown;
 };
@@ -67,6 +69,48 @@ export default function ActionNode({
                     placeholder="Size (USDC)"
                     className="h-7 text-xs"
                 />
+                <Select
+                    value={(data.order_type as string) ?? 'market'}
+                    onValueChange={(value) =>
+                        data.onUpdate(id, {
+                            ...data,
+                            order_type: value,
+                            limit_price:
+                                value === 'limit'
+                                    ? ((data.limit_price as number | null) ??
+                                      0.5)
+                                    : null,
+                        })
+                    }
+                >
+                    <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Order Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="market">Market</SelectItem>
+                        <SelectItem value="limit">Limit</SelectItem>
+                    </SelectContent>
+                </Select>
+                {(data.order_type as string) === 'limit' && (
+                    <Input
+                        type="number"
+                        min={0.01}
+                        max={0.99}
+                        step="any"
+                        value={(data.limit_price as number | null) ?? ''}
+                        onChange={(e) =>
+                            data.onUpdate(id, {
+                                ...data,
+                                limit_price:
+                                    e.target.value === ''
+                                        ? null
+                                        : Number(e.target.value),
+                            })
+                        }
+                        placeholder="Limit Price"
+                        className="h-7 text-xs"
+                    />
+                )}
             </div>
             <Handle
                 type="target"

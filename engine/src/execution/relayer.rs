@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use alloy::primitives::{keccak256, Address, Bytes, FixedBytes, U256};
+use alloy::primitives::{keccak256, Address, Bytes, U256};
 use alloy::signers::SignerSync;
 use alloy::sol;
 use alloy::sol_types::{eip712_domain, SolStruct};
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::{
-    STANDARD as BASE64, URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD,
+    URL_SAFE as BASE64_URL, URL_SAFE_NO_PAD as BASE64_URL_NOPAD,
 };
 use base64::Engine as _;
 use hmac::{Hmac, Mac};

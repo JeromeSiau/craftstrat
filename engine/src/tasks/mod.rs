@@ -2,6 +2,7 @@ pub mod api_fetch_task;
 mod data_feed;
 mod engine_tasks;
 mod execution_tasks;
+mod json_path;
 pub mod model_score_task;
 mod persistence;
 mod slot_resolver;
@@ -23,8 +24,6 @@ use crate::proxy::HttpPool;
 
 pub struct SpawnedHandles {
     pub registry: crate::strategy::registry::AssignmentRegistry,
-    pub exec_queue: Arc<Mutex<crate::execution::queue::ExecutionQueue>>,
-    pub db: sqlx::PgPool,
     pub wallet_keys: Arc<crate::execution::wallet::WalletKeyStore>,
 }
 
@@ -155,8 +154,6 @@ pub async fn spawn_all(
 
     Ok(SpawnedHandles {
         registry: engine_registry,
-        exec_queue,
-        db,
         wallet_keys,
     })
 }

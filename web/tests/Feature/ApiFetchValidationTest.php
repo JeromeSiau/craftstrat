@@ -126,3 +126,58 @@ it('skips api_fetch validation for form mode strategies', function () {
         ])
         ->assertRedirect(route('strategies.index'));
 });
+
+it('rejects form limit orders without a valid limit price', function () {
+    $this->actingAs($this->user)
+        ->post(route('strategies.store'), [
+            'name' => 'Form Limit Strategy',
+            'mode' => 'form',
+            'graph' => [
+                'mode' => 'form',
+                'conditions' => [
+                    [
+                        'type' => 'AND',
+                        'rules' => [
+                            ['indicator' => 'abs_move_pct', 'operator' => '>', 'value' => 1],
+                        ],
+                    ],
+                ],
+                'action' => [
+                    'signal' => 'buy',
+                    'outcome' => 'UP',
+                    'size_usdc' => 50,
+                    'size_mode' => 'fixed',
+                    'order_type' => 'limit',
+                ],
+                'risk' => ['max_trades_per_slot' => 1],
+            ],
+        ])
+        ->assertSessionHasErrors(['graph.action.limit_price']);
+});
+
+it('rejects node limit orders without a valid limit price', function () {
+    $payload = [
+        'name' => 'Node Limit Strategy',
+        'mode' => 'node',
+        'graph' => [
+            'mode' => 'node',
+            'nodes' => [
+                [
+                    'id' => 'n1',
+                    'type' => 'action',
+                    'data' => [
+                        'signal' => 'buy',
+                        'outcome' => 'UP',
+                        'size_usdc' => 50,
+                        'order_type' => 'limit',
+                    ],
+                ],
+            ],
+            'edges' => [],
+        ],
+    ];
+
+    $this->actingAs($this->user)
+        ->post(route('strategies.store'), $payload)
+        ->assertSessionHasErrors(['graph.nodes.0.data.limit_price']);
+});

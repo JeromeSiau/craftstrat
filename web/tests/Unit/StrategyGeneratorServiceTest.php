@@ -25,6 +25,30 @@ it('parses a valid JSON response into a FormModeGraph', function () {
         ->and($graph['conditions'][0]['rules'][0]['indicator'])->toBe('abs_move_pct');
 });
 
+it('accepts extended indicators and limit orders', function () {
+    $json = json_encode([
+        'mode' => 'form',
+        'conditions' => [
+            ['type' => 'AND', 'rules' => [['indicator' => 'position_is_open', 'operator' => '==', 'value' => 0]]],
+        ],
+        'action' => [
+            'signal' => 'buy',
+            'outcome' => 'UP',
+            'size_mode' => 'fixed',
+            'size_usdc' => 50,
+            'order_type' => 'limit',
+            'limit_price' => 0.45,
+        ],
+        'risk' => ['stoploss_pct' => 30, 'take_profit_pct' => 80, 'max_position_usdc' => 200, 'max_trades_per_slot' => 1],
+    ]);
+
+    $graph = makeService()->parseAndValidate($json);
+
+    expect($graph['action']['order_type'])->toBe('limit')
+        ->and($graph['action']['limit_price'])->toBe(0.45)
+        ->and($graph['conditions'][0]['rules'][0]['indicator'])->toBe('position_is_open');
+});
+
 it('strips markdown code fences from the response', function () {
     $raw = "```json\n".json_encode([
         'mode' => 'form',
@@ -99,3 +123,14 @@ it('validates between operator requires array value', function () {
 
     makeService()->parseAndValidate($json);
 })->throws(StrategyGenerationException::class, 'must be [min, max] for between');
+
+it('requires limit price for limit orders', function () {
+    $json = json_encode([
+        'mode' => 'form',
+        'conditions' => [['type' => 'AND', 'rules' => [['indicator' => 'hour_utc', 'operator' => '>=', 'value' => 5]]]],
+        'action' => ['signal' => 'buy', 'outcome' => 'UP', 'size_mode' => 'fixed', 'size_usdc' => 50, 'order_type' => 'limit'],
+        'risk' => ['stoploss_pct' => 30, 'take_profit_pct' => 80, 'max_position_usdc' => 200, 'max_trades_per_slot' => 1],
+    ]);
+
+    makeService()->parseAndValidate($json);
+})->throws(StrategyGenerationException::class, 'action.limit_price must be between 0 and 1 for limit orders');
